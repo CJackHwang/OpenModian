@@ -1,0 +1,119 @@
+# 桌游市场调研工具 - Git忽略文件
+
+# Python 相关
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# 虚拟环境
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+.venv/
+
+# IDE 相关
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# 日志文件
+*.log
+logs/
+spider.log
+
+# 输出文件
+output/
+*.xls
+*.xlsx
+*.csv
+摩点众筹-*.xls
+摩点众筹-*.xlsx
+
+# 缓存和临时文件
+cache/
+temp/
+tmp/
+.cache/
+test_output/
+
+# 数据文件
+data/raw/
+data/processed/
+data/cache/
+data/spider/
+
+# 报告文件
+reports/latest/
+reports/archive/
+
+# 配置文件中的敏感信息
+config/secrets.yaml
+config/api_keys.yaml
+.env
+.env.local
+
+# 测试覆盖率
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# 系统文件
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# 备份文件
+*.bak
+*.backup
+*.old
+*~
+
+# 调试文件
+debug_*.html
+debug_*.json
+debug_*.txt
+
+# 性能分析文件
+*.prof
+
+# 其他
+*.pid
+*.seed
+*.pid.lock

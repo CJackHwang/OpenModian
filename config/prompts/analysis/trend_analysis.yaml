@@ -1,0 +1,157 @@
+name: "桌游市场趋势分析"
+version: "1.0"
+description: "分析桌游众筹市场的发展趋势和模式变化"
+author: "AI分析系统"
+created_date: "2024-01-15"
+
+template: |
+  你是一位专业的桌游市场研究专家，请基于以下数据分析桌游众筹市场的发展趋势。
+
+  ## 分析时间范围
+  - 分析期间：{time_period}
+  - 数据起始：{start_date}
+  - 数据截止：{end_date}
+  - 项目总数：{total_projects}
+
+  ## 市场数据概览
+  - 总筹款金额：{total_funding}元
+  - 平均项目金额：{average_funding}元
+  - 成功项目数：{successful_projects}
+  - 整体成功率：{success_rate}%
+  - 平均支持者数：{average_backers}
+
+  ## 分类数据分析
+  {category_breakdown}
+
+  ## 时间趋势数据
+  {temporal_trends}
+
+  ## 顶级项目列表
+  {top_projects}
+
+  ## 分析要求
+
+  请从以下几个维度进行深度分析：
+
+  ### 1. 市场发展趋势
+  - 整体市场规模变化
+  - 项目数量和质量趋势
+  - 资金流向和投资偏好
+  - 成功率变化及原因分析
+
+  ### 2. 品类发展模式
+  - 热门品类识别和分析
+  - 新兴品类的发展潜力
+  - 传统品类的市场表现
+  - 品类间的竞争格局
+
+  ### 3. 用户行为洞察
+  - 支持者参与模式变化
+  - 众筹金额分布特征
+  - 用户偏好和需求变化
+  - 社区互动模式演进
+
+  ### 4. 创新趋势识别
+  - 产品创新方向
+  - 营销策略创新
+  - 技术应用趋势
+  - 商业模式创新
+
+  ### 5. 风险与机会
+  - 市场风险因素识别
+  - 发展机会点分析
+  - 竞争格局变化
+  - 未来发展预测
+
+  ## 输出格式要求
+
+  请按照以下结构输出分析报告：
+
+  ```markdown
+  # 桌游众筹市场趋势分析报告
+
+  ## 执行摘要
+  {executive_summary}
+
+  ## 市场发展趋势
+  ### 整体表现
+  {overall_performance}
+
+  ### 关键指标变化
+  - 市场规模：{market_size_trend}
+  - 项目质量：{quality_trend}  
+  - 用户参与：{engagement_trend}
+  - 成功率：{success_rate_trend}
+
+  ## 品类分析
+  ### 热门品类
+  {hot_categories}
+
+  ### 新兴品类
+  {emerging_categories}
+
+  ### 衰退品类
+  {declining_categories}
+
+  ## 用户行为洞察
+  {user_behavior_insights}
+
+  ## 创新趋势
+  {innovation_trends}
+
+  ## 市场机会与风险
+  ### 发展机会
+  {opportunities}
+
+  ### 潜在风险
+  {risks}
+
+  ## 预测与建议
+  {predictions_and_recommendations}
+  ```
+
+  ## 分析深度要求
+
+  1. **数据驱动**：所有结论必须基于提供的数据
+  2. **趋势识别**：重点关注变化趋势和模式
+  3. **洞察深度**：提供深层次的市场洞察
+  4. **实用性**：分析结果要具有实际指导意义
+  5. **前瞻性**：基于趋势进行合理的未来预测
+
+  ## 关键分析指标
+
+  - **增长率**：各项指标的同比/环比增长
+  - **集中度**：市场集中度和竞争格局
+  - **创新度**：新概念、新玩法的出现频率
+  - **成熟度**：市场发展阶段判断
+  - **活跃度**：用户参与和互动水平
+
+  请确保分析专业、客观，避免过度解读数据，重点关注可操作的洞察。
+
+parameters:
+  max_tokens: 3000
+  temperature: 0.4
+  top_p: 0.9
+  frequency_penalty: 0.2
+  presence_penalty: 0.1
+
+validation_rules:
+  - "报告结构完整，包含所有必需章节"
+  - "每个结论都有数据支撑"
+  - "趋势分析具有时间维度"
+  - "预测和建议具有可操作性"
+  - "语言专业，逻辑清晰"
+
+context_variables:
+  - time_period: "分析的时间范围"
+  - start_date: "数据开始日期"
+  - end_date: "数据结束日期"
+  - total_projects: "项目总数"
+  - total_funding: "总筹款金额"
+  - average_funding: "平均项目金额"
+  - successful_projects: "成功项目数"
+  - success_rate: "整体成功率"
+  - average_backers: "平均支持者数"
+  - category_breakdown: "分类数据详情"
+  - temporal_trends: "时间趋势数据"
+  - top_projects: "顶级项目列表"
