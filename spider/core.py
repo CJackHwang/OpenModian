@@ -590,15 +590,34 @@ class SpiderCore:
         self.projects_data = []
         self.failed_urls = []
 
-        # 线程锁
+        # 线程锁和停止标志
         self._lock = threading.Lock()
+        self._stop_flag = threading.Event()
+        self._is_running = False
 
         print(f"爬虫初始化完成，输出目录: {self.config.OUTPUT_DIR}")
+
+    def stop_crawling(self):
+        """停止爬虫"""
+        print("收到停止信号，正在停止爬虫...")
+        self._stop_flag.set()
+        self._is_running = False
+
+    def is_stopped(self):
+        """检查是否已停止"""
+        return self._stop_flag.is_set()
+
+    def is_running(self):
+        """检查是否正在运行"""
+        return self._is_running
 
     def start_crawling(self, start_page: int = 1, end_page: int = 50,
                       category: str = "all") -> bool:
         """开始爬取"""
         try:
+            self._is_running = True
+            self._stop_flag.clear()
+
             print(f"开始爬取摩点众筹数据...")
             print(f"页面范围: {start_page}-{end_page}")
             print(f"分类: {category}")
@@ -608,6 +627,10 @@ class SpiderCore:
 
             # 爬取项目列表
             project_urls = self._crawl_project_lists(start_page, end_page, category)
+
+            if self.is_stopped():
+                print("爬取已被用户停止")
+                return False
 
             if not project_urls:
                 print("未找到任何项目URL")
@@ -621,8 +644,8 @@ class SpiderCore:
             # 停止监控
             self.monitor.stop_monitoring()
 
-            # 数据验证
-            if self.projects_data:
+            # 数据验证和导出（如果有数据且未被停止）
+            if self.projects_data and not self.is_stopped():
                 self._validate_and_export_data()
 
             # 打印统计信息
@@ -632,13 +655,17 @@ class SpiderCore:
 
         except KeyboardInterrupt:
             print("\n用户中断爬取")
+            self._is_running = False
             self.monitor.stop_monitoring()
             return False
         except Exception as e:
             print(f"爬取过程中出现错误: {e}")
             self.monitor.record_error("crawling_error", str(e))
+            self._is_running = False
             self.monitor.stop_monitoring()
             return False
+        finally:
+            self._is_running = False
 
     def _crawl_project_lists(self, start_page: int, end_page: int,
                            category: str) -> List[Tuple[str, str, str, str]]:
@@ -646,6 +673,11 @@ class SpiderCore:
         project_urls = []
 
         for page in range(start_page, end_page + 1):
+            # 检查停止标志
+            if self.is_stopped():
+                print("收到停止信号，停止爬取页面列表")
+                break
+
             try:
                 print(f"正在爬取第 {page} 页...")
 
