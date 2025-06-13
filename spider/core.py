@@ -6,12 +6,13 @@
 
 import time
 import re
+import json
 from typing import List, Dict, Any, Optional, Tuple
 from bs4 import BeautifulSoup
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import threading
 
-from .config import SpiderConfig, RegexPatterns, CSSSelectors, StatusMapping
+from .config import SpiderConfig, StatusMapping
 from .utils import NetworkUtils, DataUtils, CacheUtils, ParserUtils
 from .monitor import SpiderMonitor
 from .validator import DataValidator
@@ -20,11 +21,56 @@ from .exporter import DataExporter
 
 class ProjectParser:
     """项目解析器"""
-    
+
     def __init__(self, config: SpiderConfig, network_utils: NetworkUtils):
         self.config = config
         self.network_utils = network_utils
         self.data_utils = DataUtils()
+
+    def _extract_js_data(self, soup: BeautifulSoup) -> Dict[str, Any]:
+        """从JavaScript代码中提取项目数据"""
+        js_data = {
+            "category": "none",
+            "start_time": "none",
+            "end_time": "none",
+            "project_info": {}
+        }
+
+        try:
+            # 查找包含PROJECT_INFO的script标签
+            scripts = soup.find_all('script')
+            for script in scripts:
+                script_text = script.get_text()
+
+                # 提取PROJECT_INFO数据
+                if 'PROJECT_INFO.push(JSON.parse(' in script_text:
+                    # 使用正则表达式提取JSON字符串
+                    pattern = r'PROJECT_INFO\.push\(JSON\.parse\(\'([^\']+)\'\)\);'
+                    match = re.search(pattern, script_text)
+                    if match:
+                        json_str = match.group(1)
+                        # 解码Unicode字符
+                        json_str = json_str.encode().decode('unicode_escape')
+                        try:
+                            project_data = json.loads(json_str)
+                            js_data["project_info"] = project_data
+                            js_data["category"] = project_data.get("category", "none")
+                        except json.JSONDecodeError:
+                            pass
+
+                # 提取时间信息
+                if 'realtime_sync.pro_time(' in script_text:
+                    # 提取开始和结束时间
+                    time_pattern = r'realtime_sync\.pro_time\([\'"]([^\'\"]+)[\'"],\s*[\'"]([^\'\"]+)[\'"]'
+                    time_match = re.search(time_pattern, script_text)
+                    if time_match:
+                        js_data["start_time"] = time_match.group(1)
+                        js_data["end_time"] = time_match.group(2)
+
+        except Exception as e:
+            print(f"解析JavaScript数据失败: {e}")
+
+        return js_data
     
     def parse_project_status(self, soup: BeautifulSoup) -> Dict[str, Any]:
         """解析项目状态"""
@@ -93,60 +139,104 @@ class ProjectParser:
             end_time = "创意中"
         
         else:
-            time_div = ParserUtils.safe_find(soup, 'div', {'class': 'col2 remain-time'})
-            if time_div:
-                h3_tags = ParserUtils.safe_find_all(time_div, 'h3')
-                for h3 in h3_tags:
-                    start_attr = ParserUtils.safe_get_attr(h3, 'start_time')
-                    end_attr = ParserUtils.safe_get_attr(h3, 'end_time')
-                    if start_attr:
-                        start_time = start_attr
-                    if end_attr:
-                        end_time = end_attr
-        
+            # 首先尝试从JavaScript数据中提取时间
+            js_data = self._extract_js_data(soup)
+            if js_data["start_time"] != "none" and js_data["end_time"] != "none":
+                start_time = js_data["start_time"]
+                end_time = js_data["end_time"]
+            else:
+                # 回退到原有的解析逻辑
+                time_div = ParserUtils.safe_find(soup, 'div', {'class': 'col2 remain-time'})
+                if time_div:
+                    h3_tags = ParserUtils.safe_find_all(time_div, 'h3')
+                    for h3 in h3_tags:
+                        start_attr = ParserUtils.safe_get_attr(h3, 'start_time')
+                        end_attr = ParserUtils.safe_get_attr(h3, 'end_time')
+                        if start_attr:
+                            start_time = start_attr
+                        if end_attr:
+                            end_time = end_attr
+
         return self.data_utils.parse_time(start_time), self.data_utils.parse_time(end_time)
     
     def _parse_author_info(self, soup: BeautifulSoup) -> List[str]:
         """解析作者信息"""
         sponsor_info = ParserUtils.safe_find(soup, 'div', {'class': 'sponsor-info clearfix'})
-        
+        if not sponsor_info:
+            sponsor_info = ParserUtils.safe_find(soup, 'div', {'class': 'sponsor-info'})
+
         sponsor_href = "none"
         author_image = "none"
         category = "none"
         author_name = "none"
         author_uid = "0"
         author_details = ["0", "0", "0", "{}", "{}", "none"]
-        
+
         if sponsor_info:
-            # 作者链接
+            # 作者链接 - 优化选择器
             sponsor_link = ParserUtils.safe_find(sponsor_info, 'a', {'class': 'sponsor-link'})
+            if not sponsor_link:
+                # 尝试其他可能的链接选择器
+                sponsor_link = ParserUtils.safe_find(sponsor_info, 'a', {'class': 'avater'})
+            if not sponsor_link:
+                # 查找包含modian.com的链接
+                links = ParserUtils.safe_find_all(sponsor_info, 'a')
+                for link in links:
+                    href = ParserUtils.safe_get_attr(link, 'href')
+                    if href and 'modian.com/u/detail' in href:
+                        sponsor_link = link
+                        break
+
             if sponsor_link:
                 sponsor_href = ParserUtils.safe_get_attr(sponsor_link, 'href')
                 sponsor_href = self.data_utils.validate_url(sponsor_href)
-                
+
                 # 获取作者详细信息
                 if sponsor_href != "none":
                     user_id = self.data_utils.extract_user_id(sponsor_href)
                     if user_id:
                         author_details = self._fetch_author_details(sponsor_href, user_id)
-            
-            # 作者头像
+
+            # 作者头像 - 优化选择器
             img_tag = ParserUtils.safe_find(sponsor_info, 'img', {'class': 'sponsor-image'})
+            if not img_tag:
+                # 尝试其他可能的图片选择器
+                img_tag = ParserUtils.safe_find(sponsor_info, 'img')
             if img_tag:
                 author_image = ParserUtils.safe_get_attr(img_tag, 'src')
                 author_image = self.data_utils.validate_url(author_image)
-            
-            # 项目分类
-            category_span = ParserUtils.safe_find(sponsor_info, 'span', text=re.compile(r'项目类别：'))
-            if category_span:
-                category = ParserUtils.safe_get_text(category_span).replace('项目类别：', '').strip()
-            
-            # 作者名称
-            name_span = ParserUtils.safe_find(sponsor_info, 'span', {'class': 'name'})
+
+            # 项目分类 - 优化解析逻辑
+            # 首先尝试从JavaScript数据中提取
+            js_data = self._extract_js_data(soup)
+            if js_data["category"] != "none":
+                category = js_data["category"]
+            else:
+                # 回退到HTML解析
+                category_span = ParserUtils.safe_find(sponsor_info, 'span', string=lambda text: text and '项目类别：' in text)
+                if category_span:
+                    category = ParserUtils.safe_get_text(category_span).replace('项目类别：', '').strip()
+                else:
+                    # 尝试从tags区域获取分类
+                    tags_p = ParserUtils.safe_find(sponsor_info, 'p', {'class': 'tags'})
+                    if tags_p:
+                        category_text = ParserUtils.safe_get_text(tags_p)
+                        if '项目类别：' in category_text:
+                            category = category_text.replace('项目类别：', '').strip()
+
+            # 作者名称 - 优化选择器
+            name_span = ParserUtils.safe_find(sponsor_info, 'span', {'data-nickname': True})
             if name_span:
-                author_name = ParserUtils.safe_get_attr(name_span, 'data-nickname') or ParserUtils.safe_get_text(name_span)
+                raw_name = ParserUtils.safe_get_attr(name_span, 'data-nickname') or ParserUtils.safe_get_text(name_span)
+                author_name = self.data_utils.fix_encoding(raw_name)
                 author_uid = ParserUtils.safe_get_attr(name_span, 'data-username', "0")
-        
+            else:
+                # 尝试其他可能的名称选择器
+                name_span = ParserUtils.safe_find(sponsor_info, 'span', {'class': 'name'})
+                if name_span:
+                    raw_name = ParserUtils.safe_get_text(name_span)
+                    author_name = self.data_utils.fix_encoding(raw_name)
+
         result = [sponsor_href, author_image, category, author_name, author_uid]
         result.extend(author_details)
         return result
@@ -291,8 +381,19 @@ class ProjectParser:
             goal_span = ParserUtils.safe_find(center_div, 'span', {'class': 'goal-money'})
             if goal_span:
                 goal_text = ParserUtils.safe_get_text(goal_span)
-                goal_money = goal_text.replace('目标金额', '').replace('￥', '').strip()
-                goal_money = self.data_utils.format_money(goal_money)
+                # 处理编码问题和多种格式
+                import re
+                # 使用正则表达式提取金额数字
+                amount_match = re.search(r'[¥￥]\s*([0-9,]+)', goal_text)
+                if amount_match:
+                    goal_money = amount_match.group(1).replace(',', '')
+                    goal_money = self.data_utils.format_money(goal_money)
+                else:
+                    # 尝试直接提取数字
+                    numbers = re.findall(r'[0-9,]+', goal_text)
+                    if numbers:
+                        goal_money = numbers[-1].replace(',', '')  # 取最后一个数字
+                        goal_money = self.data_utils.format_money(goal_money)
             
             backer_span = ParserUtils.safe_find(center_div, 'span', {'backer_count': True})
             if backer_span:
@@ -339,19 +440,17 @@ class ProjectParser:
     
     def _parse_single_reward(self, item) -> List[str]:
         """解析单个回报项"""
-        reward_data = []
-        
         # 回报金额
         head_div = ParserUtils.safe_find(item, 'div', {'class': 'head'})
         back_money = "0"
         backers = "0"
-        
+
         if head_div:
             money_span = ParserUtils.safe_find(head_div, 'span')
             if money_span:
                 money_text = ParserUtils.safe_get_text(money_span).replace('￥', '')
                 back_money = self.data_utils.extract_number(money_text)
-            
+
             em_tag = ParserUtils.safe_find(head_div, 'em')
             if em_tag:
                 em_text = ParserUtils.safe_get_text(em_tag)
@@ -359,7 +458,7 @@ class ProjectParser:
                     backers = "已满"
                 else:
                     backers = self.data_utils.extract_number(em_text)
-        
+
         # 限量信息
         sign_logo = "0"
         subhead_div = ParserUtils.safe_find(item, 'div', {'class': 'zc-subhead'})
@@ -370,26 +469,29 @@ class ProjectParser:
                 if "限量" in sign_text:
                     num_part = sign_text.replace("限量", "").replace("份", "").strip()
                     sign_logo = f"限量 {num_part}" if num_part.isdigit() else "限量"
-        
+
         # 回报内容
         content_div = ParserUtils.safe_find(item, 'div', {'class': 'back-content'})
         title = "none"
         detail = "none"
         time_info = "none"
-        
+
         if content_div:
             title_div = ParserUtils.safe_find(content_div, 'div', {'class': 'back-sub-title'})
             if title_div:
-                title = ParserUtils.safe_get_text(title_div)
-            
+                raw_title = ParserUtils.safe_get_text(title_div)
+                title = self.data_utils.clean_reward_text(raw_title)
+
             detail_div = ParserUtils.safe_find(content_div, 'div', {'class': 'back-detail'})
             if detail_div:
-                detail = ParserUtils.safe_get_text(detail_div)
-            
+                raw_detail = ParserUtils.safe_get_text(detail_div)
+                detail = self.data_utils.clean_reward_text(raw_detail)
+
             time_div = ParserUtils.safe_find(content_div, 'div', {'class': 'back-time'})
             if time_div:
-                time_info = ParserUtils.safe_get_text(time_div)
-        
+                raw_time = ParserUtils.safe_get_text(time_div)
+                time_info = self.data_utils.clean_reward_text(raw_time)
+
         return [title, sign_logo, back_money, backers, time_info, detail]
     
     def _parse_nav_info(self, soup: BeautifulSoup) -> List[str]:

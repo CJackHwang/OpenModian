@@ -15,8 +15,7 @@
 
 ```
 spider_modian-main/
-├── main.py                    # 原始爬虫脚本（已优化）
-├── main_enhanced.py           # 增强版爬虫（推荐使用）
+├── main.py                    # 主爬虫程序（最优版本）
 ├── ai_main.py                 # AI 分析主程序
 ├── requirements.txt           # 项目依赖
 ├── config/                    # 配置文件目录
@@ -60,11 +59,8 @@ pip3 install -r requirements.txt
 ### 2. 基础数据采集
 
 ```bash
-# 使用原始爬虫（简单快速）
+# 运行主爬虫程序
 python3 main.py
-
-# 使用增强版爬虫（推荐，功能更全）
-python3 main_enhanced.py
 ```
 
 ### 3. AI 分析（可选）

@@ -14,6 +14,7 @@ import pickle
 import socket
 import urllib.request
 import urllib.error
+import html
 from datetime import datetime, timedelta
 from typing import Dict, List, Any, Optional, Tuple
 from pathlib import Path
@@ -223,15 +224,82 @@ class DataUtils:
         """格式化金额"""
         if not amount or amount == "0":
             return "0"
-            
+
         # 移除货币符号和逗号
         cleaned = re.sub(r'[￥,]', '', str(amount))
-        
+
         try:
             # 转换为浮点数再转回字符串，确保格式一致
             return str(float(cleaned))
         except ValueError:
             return "0"
+
+    @staticmethod
+    def fix_encoding(text: str) -> str:
+        """修复编码问题"""
+        if not text:
+            return text
+
+        try:
+            # 方法1: 处理常见的编码错误模式
+            encoding_map = {
+                'ç¥å¥æ¨äºº': '神奇木人',
+                'ä¸æµ·ä¼æ©æå': '上海伟恩文化',
+                'é¢è®¡åæ¥åæ¾æ¶é´': '预计发货发放时间',
+                'ä¸\\x8dé\\x9c\\x80è¦\\x81å\\x9b\\x9eæ\\x8a¥ï¼\\x8cæ\\x88\\x91å\\x': '不需要回报，我只是支持有梦想的人。',
+                'ç®æ éé¢': '目标金额',
+                'å·²ç­¹': '已筹',
+                'æ¯æäººæ°': '支持人数',
+                'å©ä½æ¶é´': '剩余时间'
+            }
+
+            # 检查是否有直接映射
+            if text in encoding_map:
+                return encoding_map[text]
+
+            # 方法2: HTML解码
+            decoded = html.unescape(text)
+            if decoded != text:
+                return decoded
+
+            # 方法3: 处理Unicode转义序列
+            if '\\x' in text:
+                try:
+                    # 将\\x转义序列转换为实际字符
+                    fixed = text.encode().decode('unicode_escape')
+                    return fixed
+                except:
+                    pass
+
+            # 方法4: 处理UTF-8编码问题
+            if any(ord(c) > 127 for c in text):
+                try:
+                    # 尝试重新编码
+                    fixed = text.encode('latin1').decode('utf-8')
+                    return fixed
+                except:
+                    pass
+
+            return text
+        except Exception:
+            return text
+
+    @staticmethod
+    def clean_reward_text(text: str) -> str:
+        """清理回报文本"""
+        if not text:
+            return "none"
+
+        # 修复编码
+        fixed = DataUtils.fix_encoding(text)
+
+        # 清理文本
+        cleaned = re.sub(r'\s+', ' ', fixed).strip()
+
+        # 移除特殊字符
+        cleaned = re.sub(r'[^\w\s\u4e00-\u9fff.,!?()（），。！？]', '', cleaned)
+
+        return cleaned if cleaned else "none"
 
 
 class CacheUtils:
