@@ -13,15 +13,16 @@ from datetime import datetime
 from pathlib import Path
 
 # 添加项目根目录到路径
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, project_root)
 
-from flask import Flask, render_template, request, jsonify, send_file, session
+from flask import Flask, render_template, request, jsonify, send_file
 from flask_socketio import SocketIO, emit
 import uuid
 
 from spider.core import SpiderCore
 from spider.config import SpiderConfig
-from spider.monitor import SpiderMonitor
+# from spider.monitor import SpiderMonitor  # 暂时不使用
 from database.db_manager import DatabaseManager
 
 app = Flask(__name__)
@@ -31,7 +32,10 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 # 全局变量
 spider_instances = {}
 active_tasks = {}
-db_manager = DatabaseManager()
+
+# 创建数据库管理器，使用项目根目录下的数据库
+db_path = os.path.join(project_root, "database", "modian_data.db")
+db_manager = DatabaseManager(db_path)
 
 class WebSpiderMonitor:
     """Web界面专用的爬虫监控器"""
@@ -100,13 +104,11 @@ def start_crawl():
         # 创建爬虫配置
         config = SpiderConfig()
         
-        # 更新配置参数
-        if 'start_page' in data:
-            config.start_page = int(data['start_page'])
-        if 'end_page' in data:
-            config.end_page = int(data['end_page'])
-        if 'category' in data:
-            config.category = data['category']
+        # 获取配置参数
+        start_page = int(data.get('start_page', 1))
+        end_page = int(data.get('end_page', 10))
+        category = data.get('category', 'all')
+
         if 'max_concurrent' in data:
             config.MAX_CONCURRENT_REQUESTS = int(data['max_concurrent'])
         if 'delay_min' in data and 'delay_max' in data:
@@ -136,16 +138,22 @@ def start_crawl():
                 monitor.add_log('info', f'开始爬取任务 {task_id}')
                 monitor.update_stats(status='running')
 
+                # 进度更新回调（预留接口）
+                # def update_progress_callback(current, total):
+                #     monitor.update_progress(current, total)
+                # def log_callback(level, message):
+                #     monitor.add_log(level, message)
+
                 # 启动爬虫
                 success = spider.start_crawling(
-                    start_page=config.start_page,
-                    end_page=config.end_page,
-                    category=config.category
+                    start_page=start_page,
+                    end_page=end_page,
+                    category=category
                 )
 
                 if success and not spider.is_stopped():
                     # 保存爬取的数据到数据库
-                    if spider.projects_data:
+                    if hasattr(spider, 'projects_data') and spider.projects_data:
                         saved_count = db_manager.save_projects(spider.projects_data, task_id)
                         monitor.add_log('success', f'爬取任务完成，保存了 {saved_count} 条数据到数据库')
 
@@ -154,6 +162,10 @@ def start_crawl():
                             'projects_found': len(spider.projects_data),
                             'projects_processed': saved_count
                         }
+                        monitor.update_stats(
+                            projects_found=len(spider.projects_data),
+                            projects_processed=saved_count
+                        )
                         db_manager.update_task_status(task_id, 'completed', stats)
                     else:
                         monitor.add_log('warning', '爬取任务完成，但没有获取到数据')
@@ -323,12 +335,6 @@ def get_config():
         }
     })
 
-@socketio.on('connect')
-def handle_connect():
-    """WebSocket连接"""
-    print(f'客户端已连接: {request.sid}')
-    emit('connected', {'message': '连接成功'})
-
 @app.route('/api/database/stats')
 def get_database_stats():
     """获取数据库统计信息"""
@@ -397,13 +403,49 @@ def handle_disconnect():
     """WebSocket断开连接"""
     print(f'客户端已断开: {request.sid}')
 
+def find_available_port(start_port=8080, max_port=8090):
+    """查找可用端口"""
+    import socket
+
+    for port in range(start_port, max_port + 1):
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.bind(('localhost', port))
+                return port
+        except OSError:
+            continue
+
+    return None
+
 if __name__ == '__main__':
     # 确保模板和静态文件目录存在
-    os.makedirs('web_ui/templates', exist_ok=True)
-    os.makedirs('web_ui/static/css', exist_ok=True)
-    os.makedirs('web_ui/static/js', exist_ok=True)
-    
-    print("摩点爬虫Web UI启动中...")
-    print("访问地址: http://localhost:5000")
-    
-    socketio.run(app, debug=True, host='0.0.0.0', port=5000)
+    os.makedirs('templates', exist_ok=True)
+    os.makedirs('static/css', exist_ok=True)
+    os.makedirs('static/js', exist_ok=True)
+
+    # 查找可用端口
+    port = find_available_port()
+
+    if port is None:
+        print("❌ 无法找到可用端口 (8080-8090)")
+        print("请手动停止占用端口的程序或使用其他端口")
+        exit(1)
+
+    print("🚀 摩点爬虫Web UI启动中...")
+    print(f"📱 访问地址: http://localhost:{port}")
+    print("⏹️  按 Ctrl+C 停止服务")
+    print("-" * 50)
+
+    try:
+        socketio.run(app, debug=True, host='0.0.0.0', port=port)
+    except KeyboardInterrupt:
+        print("\n👋 服务已停止")
+    except Exception as e:
+        print(f"❌ 启动失败: {e}")
+
+        if "Address already in use" in str(e):
+            print("\n💡 解决方案:")
+            print("1. 关闭占用端口的程序")
+            print("2. 在macOS中关闭AirPlay接收器:")
+            print("   系统偏好设置 -> 通用 -> 隔空投送与接力 -> 关闭AirPlay接收器")
+            print("3. 或者修改web_ui/app.py中的端口号")

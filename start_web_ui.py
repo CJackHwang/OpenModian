@@ -46,7 +46,7 @@ def start_web_ui():
         return False
     
     print("启动摩点爬虫Web UI...")
-    print("访问地址: http://localhost:5000")
+    print("访问地址: http://localhost:8080")
     print("按 Ctrl+C 停止服务")
     print("-" * 50)
     

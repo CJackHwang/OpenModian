@@ -37,7 +37,7 @@ python3 app.py
 
 ### 2. 访问界面
 
-打开浏览器访问: **http://localhost:5000**
+打开浏览器访问: **http://localhost:8080**
 
 ### 3. 配置爬虫参数
 
@@ -251,4 +251,4 @@ A: 确保任务已完成且有数据产出
 python3 start_web_ui.py
 ```
 
-访问 **http://localhost:5000** 开始你的爬虫之旅！ 🚀
+访问 **http://localhost:8080** 开始你的爬虫之旅！ 🚀

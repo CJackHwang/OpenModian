@@ -360,7 +360,7 @@ class SpiderUI {
     }
 
     async refreshDatabaseStats() {
-        """刷新数据库统计信息"""
+        // 刷新数据库统计信息
         try {
             const response = await fetch('/api/database/stats');
             const data = await response.json();
@@ -374,14 +374,14 @@ class SpiderUI {
     }
 
     updateDatabaseStats(stats) {
-        """更新数据库统计显示"""
+        // 更新数据库统计显示
         document.getElementById('db-total-projects').textContent = stats.total_projects || 0;
         document.getElementById('db-today-projects').textContent = stats.today_projects || 0;
         document.getElementById('db-week-projects').textContent = stats.week_projects || 0;
     }
 
     async viewDatabaseData() {
-        """查看数据库数据"""
+        // 查看数据库数据
         try {
             const period = document.getElementById('time-period-select').value;
             const response = await fetch(`/api/database/projects?period=${period}&limit=10`);
@@ -398,7 +398,7 @@ class SpiderUI {
     }
 
     displayDatabasePreview(projects) {
-        """显示数据库数据预览"""
+        // 显示数据库数据预览
         const preview = document.getElementById('database-preview');
         const tbody = document.getElementById('database-preview-table');
 
@@ -427,7 +427,7 @@ class SpiderUI {
     }
 
     async exportDatabaseData() {
-        """导出数据库数据"""
+        // 导出数据库数据
         try {
             const period = document.getElementById('time-period-select').value;
             const url = `/api/database/export?period=${period}`;
