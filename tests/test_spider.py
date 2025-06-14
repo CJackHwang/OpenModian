@@ -14,10 +14,17 @@ from unittest.mock import Mock, patch, MagicMock
 # 添加项目路径
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from spider import SpiderConfig, SpiderCore, NetworkUtils, DataUtils, CacheUtils
-from spider.monitor import SpiderMonitor
-from spider.validator import DataValidator
-from spider.exporter import DataExporter
+try:
+    from spider.config import SpiderConfig
+    from spider.core import SpiderCore
+    from spider.utils import NetworkUtils, DataUtils, CacheUtils
+    from spider.monitor import SpiderMonitor
+    from spider.validator import DataValidator
+    from spider.exporter import DataExporter
+except ImportError as e:
+    print(f"导入模块失败: {e}")
+    print("请确保在项目根目录运行测试，或检查模块路径")
+    sys.exit(1)
 
 
 class TestSpiderConfig(unittest.TestCase):

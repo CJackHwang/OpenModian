@@ -49,10 +49,44 @@ logger = logging.getLogger(__name__)
 class ModianSpiderConfig:
     """摩点爬虫配置类"""
     
-    def __init__(self):
+    def __init__(self, category: str = "all"):
         # 基础URL配置
-        self.BASE_URL = "https://zhongchou.modian.com/all/top_time/all/"
+        self.BASE_DOMAIN = "https://zhongchou.modian.com"
         self.AUTHOR_API_URL = "https://apim.modian.com/apis/comm/user/user_info"
+
+        # 分类URL映射（基于摩点网站实际分类）
+        self.CATEGORY_URLS = {
+            # 基础分类
+            "all": "/all/top_time/all/",
+            "success": "/all/top_time/success/",
+            "going": "/all/top_time/going/",
+            "preheat": "/all/top_time/preheat/",
+            "idea": "/all/top_time/idea/",
+
+            # 具体项目分类
+            "games": "/games/top_time/all/",
+            "publishing": "/publishing/top_time/all/",
+            "tablegames": "/tablegames/top_time/all/",
+            "toys": "/toys/top_time/all/",
+            "cards": "/cards/top_time/all/",
+            "technology": "/technology/top_time/all/",
+            "film-video": "/film-video/top_time/all/",
+            "music": "/music/top_time/all/",
+            "activities": "/activities/top_time/all/",
+            "design": "/design/top_time/all/",
+            "curio": "/curio/top_time/all/",
+            "home": "/home/top_time/all/",
+            "food": "/food/top_time/all/",
+            "comics": "/comics/top_time/all/",
+            "charity": "/charity/top_time/all/",
+            "animals": "/animals/top_time/all/",
+            "wishes": "/wishes/top_time/all/",
+            "others": "/others/top_time/all/"
+        }
+
+        # 设置当前分类
+        self.category = category if category in self.CATEGORY_URLS else "all"
+        self.BASE_URL = f"{self.BASE_DOMAIN}{self.CATEGORY_URLS[self.category]}"
         
         # 输出配置
         self.OUTPUT_DIR = Path("output")
@@ -99,6 +133,20 @@ class ModianSpiderConfig:
         # 创建必要目录
         self.OUTPUT_DIR.mkdir(exist_ok=True)
         self.CACHE_DIR.mkdir(exist_ok=True)
+
+    def get_page_url(self, page: int) -> str:
+        """获取指定页面的URL"""
+        return f"{self.BASE_URL}{page}"
+
+    def set_category(self, category: str):
+        """设置爬取分类"""
+        if category in self.CATEGORY_URLS:
+            self.category = category
+            self.BASE_URL = f"{self.BASE_DOMAIN}{self.CATEGORY_URLS[category]}"
+        else:
+            logger.warning(f"未知分类: {category}，使用默认分类 'all'")
+            self.category = "all"
+            self.BASE_URL = f"{self.BASE_DOMAIN}{self.CATEGORY_URLS['all']}"
 
 
 class ModianSpiderStats:
@@ -1483,7 +1531,7 @@ class ModianSpider:
         try:
             for page_num in range(1, self.config.MAX_PAGES + 1):
                 logger.info(f"\n--- 正在处理第 {page_num} 页 ---")
-                current_page_url = f"{self.config.BASE_URL}{page_num}"
+                current_page_url = self.config.get_page_url(page_num)
                 page_html = self.askURL(current_page_url)
 
                 if not page_html:
@@ -1523,7 +1571,7 @@ class ModianSpider:
             # 收集所有项目数据用于多格式输出
             all_projects_data = []
             for page_num in range(1, min(self.config.MAX_PAGES + 1, self.stats.pages_processed + 1)):
-                current_page_url = f"{self.config.BASE_URL}{page_num}"
+                current_page_url = self.config.get_page_url(page_num)
                 page_html = self.askURL(current_page_url)
                 if page_html:
                     projects_on_page, _ = self.parse_main_listing_page(page_html, 0)
@@ -1566,7 +1614,7 @@ class ModianSpider:
             for page_num in range(1, self.config.MAX_PAGES + 1):
                 logger.info(f"正在处理第 {page_num} 页...")
 
-                page_url = f"{self.config.BASE_URL}{page_num}"
+                page_url = self.config.get_page_url(page_num)
                 html = self.make_request(page_url)
 
                 if not html:
@@ -1707,12 +1755,13 @@ class ModianSpider:
             return None
 
 
-def main():
+def main(category: str = "all"):
     """主函数"""
-    print("🚀 启动桌游市场调研工具 - 融合版")
+    print("🚀 启动摩点爬虫管理系统 - 融合版")
+    print(f"📂 爬取分类: {category}")
 
     # 创建配置
-    config = ModianSpiderConfig()
+    config = ModianSpiderConfig(category)
 
     # 创建爬虫实例
     spider = ModianSpider(config)

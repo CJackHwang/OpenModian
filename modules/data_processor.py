@@ -16,18 +16,30 @@ from pathlib import Path
 class DataProcessor:
     """数据处理器"""
     
-    def __init__(self, config_manager):
+    def __init__(self, config_manager=None):
         """
         初始化数据处理器
-        
+
         Args:
-            config_manager: 配置管理器实例
+            config_manager: 配置管理器实例（可选）
         """
         self.config_manager = config_manager
-        self.data_config = config_manager.get_data_config()
-        self.analysis_config = config_manager.get_analysis_config()
         self.logger = self._setup_logger()
-        
+
+        # 默认配置
+        self.data_config = self._get_default_data_config()
+        if config_manager:
+            # 如果有配置管理器，尝试获取配置
+            try:
+                spider_settings = config_manager.get_spider_settings()
+                output_settings = config_manager.get_output_settings()
+                self.data_config.update({
+                    'cleaning_rules': spider_settings.get('cleaning_rules', {}),
+                    'output_formats': output_settings.get('formats', ['excel', 'csv', 'json'])
+                })
+            except:
+                pass  # 使用默认配置
+
         # 数据缓存
         self.raw_data = None
         self.processed_data = None
@@ -46,7 +58,27 @@ class DataProcessor:
             logger.addHandler(handler)
         
         return logger
-    
+
+    def _get_default_data_config(self) -> Dict[str, Any]:
+        """获取默认数据配置"""
+        return {
+            'cleaning_rules': {
+                'remove_test_projects': True,
+                'min_title_length': 2,
+                'max_title_length': 100,
+                'invalid_amount_threshold': 0
+            },
+            'time_periods': {
+                'two_weeks': 14,
+                'one_month': 30,
+                'three_months': 90,
+                'six_months': 180,
+                'one_year': 365,
+                'three_years': 1095
+            },
+            'output_formats': ['excel', 'csv', 'json']
+        }
+
     def load_excel_data(self, file_path: str) -> pd.DataFrame:
         """
         加载Excel数据文件
@@ -274,15 +306,15 @@ class DataProcessor:
     def _categorize_time_period(self, age_days: int) -> str:
         """
         根据项目年龄分类时间段
-        
+
         Args:
             age_days: 项目年龄（天数）
-            
+
         Returns:
             时间段标签
         """
-        time_periods = self.analysis_config.get('time_periods', {})
-        
+        time_periods = self.data_config.get('time_periods', {})
+
         if age_days <= time_periods.get('two_weeks', 14):
             return '2周内'
         elif age_days <= time_periods.get('one_month', 30):

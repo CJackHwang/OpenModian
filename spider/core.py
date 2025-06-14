@@ -19,13 +19,202 @@ from .validator import DataValidator
 from .exporter import DataExporter
 
 
-class ProjectParser:
-    """项目解析器"""
+class AdaptiveParser:
+    """智能适配解析器 - 能够自动适配摩点网站的各种页面结构"""
 
-    def __init__(self, config: SpiderConfig, network_utils: NetworkUtils):
+    def __init__(self, config: SpiderConfig, network_utils: NetworkUtils, web_monitor=None):
         self.config = config
         self.network_utils = network_utils
         self.data_utils = DataUtils()
+        self.web_monitor = web_monitor
+
+        # 多套CSS选择器策略，按优先级排序
+        self.list_selectors = [
+            # 主要选择器
+            {'container': 'div.pro_field', 'items': 'li', 'link': 'a.pro_name.ga', 'title': 'h3.pro_title'},
+            # 备用选择器
+            {'container': '.pro_field', 'items': 'li', 'link': 'a[href*="/item/"]', 'title': 'h3'},
+            {'container': 'ul.project-list', 'items': 'li', 'link': 'a.project-link', 'title': '.project-title'},
+            # 通用选择器
+            {'container': '[class*="project"]', 'items': 'li, .item', 'link': 'a[href*="/item/"]', 'title': 'h3, .title'}
+        ]
+
+        # 详情页多套选择器策略
+        self.detail_selectors = {
+            'status_button': [
+                'div.buttons.clearfloat a',
+                '.buttons a',
+                '[class*="button"] a',
+                'a[class*="support"], a[class*="back"]'
+            ],
+            'raised_money': [
+                'span[backer_money]',
+                '.raised-money',
+                '[class*="raised"] [class*="money"]',
+                'span:contains("¥"), .money'
+            ],
+            'completion_rate': [
+                'span[rate]',
+                '.completion-rate',
+                '[class*="rate"]',
+                'span:contains("%")'
+            ],
+            'target_money': [
+                'span.goal-money',
+                '.target-money',
+                '.goal-money',
+                '[class*="target"] [class*="money"]'
+            ],
+            'backer_count': [
+                'span[backer_count]',
+                '.backer-count',
+                '[class*="supporter"]',
+                'span:contains("人"), span:contains("支持")'
+            ],
+            'author_name': [
+                'span.name',
+                '.author-name',
+                '.creator-name',
+                '[class*="author"] .name'
+            ],
+            'author_link': [
+                'a.sponsor-link',
+                '.author-link',
+                'a[href*="/u/detail"]',
+                'a[href*="uid="]'
+            ]
+        }
+
+    def _log(self, level: str, message: str):
+        """统一日志输出"""
+        print(message)
+        if self.web_monitor:
+            self.web_monitor.add_log(level, message)
+
+    def try_multiple_selectors(self, soup: BeautifulSoup, selectors: list, element_type: str = "element") -> any:
+        """尝试多个选择器，返回第一个成功的结果"""
+        for selector in selectors:
+            try:
+                if element_type == "text":
+                    element = soup.select_one(selector)
+                    if element:
+                        return ParserUtils.safe_get_text(element)
+                elif element_type == "attr":
+                    element = soup.select_one(selector)
+                    if element:
+                        return element
+                else:
+                    result = soup.select(selector) if element_type == "all" else soup.select_one(selector)
+                    if result:
+                        return result
+            except Exception:
+                continue
+        return None
+
+    def adaptive_parse_project_list(self, html: str) -> List[Tuple[str, str, str, str]]:
+        """智能适配解析项目列表"""
+        projects = []
+        soup = BeautifulSoup(html, "html.parser")
+
+        # 尝试多套选择器策略
+        for selector_set in self.list_selectors:
+            try:
+                container = soup.select_one(selector_set['container'])
+                if not container:
+                    continue
+
+                items = container.select(selector_set['items'])
+                if not items:
+                    continue
+
+                print(f"✅ 使用选择器策略: {selector_set['container']} -> 找到 {len(items)} 个项目")
+
+                for item in items:
+                    try:
+                        # 项目链接
+                        link_element = item.select_one(selector_set['link'])
+                        if not link_element:
+                            continue
+
+                        project_url = ParserUtils.safe_get_attr(link_element, 'href')
+                        if not project_url:
+                            continue
+
+                        project_url = self.data_utils.validate_url(project_url)
+                        project_id = self.data_utils.extract_project_id(project_url)
+
+                        if not project_id:
+                            continue
+
+                        # 项目标题
+                        title_element = item.select_one(selector_set['title'])
+                        if title_element:
+                            project_name = ParserUtils.safe_get_text(title_element)
+                        else:
+                            # 尝试从链接中获取标题
+                            project_name = ParserUtils.safe_get_text(link_element)
+
+                        project_name = self.data_utils.clean_text(project_name, self.config.MAX_TITLE_LENGTH)
+
+                        # 项目图片
+                        img_element = item.select_one('img')
+                        project_image = "none"
+                        if img_element:
+                            project_image = ParserUtils.safe_get_attr(img_element, 'src')
+                            project_image = self.data_utils.validate_url(project_image)
+
+                        projects.append((project_url, project_id, project_name, project_image))
+
+                    except Exception as e:
+                        print(f"解析单个项目失败: {e}")
+                        continue
+
+                # 如果找到项目，返回结果
+                if projects:
+                    return projects
+
+            except Exception as e:
+                print(f"选择器策略失败 {selector_set['container']}: {e}")
+                continue
+
+        print("⚠️ 所有选择器策略都失败了，尝试通用解析")
+        return self._fallback_parse_project_list(soup)
+
+    def _fallback_parse_project_list(self, soup: BeautifulSoup) -> List[Tuple[str, str, str, str]]:
+        """通用回退解析策略"""
+        projects = []
+
+        # 查找所有包含项目链接的元素
+        all_links = soup.find_all('a', href=re.compile(r'/item/\d+\.html'))
+
+        for link in all_links:
+            try:
+                project_url = ParserUtils.safe_get_attr(link, 'href')
+                project_url = self.data_utils.validate_url(project_url)
+                project_id = self.data_utils.extract_project_id(project_url)
+
+                if not project_id:
+                    continue
+
+                # 获取标题
+                title_element = link.find(['h3', 'h2', 'h1']) or link
+                project_name = ParserUtils.safe_get_text(title_element)
+                project_name = self.data_utils.clean_text(project_name, self.config.MAX_TITLE_LENGTH)
+
+                # 获取图片
+                img_element = link.find('img')
+                project_image = "none"
+                if img_element:
+                    project_image = ParserUtils.safe_get_attr(img_element, 'src')
+                    project_image = self.data_utils.validate_url(project_image)
+
+                projects.append((project_url, project_id, project_name, project_image))
+
+            except Exception as e:
+                print(f"通用解析失败: {e}")
+                continue
+
+        return projects
 
     def _extract_js_data(self, soup: BeautifulSoup) -> Dict[str, Any]:
         """从JavaScript代码中提取项目数据"""
@@ -101,12 +290,12 @@ class ProjectParser:
         start_time, end_time = self._parse_time_info(soup, project_status)
         data.extend([start_time, end_time, project_status["item_class"]])
         
-        # 作者信息
-        author_info = self._parse_author_info(soup)
+        # 作者信息 - 使用智能适配解析
+        author_info = self.adaptive_parse_author_info(soup)
         data.extend(author_info)
         
-        # 众筹数据
-        funding_info = self._parse_funding_info(soup, project_status)
+        # 众筹数据 - 使用智能适配解析
+        funding_info = self.adaptive_parse_funding_info(soup, project_status)
         data.extend(funding_info)
         
         return data
@@ -159,6 +348,68 @@ class ProjectParser:
 
         return self.data_utils.parse_time(start_time), self.data_utils.parse_time(end_time)
     
+    def adaptive_parse_author_info(self, soup: BeautifulSoup) -> List[str]:
+        """智能适配解析作者信息 - 基于实际HTML结构"""
+        sponsor_href = "none"
+        author_image = "none"
+        category = "none"
+        author_name = "none"
+        author_uid = "0"
+        author_details = ["0", "0", "0", "{}", "{}", "none"]
+
+        try:
+            # 从页面文本中提取作者名称 - 查找"发起了这个项目"前的文本
+            page_text = soup.get_text()
+
+            # 解析作者名称
+            author_match = re.search(r'([^\n]+)\s*发起了这个项目', page_text)
+            if author_match:
+                author_name = author_match.group(1).strip()
+                self._log("info", f"找到作者名称: {author_name}")
+
+            # 解析项目分类 - "项目类别：桌游"
+            category_match = re.search(r'项目类别[：:]\s*([^\n\r]+)', page_text)
+            if category_match:
+                category = category_match.group(1).strip()
+                self._log("info", f"找到项目分类: {category}")
+
+            # 查找作者链接 - 查找包含uid的链接
+            author_links = soup.find_all('a', href=re.compile(r'uid=\d+'))
+            if author_links:
+                sponsor_href = ParserUtils.safe_get_attr(author_links[0], 'href')
+                sponsor_href = self.data_utils.validate_url(sponsor_href)
+
+                # 提取用户ID
+                uid_match = re.search(r'uid=(\d+)', sponsor_href)
+                if uid_match:
+                    author_uid = uid_match.group(1)
+                    self._log("info", f"找到作者UID: {author_uid}")
+
+            # 查找作者头像
+            author_imgs = soup.find_all('img')
+            for img in author_imgs:
+                src = ParserUtils.safe_get_attr(img, 'src')
+                if src and ('avatar' in src or 'dst_avatar' in src):
+                    author_image = self.data_utils.validate_url(src)
+                    self._log("info", f"找到作者头像: {author_image[:50]}...")
+                    break
+
+            # 获取作者详细信息
+            if sponsor_href != "none" and author_uid != "0":
+                try:
+                    author_details = self._fetch_author_details(sponsor_href, author_uid)
+                except Exception as e:
+                    self._log("warning", f"获取作者详细信息失败: {e}")
+
+        except Exception as e:
+            self._log("warning", f"作者信息解析失败: {e}")
+            # 回退到传统解析
+            return self._parse_author_info(soup)
+
+        result = [sponsor_href, author_image, category, author_name, author_uid]
+        result.extend(author_details)
+        return result
+
     def _parse_author_info(self, soup: BeautifulSoup) -> List[str]:
         """解析作者信息"""
         sponsor_info = ParserUtils.safe_find(soup, 'div', {'class': 'sponsor-info clearfix'})
@@ -242,33 +493,17 @@ class ProjectParser:
         return result
     
     def _fetch_author_details(self, author_url: str, user_id: str) -> List[str]:
-        """获取作者详细信息"""
+        """获取作者详细信息 - 禁用API调用，直接解析页面"""
         try:
-            # 尝试从API获取
-            api_data = self.network_utils.make_api_request(
-                "/apis/comm/user/user_info",
-                {"json_type": 1, "to_user_id": user_id, "user_id": user_id}
-            )
-            
-            if api_data and api_data.get("status") == 1:
-                user_info = api_data.get("data", {})
-                return [
-                    str(user_info.get("fans_count", 0)),
-                    str(user_info.get("following_count", 0)),
-                    str(user_info.get("like_count", 0)),
-                    str(user_info.get("detail", {})),
-                    str(user_info.get("other_info", {})),
-                    author_url
-                ]
-            
-            # 如果API失败，尝试解析页面
+            # 直接解析页面，不使用API（避免418错误）
             html = self.network_utils.make_request(author_url, header_type="mobile")
             if html:
                 return self._parse_author_page(html, user_id, author_url)
-            
+
         except Exception as e:
             print(f"获取作者信息失败: {e}")
-        
+
+        # 返回默认值，避免验证失败
         return ["0", "0", "0", "{}", "{}", author_url]
     
     def _parse_author_page(self, html: str, user_id: str, author_url: str) -> List[str]:
@@ -334,6 +569,61 @@ class ProjectParser:
             author_url
         ]
     
+    def adaptive_parse_funding_info(self, soup: BeautifulSoup, project_status: Dict) -> List[str]:
+        """智能适配解析众筹信息 - 基于实际HTML结构"""
+        money = "0"
+        percent = "0"
+        goal_money = "0"
+        sponsor_num = "0"
+
+        try:
+            # 从页面文本中提取已筹金额 - "已筹¥1,608"
+            page_text = soup.get_text()
+
+            # 解析已筹金额
+            money_match = re.search(r'已筹[¥￥]\s*([0-9,]+)', page_text)
+            if money_match:
+                money = self.data_utils.format_money(money_match.group(1).replace(',', ''))
+
+            # 解析目标金额 - "目标金额 ¥1,000"
+            goal_match = re.search(r'目标金额[¥￥\s]*([0-9,]+)', page_text)
+            if goal_match:
+                goal_money = self.data_utils.format_money(goal_match.group(1).replace(',', ''))
+
+            # 解析完成百分比 - "160.8%"
+            percent_match = re.search(r'([0-9.]+)%', page_text)
+            if percent_match:
+                percent = percent_match.group(1)
+
+            # 解析支持者数量 - "9人"
+            supporter_match = re.search(r'(\d+)人\s*支持人数', page_text)
+            if supporter_match:
+                sponsor_num = supporter_match.group(1)
+
+            # 如果没有找到支持者数量，尝试其他模式
+            if sponsor_num == "0":
+                supporter_match2 = re.search(r'支持者\s*(\d+)', page_text)
+                if supporter_match2:
+                    sponsor_num = supporter_match2.group(1)
+
+            # 验证数据合理性
+            if money != "0" and goal_money != "0":
+                try:
+                    calculated_percent = (float(money) / float(goal_money)) * 100
+                    if percent == "0":
+                        percent = f"{calculated_percent:.1f}"
+                except:
+                    pass
+
+            self._log("info", f"解析众筹信息: 已筹¥{money}, 目标¥{goal_money}, 完成率{percent}%, 支持者{sponsor_num}人")
+
+        except Exception as e:
+            self._log("warning", f"众筹信息解析失败: {e}")
+            # 回退到传统解析
+            return self._parse_funding_info(soup, project_status)
+
+        return [money, percent, goal_money, sponsor_num]
+
     def _parse_funding_info(self, soup: BeautifulSoup, project_status: Dict) -> List[str]:
         """解析众筹信息"""
         money = "0"
@@ -574,9 +864,12 @@ class ProjectParser:
 class SpiderCore:
     """爬虫核心类"""
 
-    def __init__(self, config: SpiderConfig = None):
+    def __init__(self, config: SpiderConfig = None, web_monitor=None):
         self.config = config or SpiderConfig()
         self.config.create_directories()
+
+        # Web UI监控器
+        self.web_monitor = web_monitor
 
         # 初始化组件
         self.network_utils = NetworkUtils(self.config)
@@ -584,7 +877,7 @@ class SpiderCore:
         self.monitor = SpiderMonitor(self.config)
         self.validator = DataValidator(self.config)
         self.exporter = DataExporter(self.config)
-        self.parser = ProjectParser(self.config, self.network_utils)
+        self.parser = AdaptiveParser(self.config, self.network_utils, self.web_monitor)
 
         # 数据存储
         self.projects_data = []
@@ -595,7 +888,20 @@ class SpiderCore:
         self._stop_flag = threading.Event()
         self._is_running = False
 
-        print(f"爬虫初始化完成，输出目录: {self.config.OUTPUT_DIR}")
+        # 进度回调
+        self._progress_callback = None
+
+        self._log("info", f"爬虫初始化完成，输出目录: {self.config.OUTPUT_DIR}")
+
+    def _log(self, level: str, message: str):
+        """统一日志输出"""
+        print(message)
+        if self.web_monitor:
+            self.web_monitor.add_log(level, message)
+
+    def set_progress_callback(self, callback):
+        """设置进度回调函数"""
+        self._progress_callback = callback
 
     def stop_crawling(self):
         """停止爬虫"""
@@ -618,9 +924,9 @@ class SpiderCore:
             self._is_running = True
             self._stop_flag.clear()
 
-            print(f"开始爬取摩点众筹数据...")
-            print(f"页面范围: {start_page}-{end_page}")
-            print(f"分类: {category}")
+            self._log("info", f"开始爬取摩点众筹数据...")
+            self._log("info", f"页面范围: {start_page}-{end_page}")
+            self._log("info", f"分类: {category}")
 
             # 启动监控
             self.monitor.start_monitoring()
@@ -629,14 +935,18 @@ class SpiderCore:
             project_urls = self._crawl_project_lists(start_page, end_page, category)
 
             if self.is_stopped():
-                print("爬取已被用户停止")
+                self._log("warning", "爬取已被用户停止")
                 return False
 
             if not project_urls:
-                print("未找到任何项目URL")
+                self._log("warning", "未找到任何项目URL")
                 return False
 
-            print(f"发现 {len(project_urls)} 个项目，开始详细爬取...")
+            self._log("info", f"发现 {len(project_urls)} 个项目，开始详细爬取...")
+
+            # 更新进度
+            if self._progress_callback:
+                self._progress_callback(0, end_page - start_page + 1, len(project_urls), 0)
 
             # 爬取项目详情
             success = self._crawl_project_details(project_urls)
@@ -679,7 +989,7 @@ class SpiderCore:
                 break
 
             try:
-                print(f"正在爬取第 {page} 页...")
+                self._log("info", f"正在爬取第 {page} 页...")
 
                 url = self.config.get_full_url(category, page)
                 page_projects = self._parse_project_list_page(url, page)
@@ -687,10 +997,16 @@ class SpiderCore:
                 if page_projects:
                     project_urls.extend(page_projects)
                     self.monitor.record_page(True)
-                    print(f"第 {page} 页发现 {len(page_projects)} 个项目")
+                    self._log("success", f"第 {page} 页发现 {len(page_projects)} 个项目")
+
+                    # 更新进度
+                    if self._progress_callback:
+                        current_progress = page - start_page + 1
+                        total_pages = end_page - start_page + 1
+                        self._progress_callback(current_progress, total_pages, len(project_urls), 0)
                 else:
                     self.monitor.record_page(False)
-                    print(f"第 {page} 页未发现项目")
+                    self._log("warning", f"第 {page} 页未发现项目")
 
                 # 检查是否需要停止
                 if self.monitor.stats.consecutive_errors > self.config.MAX_CONSECUTIVE_ERRORS:
@@ -734,7 +1050,38 @@ class SpiderCore:
         return projects
 
     def _extract_projects_from_list(self, html: str) -> List[Tuple[str, str, str, str]]:
-        """从列表页面提取项目信息"""
+        """从列表页面提取项目信息 - 使用智能适配解析"""
+        try:
+            # 使用智能适配解析器
+            projects = self.parser.adaptive_parse_project_list(html)
+
+            # 过滤和验证项目
+            filtered_projects = []
+            for project_url, project_id, project_name, project_image in projects:
+                try:
+                    # 检查是否跳过
+                    if self._should_skip_project(project_name):
+                        self.monitor.record_project("skipped")
+                        continue
+
+                    filtered_projects.append((project_url, project_id, project_name, project_image))
+                    self.monitor.record_project("found")
+
+                except Exception as e:
+                    print(f"验证项目失败: {e}")
+                    self.monitor.record_error("project_validation_error", str(e))
+                    continue
+
+            print(f"✅ 智能解析完成: 发现 {len(projects)} 个项目，过滤后 {len(filtered_projects)} 个")
+            return filtered_projects
+
+        except Exception as e:
+            print(f"智能解析失败，使用传统解析: {e}")
+            self.monitor.record_error("adaptive_parse_error", str(e))
+            return self._fallback_extract_projects(html)
+
+    def _fallback_extract_projects(self, html: str) -> List[Tuple[str, str, str, str]]:
+        """传统解析方法作为回退"""
         projects = []
 
         try:

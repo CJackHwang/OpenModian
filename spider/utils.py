@@ -226,13 +226,49 @@ class DataUtils:
             return "0"
 
         # 移除货币符号和逗号
-        cleaned = re.sub(r'[￥,]', '', str(amount))
+        cleaned = re.sub(r'[￥¥,]', '', str(amount))
 
         try:
             # 转换为浮点数再转回字符串，确保格式一致
             return str(float(cleaned))
         except ValueError:
             return "0"
+
+    @staticmethod
+    def fix_encoding(text: str) -> str:
+        """修复编码问题"""
+        if not text:
+            return ""
+
+        try:
+            # 尝试修复常见的编码问题
+            if isinstance(text, bytes):
+                text = text.decode('utf-8', errors='ignore')
+
+            # 清理特殊字符
+            text = re.sub(r'[\x00-\x1f\x7f-\x9f]', '', str(text))
+
+            return text.strip()
+        except Exception:
+            return str(text).strip()
+
+    @staticmethod
+    def clean_reward_text(text: str) -> str:
+        """清理回报文本"""
+        if not text:
+            return "none"
+
+        # 移除多余的空白字符
+        cleaned = re.sub(r'\s+', ' ', str(text)).strip()
+
+        # 移除特殊字符
+        cleaned = re.sub(r'[^\w\s\u4e00-\u9fff，。！？；：""''（）【】《》、]', '', cleaned)
+
+        # 限制长度
+        if len(cleaned) > 200:
+            cleaned = cleaned[:200] + "..."
+
+        return cleaned if cleaned else "none"
 
     @staticmethod
     def fix_encoding(text: str) -> str:

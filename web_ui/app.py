@@ -117,8 +117,8 @@ def start_crawl():
         # 创建监控器
         monitor = WebSpiderMonitor(task_id)
         
-        # 创建爬虫实例
-        spider = SpiderCore(config)
+        # 创建爬虫实例，传入Web监控器
+        spider = SpiderCore(config, web_monitor=monitor)
         
         # 保存实例
         spider_instances[task_id] = spider
@@ -320,17 +320,25 @@ def get_config():
             'delay_min': config.REQUEST_DELAY[0],
             'delay_max': config.REQUEST_DELAY[1],
             'categories': [
-                {'value': 'all', 'label': '全部分类'},
-                {'value': 'game', 'label': '游戏'},
-                {'value': 'publish', 'label': '出版'},
-                {'value': 'design', 'label': '设计'},
-                {'value': 'tech', 'label': '科技'},
-                {'value': 'food', 'label': '美食'},
-                {'value': 'fashion', 'label': '时尚'},
-                {'value': 'art', 'label': '艺术'},
-                {'value': 'film', 'label': '影视'},
+                {'value': 'all', 'label': '全部'},
+                {'value': 'games', 'label': '游戏'},
+                {'value': 'publishing', 'label': '出版'},
+                {'value': 'tablegames', 'label': '桌游'},
+                {'value': 'toys', 'label': '潮玩模型'},
+                {'value': 'cards', 'label': '卡牌'},
+                {'value': 'technology', 'label': '科技'},
+                {'value': 'film-video', 'label': '影视'},
                 {'value': 'music', 'label': '音乐'},
-                {'value': 'other', 'label': '其他'}
+                {'value': 'activities', 'label': '活动'},
+                {'value': 'design', 'label': '设计'},
+                {'value': 'curio', 'label': '文玩'},
+                {'value': 'home', 'label': '家居'},
+                {'value': 'food', 'label': '食品'},
+                {'value': 'comics', 'label': '动漫'},
+                {'value': 'charity', 'label': '爱心通道'},
+                {'value': 'animals', 'label': '动物救助'},
+                {'value': 'wishes', 'label': '个人愿望'},
+                {'value': 'others', 'label': '其他'}
             ]
         }
     })

@@ -19,11 +19,32 @@ class SpiderConfig:
     
     # 目标URL配置
     CATEGORY_URLS = {
+        # 基础分类
         "all": "/all/top_time/all/",
         "success": "/all/top_time/success/",
-        "going": "/all/top_time/going/", 
+        "going": "/all/top_time/going/",
         "preheat": "/all/top_time/preheat/",
-        "idea": "/all/top_time/idea/"
+        "idea": "/all/top_time/idea/",
+
+        # 具体项目分类（基于摩点网站实际分类）
+        "games": "/games/top_time/all/",
+        "publishing": "/publishing/top_time/all/",
+        "tablegames": "/tablegames/top_time/all/",
+        "toys": "/toys/top_time/all/",
+        "cards": "/cards/top_time/all/",
+        "technology": "/technology/top_time/all/",
+        "film-video": "/film-video/top_time/all/",
+        "music": "/music/top_time/all/",
+        "activities": "/activities/top_time/all/",
+        "design": "/design/top_time/all/",
+        "curio": "/curio/top_time/all/",
+        "home": "/home/top_time/all/",
+        "food": "/food/top_time/all/",
+        "comics": "/comics/top_time/all/",
+        "charity": "/charity/top_time/all/",
+        "animals": "/animals/top_time/all/",
+        "wishes": "/wishes/top_time/all/",
+        "others": "/others/top_time/all/"
     }
     
     # 请求配置
