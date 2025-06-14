@@ -285,20 +285,35 @@ class AdaptiveParser:
     def parse_basic_info(self, soup: BeautifulSoup, project_status: Dict) -> List[Any]:
         """解析基础信息"""
         data = []
-        
+
         # 时间信息
         start_time, end_time = self._parse_time_info(soup, project_status)
         data.extend([start_time, end_time, project_status["item_class"]])
-        
-        # 作者信息 - 使用智能适配解析
+
+        # 作者基础信息 - 使用智能适配解析 (5个字段)
         author_info = self.adaptive_parse_author_info(soup)
         data.extend(author_info)
-        
-        # 众筹数据 - 使用智能适配解析
+
+        # 众筹数据 - 使用智能适配解析 (4个字段)
         funding_info = self.adaptive_parse_funding_info(soup, project_status)
         data.extend(funding_info)
-        
+
+        # 作者详细信息 (6个字段)
+        author_details = self._get_author_details(soup, author_info[0], author_info[4])
+        data.extend(author_details)
+
         return data
+
+    def _get_author_details(self, soup: BeautifulSoup, author_url: str, author_uid: str) -> List[str]:
+        """获取作者详细信息"""
+        if author_url != "none" and author_uid != "0":
+            try:
+                return self._fetch_author_details(author_url, author_uid)
+            except Exception as e:
+                self._log("warning", f"获取作者详细信息失败: {e}")
+
+        # 返回默认值
+        return ["0", "0", "0", "{}", "{}", author_url if author_url != "none" else "none"]
     
     def _parse_time_info(self, soup: BeautifulSoup, project_status: Dict) -> Tuple[str, str]:
         """解析时间信息"""
@@ -355,8 +370,6 @@ class AdaptiveParser:
         category = "none"
         author_name = "none"
         author_uid = "0"
-        author_details = ["0", "0", "0", "{}", "{}", "none"]
-
         try:
             # 从页面文本中提取作者名称 - 查找"发起了这个项目"前的文本
             page_text = soup.get_text()
@@ -394,21 +407,13 @@ class AdaptiveParser:
                     self._log("info", f"找到作者头像: {author_image[:50]}...")
                     break
 
-            # 获取作者详细信息
-            if sponsor_href != "none" and author_uid != "0":
-                try:
-                    author_details = self._fetch_author_details(sponsor_href, author_uid)
-                except Exception as e:
-                    self._log("warning", f"获取作者详细信息失败: {e}")
-
         except Exception as e:
             self._log("warning", f"作者信息解析失败: {e}")
             # 回退到传统解析
             return self._parse_author_info(soup)
 
-        result = [sponsor_href, author_image, category, author_name, author_uid]
-        result.extend(author_details)
-        return result
+        # 按照字段映射的顺序返回：用户主页(链接), 用户头像(图片链接), 分类, 用户名, 用户UID(data-username)
+        return [sponsor_href, author_image, category, author_name, author_uid]
 
     def _parse_author_info(self, soup: BeautifulSoup) -> List[str]:
         """解析作者信息"""
@@ -580,31 +585,62 @@ class AdaptiveParser:
             # 从页面文本中提取已筹金额 - "已筹¥1,608"
             page_text = soup.get_text()
 
-            # 解析已筹金额
-            money_match = re.search(r'已筹[¥￥]\s*([0-9,]+)', page_text)
-            if money_match:
-                money = self.data_utils.format_money(money_match.group(1).replace(',', ''))
+            # 解析已筹金额 - 处理编码问题 "å·²ç­¹Â¥1,608"
+            money_patterns = [
+                r'已筹[¥￥Â¥]([0-9,]+)',  # 正常编码
+                r'å·²ç­¹[¥￥Â¥]([0-9,]+)',  # 编码后的中文
+                r'已筹.*?[¥￥Â¥]\s*([0-9,]+)',  # 宽松匹配
+                r'å·²ç­¹.*?[¥￥Â¥]\s*([0-9,]+)'   # 编码后宽松匹配
+            ]
 
-            # 解析目标金额 - "目标金额 ¥1,000"
-            goal_match = re.search(r'目标金额[¥￥\s]*([0-9,]+)', page_text)
-            if goal_match:
-                goal_money = self.data_utils.format_money(goal_match.group(1).replace(',', ''))
+            for pattern in money_patterns:
+                money_match = re.search(pattern, page_text)
+                if money_match:
+                    money = self.data_utils.format_money(money_match.group(1).replace(',', ''))
+                    self._log("info", f"找到已筹金额: ¥{money}")
+                    break
+
+            # 解析目标金额 - 处理编码问题 "ç®æ éé¢ Â¥1,000"
+            goal_patterns = [
+                r'目标金额\s*[¥￥Â¥]([0-9,]+)',  # 正常编码
+                r'ç®æ éé¢\s*[¥￥Â¥]([0-9,]+)',  # 编码后的中文
+                r'目标金额.*?[¥￥Â¥]\s*([0-9,]+)',  # 宽松匹配
+                r'ç®æ éé¢.*?[¥￥Â¥]\s*([0-9,]+)'   # 编码后宽松匹配
+            ]
+
+            for pattern in goal_patterns:
+                goal_match = re.search(pattern, page_text)
+                if goal_match:
+                    goal_money = self.data_utils.format_money(goal_match.group(1).replace(',', ''))
+                    self._log("info", f"找到目标金额: ¥{goal_money}")
+                    break
 
             # 解析完成百分比 - "160.8%"
             percent_match = re.search(r'([0-9.]+)%', page_text)
             if percent_match:
                 percent = percent_match.group(1)
+                self._log("info", f"找到完成百分比: {percent}%")
 
-            # 解析支持者数量 - "9人"
-            supporter_match = re.search(r'(\d+)人\s*支持人数', page_text)
-            if supporter_match:
-                sponsor_num = supporter_match.group(1)
+            # 解析支持者数量 - 处理编码问题
+            supporter_patterns = [
+                r'(\d+)人\s*支持人数',  # 正常编码
+                r'(\d+)äºº\s*æ¯æäººæ°',  # 编码后的中文
+                r'支持人数\s*(\d+)',
+                r'æ¯æäººæ°\s*(\d+)',
+                r'(\d+)\s*人\s*支持',
+                r'(\d+)\s*äºº\s*æ¯æ',
+                r'支持者\s*(\d+)',
+                r'æ¯æè\s*(\d+)',
+                r'(\d+)\s*支持者',
+                r'(\d+)\s*æ¯æè'
+            ]
 
-            # 如果没有找到支持者数量，尝试其他模式
-            if sponsor_num == "0":
-                supporter_match2 = re.search(r'支持者\s*(\d+)', page_text)
-                if supporter_match2:
-                    sponsor_num = supporter_match2.group(1)
+            for pattern in supporter_patterns:
+                supporter_match = re.search(pattern, page_text)
+                if supporter_match:
+                    sponsor_num = supporter_match.group(1)
+                    self._log("info", f"找到支持者数量: {sponsor_num}人")
+                    break
 
             # 验证数据合理性
             if money != "0" and goal_money != "0":
