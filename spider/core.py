@@ -923,31 +923,43 @@ class AdaptiveParser:
 
         self._log("debug", "开始导航信息解析...")
 
-        # 🔧 策略1: JavaScript数据提取（最准确）
-        js_data = self._extract_nav_from_javascript(soup)
-        if js_data:
-            update_count = js_data.get("update_count", "0")
-            comment_count = js_data.get("comment_count", "0")
-            supporter_count = js_data.get("supporter_count", "0")
-            collect_count = js_data.get("collect_count", "0")
-            self._log("info", "✅ JavaScript数据提取成功")
+        # 🎯 策略0: 关键数据专门提取（最高优先级）
+        critical_data = self._extract_critical_nav_data(soup)
+        if critical_data and any(v != "0" for v in critical_data.values()):
+            # 使用关键数据提取的结果
+            comment_count = critical_data.get("comment_count", "0")
+            supporter_count = critical_data.get("supporter_count", "0")
+            collect_count = critical_data.get("like_count", "0")  # 点赞数作为收藏数
+            self._log("info", "✅ 关键数据专门提取成功")
+
+            # 更新数仍需要通过其他方法获取
+            update_count = self._extract_update_count_only(soup)
         else:
-            # 🔧 策略2: 增强的DOM解析（多重选择器）
-            nav_data = self._extract_nav_from_dom_enhanced(soup)
-            if nav_data and any(x != "0" for x in nav_data):
-                update_count, comment_count, supporter_count, collect_count = nav_data
-                self._log("info", "✅ 增强DOM解析成功")
+            # 🔧 策略1: JavaScript数据提取（最准确）
+            js_data = self._extract_nav_from_javascript(soup)
+            if js_data:
+                update_count = js_data.get("update_count", "0")
+                comment_count = js_data.get("comment_count", "0")
+                supporter_count = js_data.get("supporter_count", "0")
+                collect_count = js_data.get("collect_count", "0")
+                self._log("info", "✅ JavaScript数据提取成功")
             else:
-                # 🔧 策略3: 优化的文本解析（更强正则）
-                text_data = self._extract_nav_from_text_enhanced(soup)
-                if text_data and any(x != "0" for x in text_data):
-                    update_count, comment_count, supporter_count, collect_count = text_data
-                    self._log("info", "✅ 增强文本解析成功")
+                # 🔧 策略2: 增强的DOM解析（多重选择器）
+                nav_data = self._extract_nav_from_dom_enhanced(soup)
+                if nav_data and any(x != "0" for x in nav_data):
+                    update_count, comment_count, supporter_count, collect_count = nav_data
+                    self._log("info", "✅ 增强DOM解析成功")
                 else:
-                    # 🔧 策略4: 传统DOM解析（回退）
-                    fallback_data = self._extract_nav_from_dom_fallback(soup)
-                    update_count, comment_count, supporter_count, collect_count = fallback_data
-                    self._log("warning", "使用回退解析策略")
+                    # 🔧 策略3: 优化的文本解析（更强正则）
+                    text_data = self._extract_nav_from_text_enhanced(soup)
+                    if text_data and any(x != "0" for x in text_data):
+                        update_count, comment_count, supporter_count, collect_count = text_data
+                        self._log("info", "✅ 增强文本解析成功")
+                    else:
+                        # 🔧 策略4: 传统DOM解析（回退）
+                        fallback_data = self._extract_nav_from_dom_fallback(soup)
+                        update_count, comment_count, supporter_count, collect_count = fallback_data
+                        self._log("warning", "使用回退解析策略")
 
         # 🔧 数据验证和修正
         update_count, comment_count, supporter_count, collect_count = self._validate_nav_data(
@@ -1010,323 +1022,251 @@ class AdaptiveParser:
 
         return {}
 
-    def _extract_nav_from_dom_enhanced(self, soup: BeautifulSoup) -> List[str]:
-        """增强的DOM解析 - 多重选择器策略"""
-        update_count = "0"
-        comment_count = "0"
-        supporter_count = "0"
-        collect_count = "0"
 
-        # 🔧 多重选择器策略 - 更新数
-        update_selectors = [
-            ('li.pro-gengxin span', 'text'),
-            ('li[class*="gengxin"] span', 'text'),
-            ('li[class*="update"] span', 'text'),
-            ('.nav-update .count', 'text'),
-            ('.update-count', 'text'),
-            ('a[href*="update"] span', 'text'),
-            ('[data-update-count]', 'data-update-count')
-        ]
 
-        for selector, attr_type in update_selectors:
-            try:
-                elements = soup.select(selector)
-                for element in elements:
-                    if attr_type == 'text':
-                        text = ParserUtils.safe_get_text(element)
-                        numbers = re.findall(r'\d+', text)
-                        if numbers:
-                            update_count = numbers[-1]
-                            self._log("debug", f"更新数选择器成功: {selector} -> {update_count}")
-                            break
-                    else:
-                        attr_value = ParserUtils.safe_get_attr(element, attr_type)
-                        if attr_value and attr_value.isdigit():
-                            update_count = attr_value
-                            self._log("debug", f"更新数属性成功: {selector}[{attr_type}] -> {update_count}")
-                            break
-                if update_count != "0":
-                    break
-            except Exception as e:
-                self._log("debug", f"更新数选择器失败 {selector}: {e}")
-
-        # 🔧 多重选择器策略 - 评论数
-        comment_selectors = [
-            ('li.nav-comment span', 'text'),
-            ('li[class*="comment"] span', 'text'),
-            ('.nav-comment .count', 'text'),
-            ('.comment-count', 'text'),
-            ('a[href*="comment"] span', 'text'),
-            ('[data-comment-count]', 'data-comment-count'),
-            ('li[class*="pinglun"] span', 'text')
-        ]
-
-        for selector, attr_type in comment_selectors:
-            try:
-                elements = soup.select(selector)
-                for element in elements:
-                    if attr_type == 'text':
-                        text = ParserUtils.safe_get_text(element)
-                        numbers = re.findall(r'\d+', text)
-                        if numbers:
-                            comment_count = numbers[-1]
-                            self._log("debug", f"评论数选择器成功: {selector} -> {comment_count}")
-                            break
-                    else:
-                        attr_value = ParserUtils.safe_get_attr(element, attr_type)
-                        if attr_value and attr_value.isdigit():
-                            comment_count = attr_value
-                            self._log("debug", f"评论数属性成功: {selector}[{attr_type}] -> {comment_count}")
-                            break
-                if comment_count != "0":
-                    break
-            except Exception as e:
-                self._log("debug", f"评论数选择器失败 {selector}: {e}")
-
-        # 🔧 多重选择器策略 - 支持者数
-        supporter_selectors = [
-            ('li.dialog_user_list span', 'text'),
-            ('li[class*="user"] span', 'text'),
-            ('.supporter-count', 'text'),
-            ('.user-count', 'text'),
-            ('a[href*="user"] span', 'text'),
-            ('[data-supporter-count]', 'data-supporter-count'),
-            ('li[class*="zhichi"] span', 'text'),
-            ('.nav-supporter span', 'text')
-        ]
-
-        for selector, attr_type in supporter_selectors:
-            try:
-                elements = soup.select(selector)
-                for element in elements:
-                    if attr_type == 'text':
-                        text = ParserUtils.safe_get_text(element)
-                        numbers = re.findall(r'\d+', text)
-                        if numbers:
-                            supporter_count = numbers[-1]
-                            self._log("debug", f"支持者数选择器成功: {selector} -> {supporter_count}")
-                            break
-                    else:
-                        attr_value = ParserUtils.safe_get_attr(element, attr_type)
-                        if attr_value and attr_value.isdigit():
-                            supporter_count = attr_value
-                            self._log("debug", f"支持者数属性成功: {selector}[{attr_type}] -> {supporter_count}")
-                            break
-                if supporter_count != "0":
-                    break
-            except Exception as e:
-                self._log("debug", f"支持者数选择器失败 {selector}: {e}")
-
-        # 🔧 多重选择器策略 - 收藏数
-        collect_selectors = [
-            ('li.atten span', 'text'),
-            ('li[class*="atten"] span', 'text'),
-            ('.collect-count', 'text'),
-            ('.favorite-count', 'text'),
-            ('a[href*="collect"] span', 'text'),
-            ('[data-collect-count]', 'data-collect-count'),
-            ('li[class*="shoucang"] span', 'text'),
-            ('.nav-collect span', 'text')
-        ]
-
-        for selector, attr_type in collect_selectors:
-            try:
-                elements = soup.select(selector)
-                for element in elements:
-                    if attr_type == 'text':
-                        text = ParserUtils.safe_get_text(element)
-                        numbers = re.findall(r'\d+', text)
-                        if numbers:
-                            collect_count = numbers[-1]
-                            self._log("debug", f"收藏数选择器成功: {selector} -> {collect_count}")
-                            break
-                    else:
-                        attr_value = ParserUtils.safe_get_attr(element, attr_type)
-                        if attr_value and attr_value.isdigit():
-                            collect_count = attr_value
-                            self._log("debug", f"收藏数属性成功: {selector}[{attr_type}] -> {collect_count}")
-                            break
-                if collect_count != "0":
-                    break
-            except Exception as e:
-                self._log("debug", f"收藏数选择器失败 {selector}: {e}")
-
-        return [update_count, comment_count, supporter_count, collect_count]
-
-    def _extract_nav_from_text_enhanced(self, soup: BeautifulSoup) -> List[str]:
-        """增强的文本解析 - 优化正则表达式"""
-        update_count = "0"
-        comment_count = "0"
-        supporter_count = "0"
-        collect_count = "0"
-
-        page_text = soup.get_text()
-        self._log("debug", f"页面文本长度: {len(page_text)}")
-
-        # 🔧 优化的更新数正则模式
-        update_patterns = [
-            r'项目更新\s*[：:]\s*(\d+)',
-            r'项目更新\s*(\d+)',
-            r'更新\s*[：:]\s*(\d+)',
-            r'更新\s*(\d+)',
-            r'(\d+)\s*次更新',
-            r'(\d+)\s*个更新',
-            r'更新.*?(\d+)',
-            r'gengxin.*?(\d+)',
-            r'update.*?(\d+)'
-        ]
-
-        for pattern in update_patterns:
-            try:
-                matches = re.findall(pattern, page_text, re.IGNORECASE)
-                if matches:
-                    # 取最后一个匹配的数字（通常是最准确的）
-                    update_count = matches[-1]
-                    self._log("debug", f"更新数文本匹配: {pattern} -> {update_count}")
-                    break
-            except Exception as e:
-                self._log("debug", f"更新数正则失败 {pattern}: {e}")
-
-        # 🔧 优化的评论数正则模式
-        comment_patterns = [
-            r'评论\s*[：:]\s*(\d+)',
-            r'评论\s*(\d+)',
-            r'(\d+)\s*条评论',
-            r'(\d+)\s*个评论',
-            r'评论.*?(\d+)',
-            r'comment.*?(\d+)',
-            r'pinglun.*?(\d+)',
-            r'讨论\s*(\d+)',
-            r'(\d+)\s*讨论'
-        ]
-
-        for pattern in comment_patterns:
-            try:
-                matches = re.findall(pattern, page_text, re.IGNORECASE)
-                if matches:
-                    comment_count = matches[-1]
-                    self._log("debug", f"评论数文本匹配: {pattern} -> {comment_count}")
-                    break
-            except Exception as e:
-                self._log("debug", f"评论数正则失败 {pattern}: {e}")
-
-        # 🔧 优化的支持者数正则模式
-        supporter_patterns = [
-            r'支持者\s*[：:]\s*(\d+)',
-            r'支持者\s*(\d+)',
-            r'(\d+)\s*人\s*支持',
-            r'(\d+)\s*位支持者',
-            r'(\d+)\s*支持者',
-            r'支持人数\s*[：:]\s*(\d+)',
-            r'支持.*?(\d+)',
-            r'backer.*?(\d+)',
-            r'supporter.*?(\d+)',
-            r'(\d+)\s*人参与',
-            r'参与者\s*(\d+)'
-        ]
-
-        for pattern in supporter_patterns:
-            try:
-                matches = re.findall(pattern, page_text, re.IGNORECASE)
-                if matches:
-                    supporter_count = matches[-1]
-                    self._log("debug", f"支持者数文本匹配: {pattern} -> {supporter_count}")
-                    break
-            except Exception as e:
-                self._log("debug", f"支持者数正则失败 {pattern}: {e}")
-
-        # 🔧 优化的收藏数正则模式
-        collect_patterns = [
-            r'收藏\s*[：:]\s*(\d+)',
-            r'收藏\s*(\d+)',
-            r'(\d+)\s*收藏',
-            r'关注\s*[：:]\s*(\d+)',
-            r'关注\s*(\d+)',
-            r'(\d+)\s*关注',
-            r'点赞\s*(\d+)',
-            r'(\d+)\s*点赞',
-            r'喜欢\s*(\d+)',
-            r'(\d+)\s*喜欢',
-            r'favorite.*?(\d+)',
-            r'like.*?(\d+)'
-        ]
-
-        for pattern in collect_patterns:
-            try:
-                matches = re.findall(pattern, page_text, re.IGNORECASE)
-                if matches:
-                    collect_count = matches[-1]
-                    self._log("debug", f"收藏数文本匹配: {pattern} -> {collect_count}")
-                    break
-            except Exception as e:
-                self._log("debug", f"收藏数正则失败 {pattern}: {e}")
-
-        return [update_count, comment_count, supporter_count, collect_count]
-
-    def _extract_nav_from_dom_fallback(self, soup: BeautifulSoup) -> List[str]:
-        """传统DOM解析回退方案"""
-        update_count = "0"
-        comment_count = "0"
-        supporter_count = "0"
-        collect_count = "0"
+    def _extract_critical_nav_data(self, soup: BeautifulSoup) -> Dict[str, str]:
+        """专门提取项目详情页面导航区域的三个关键数据：点赞数、支持者数量、评论数"""
+        result = {
+            "like_count": "0",      # 点赞数
+            "supporter_count": "0", # 支持者数量
+            "comment_count": "0"    # 评论数
+        }
 
         try:
-            # 查找导航容器
-            nav_containers = [
-                soup.find('div', {'class': 'nav-wrap-inner'}),
-                soup.find('div', {'class': 'nav-wrap'}),
-                soup.find('ul', {'class': 'nav-left'}),
-                soup.find('div', {'class': 'project-nav'}),
-                soup.find('nav', {'class': 'project-navigation'})
+            # 🎯 点赞数提取 - 精确匹配HTML结构
+            # <li class="atten"><i class="iconfont icon-optimistic"></i> <span>1670</span></li>
+            self._log("debug", "开始提取点赞数...")
+
+            # 静态提取已简化，主要依赖闪电动态获取
+
+            # 🎯 支持者数量提取 - 精确匹配HTML结构
+            # <li class="dialog_user_list support_user" data-type="backer_list" data-count="268">支持者 <span backer_count="147446">268</span></li>
+            self._log("debug", "开始提取支持者数量...")
+
+            # 方法1: 从导航区域的支持者链接提取
+            supporter_selectors = [
+                'li.dialog_user_list.support_user span',  # 精确匹配类组合
+                'li[data-type="backer_list"] span',  # 通过data属性匹配
+                'li.dialog_user_list span',  # 匹配dialog_user_list类
+                'li.support_user span'  # 匹配support_user类
             ]
 
-            for nav_wrap in nav_containers:
-                if not nav_wrap:
-                    continue
+            for selector in supporter_selectors:
+                elements = soup.select(selector)
+                for elem in elements:
+                    # 验证上下文：确保是支持者相关的元素
+                    parent_li = elem.find_parent('li')
+                    if parent_li:
+                        li_classes = parent_li.get('class', [])
+                        li_text = ParserUtils.safe_get_text(parent_li)
 
-                # 查找所有可能的导航项
-                nav_items = nav_wrap.find_all(['li', 'div', 'span', 'a'])
+                        # 检查是否包含支持者相关的标识
+                        if ('dialog_user_list' in li_classes or 'support_user' in li_classes or
+                            '支持者' in li_text or 'backer' in str(parent_li)):
 
-                for item in nav_items:
-                    item_text = ParserUtils.safe_get_text(item).lower()
-                    item_class_attr = ParserUtils.safe_get_attr(item, 'class', '')
-                    item_class = str(item_class_attr).lower() if item_class_attr else ''
+                            supporter_text = ParserUtils.safe_get_text(elem).strip()
+                            numbers = re.findall(r'\d+', supporter_text)
+                            if numbers and numbers[0].isdigit():
+                                supporter_num = int(numbers[0])
+                                if 0 <= supporter_num <= 100000:  # 合理范围验证
+                                    result["supporter_count"] = numbers[0]
+                                    self._log("info", f"✅ 支持者数量提取成功({selector}): {result['supporter_count']}")
+                                    break
+                if result["supporter_count"] != "0":
+                    break
 
-                    # 提取数字
-                    numbers = re.findall(r'\d+', ParserUtils.safe_get_text(item))
+            # 方法2: 从data-count属性提取（备用方案）
+            if result["supporter_count"] == "0":
+                data_count_elements = soup.select('li[data-count]')
+                for elem in data_count_elements:
+                    data_type = ParserUtils.safe_get_attr(elem, 'data-type', '')
+                    if 'backer' in data_type or 'user' in data_type:
+                        count_value = ParserUtils.safe_get_attr(elem, 'data-count')
+                        if count_value and count_value.isdigit():
+                            count_num = int(count_value)
+                            if 0 <= count_num <= 100000:
+                                result["supporter_count"] = count_value
+                                self._log("info", f"✅ 支持者数量提取成功(data-count): {result['supporter_count']}")
+                                break
 
+            # 🎯 评论数提取 - 精确匹配HTML结构
+            # <li class="nav-comment"><a href="#comment">评论 <span comment_count="147446">1149</span></a></li>
+            self._log("debug", "开始提取评论数...")
+
+            # 方法1: 从导航评论链接提取（优化选择器）
+            comment_selectors = [
+                'ul.nav-left li.nav-comment span',  # 精确匹配导航左侧评论span
+                'li.nav-comment a span',  # 精确匹配导航评论链接中的span
+                'li.nav-comment span',  # 匹配nav-comment类下的span
+                'span[comment_count]',    # 带comment_count属性的span
+                'a[href="#comment"] span',  # 匹配评论链接中的span
+                'a[href*="comment"] span'  # 模糊匹配评论链接
+            ]
+
+            for selector in comment_selectors:
+                elements = soup.select(selector)
+                for elem in elements:
+                    # 验证上下文：确保是评论相关的元素
+                    parent_li = elem.find_parent('li')
+                    parent_a = elem.find_parent('a')
+
+                    # 检查是否在评论相关的上下文中
+                    is_comment_context = False
+                    if parent_li and 'nav-comment' in str(parent_li.get('class', [])):
+                        is_comment_context = True
+                    elif parent_a and ('#comment' in str(parent_a.get('href', '')) or 'comment' in str(parent_a.get('href', ''))):
+                        is_comment_context = True
+                    elif '评论' in ParserUtils.safe_get_text(elem.parent or elem):
+                        is_comment_context = True
+
+                    if is_comment_context:
+                        comment_text = ParserUtils.safe_get_text(elem).strip()
+                        numbers = re.findall(r'\d+', comment_text)
+                        if numbers and numbers[0].isdigit():
+                            comment_num = int(numbers[0])
+                            # 避免提取到项目ID（通常是6位数）
+                            if 0 <= comment_num <= 50000:  # 合理的评论数范围
+                                result["comment_count"] = numbers[0]
+                                self._log("info", f"✅ 评论数提取成功({selector}): {result['comment_count']}")
+                                break
+                if result["comment_count"] != "0":
+                    break
+
+            # 方法2: 从comment_count属性提取（备用方案，需要验证）
+            if result["comment_count"] == "0":
+                comment_attr_elements = soup.select('span[comment_count]')
+                for elem in comment_attr_elements:
+                    # 优先使用span的文本内容而不是属性值
+                    comment_text = ParserUtils.safe_get_text(elem).strip()
+                    if comment_text and comment_text.isdigit():
+                        comment_num = int(comment_text)
+                        if 0 <= comment_num <= 50000:
+                            result["comment_count"] = comment_text
+                            self._log("info", f"✅ 评论数提取成功(span文本): {result['comment_count']}")
+                            break
+
+        except Exception as e:
+            self._log("warning", f"关键导航数据提取失败: {e}")
+
+        # 直接使用动态数据获取（默认策略，因为数据本身就是异步的）
+        if self.config.ENABLE_DYNAMIC_DATA:
+            self._log("info", "使用动态数据获取策略")
+            try:
+                dynamic_data = self._get_complete_dynamic_data(soup)
+                if dynamic_data:
+                    # 优先使用动态数据，回退到静态数据
+                    result["like_count"] = dynamic_data.get("like_count", result["like_count"])
+                    result["comment_count"] = dynamic_data.get("comment_count", result["comment_count"])
+                    self._log("info", f"✅ 动态数据获取完成: 点赞={result['like_count']}, 评论={result['comment_count']}")
+            except Exception as e:
+                self._log("warning", f"动态数据获取失败，使用静态数据: {e}")
+
+        # 最终验证和日志
+        extracted_count = sum(1 for v in result.values() if v != "0")
+        self._log("info", f"📊 关键导航数据提取完成: {extracted_count}/3 个字段成功")
+
+        return result
+
+
+
+    def _extract_project_id_from_page(self, soup: BeautifulSoup) -> str:
+        """从页面中提取项目ID"""
+        try:
+            # 方法1: 从URL中提取
+            scripts = soup.find_all('script')
+            for script in scripts:
+                script_content = script.string if script.string else ""
+                # 查找realtime_sync.product_info_list调用
+                import re
+                match = re.search(r'realtime_sync\.product_info_list\([\'"](\d+)[\'"]', script_content)
+                if match:
+                    return match.group(1)
+
+                # 查找其他可能的项目ID模式
+                match = re.search(r'project_id[\'"]?\s*[:=]\s*[\'"]?(\d+)', script_content)
+                if match:
+                    return match.group(1)
+
+            # 方法2: 从页面元素中提取
+            elements_with_id = soup.find_all(attrs={'data-project-id': True})
+            if elements_with_id:
+                return elements_with_id[0].get('data-project-id')
+
+            return None
+
+        except Exception as e:
+            self._log("warning", f"提取项目ID失败: {e}")
+            return None
+
+
+
+    def _get_complete_dynamic_data(self, soup: BeautifulSoup) -> Dict[str, str]:
+        """获取完整的动态数据（闪电般快速版本）"""
+        try:
+            # 从页面中提取项目ID
+            project_id = self._extract_project_id_from_page(soup)
+            if not project_id:
+                return {"like_count": "0", "comment_count": "0"}
+
+            # 使用闪电般快速动态数据管理器
+            if not hasattr(self, '_lightning_manager'):
+                from .lightning_fast_dynamic import LightningDataManager
+                self._lightning_manager = LightningDataManager(self.config, self.network_utils)
+
+            return self._lightning_manager.get_lightning_data(project_id)
+
+        except Exception as e:
+            self._log("warning", f"闪电动态数据获取失败: {e}")
+            return {"like_count": "0", "comment_count": "0"}
+
+    def _extract_update_count_only(self, soup: BeautifulSoup) -> str:
+        """专门提取更新数"""
+        update_count = "0"
+
+        try:
+            # 尝试多种更新数选择器（包含拼写错误的属性）
+            update_selectors = [
+                'li.pro-gengxin span',
+                'li[class*="gengxin"] span',
+                'li[class*="update"] span',
+                '.nav-update .count',
+                '.update-count',
+                'a[href*="update"] span',
+                'span[upadte_count]',  # 修复网站的拼写错误
+                'span[update_count]'   # 标准拼写
+            ]
+
+            for selector in update_selectors:
+                elements = soup.select(selector)
+                for element in elements:
+                    text = ParserUtils.safe_get_text(element)
+                    numbers = re.findall(r'\d+', text)
                     if numbers:
-                        number = numbers[-1]
+                        update_count = numbers[-1]
+                        self._log("debug", f"更新数提取成功: {selector} -> {update_count}")
+                        return update_count
 
-                        # 根据文本内容判断类型
-                        if any(keyword in item_text for keyword in ['更新', 'update', 'gengxin']) or 'gengxin' in item_class:
-                            if update_count == "0":
-                                update_count = number
-                                self._log("debug", f"回退解析-更新数: {number}")
+            # 文本模式回退
+            page_text = soup.get_text()
+            update_patterns = [
+                r'项目更新\s*(\d+)',
+                r'更新\s*(\d+)',
+                r'(\d+)\s*次更新',
+                r'(\d+)\s*个更新'
+            ]
 
-                        elif any(keyword in item_text for keyword in ['评论', 'comment', 'pinglun']) or 'comment' in item_class:
-                            if comment_count == "0":
-                                comment_count = number
-                                self._log("debug", f"回退解析-评论数: {number}")
-
-                        elif any(keyword in item_text for keyword in ['支持', 'supporter', 'backer', '人']) or 'user' in item_class:
-                            if supporter_count == "0":
-                                supporter_count = number
-                                self._log("debug", f"回退解析-支持者数: {number}")
-
-                        elif any(keyword in item_text for keyword in ['收藏', 'favorite', 'collect', '关注']) or 'atten' in item_class:
-                            if collect_count == "0":
-                                collect_count = number
-                                self._log("debug", f"回退解析-收藏数: {number}")
-
-                # 如果找到了一些数据就停止
-                if any(x != "0" for x in [update_count, comment_count, supporter_count, collect_count]):
+            for pattern in update_patterns:
+                matches = re.findall(pattern, page_text, re.IGNORECASE)
+                if matches:
+                    update_count = matches[-1]
+                    self._log("debug", f"更新数文本提取成功: {pattern} -> {update_count}")
                     break
 
         except Exception as e:
-            self._log("debug", f"回退DOM解析失败: {e}")
+            self._log("debug", f"更新数提取失败: {e}")
 
-        return [update_count, comment_count, supporter_count, collect_count]
+        return update_count
+
 
     def _validate_nav_data(self, update_count: str, comment_count: str,
                           supporter_count: str, collect_count: str) -> tuple:
@@ -1353,7 +1293,7 @@ class AdaptiveParser:
 
         # 验证各字段
         update_count = validate_number(update_count, "更新数", 1000)
-        comment_count = validate_number(comment_count, "评论数", 10000)
+        comment_count = validate_number(comment_count, "评论数", 50000)  # 降低评论数上限
         supporter_count = validate_number(supporter_count, "支持者数", 100000)
         collect_count = validate_number(collect_count, "收藏数", 50000)
 

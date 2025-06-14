@@ -6,7 +6,7 @@
 
 import os
 from dataclasses import dataclass
-from typing import List, Dict, Tuple
+from typing import Tuple, Dict
 
 
 @dataclass
@@ -110,9 +110,15 @@ class SpiderConfig:
     
     # 数据验证配置
     REQUIRED_FIELDS = [
-        "项目名称", "项目link", "项目6位id", "分类", 
+        "项目名称", "项目link", "项目6位id", "分类",
         "已筹金额", "目标金额", "支持者(数量)"
     ]
+
+    # 闪电般快速动态数据获取配置（默认启用，真正接近人工速度）
+    ENABLE_DYNAMIC_DATA = True   # 默认启用闪电动态数据获取
+    LIGHTNING_TIMEOUT = 2        # 闪电超时：2秒
+    LIGHTNING_CACHE_MINUTES = 30 # 闪电缓存：30分钟
+    LIGHTNING_RETRY_COUNT = 3    # 闪电重试：3次
     
     @classmethod
     def get_full_url(cls, category: str, page: int = 1) -> str:
