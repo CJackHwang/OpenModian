@@ -58,40 +58,86 @@ class NetworkUtils:
         self.last_request_time = time.time()
         self.request_count += 1
     
-    def make_request(self, url: str, method: str = "GET", 
-                    header_type: str = "desktop", **kwargs) -> Optional[str]:
-        """发送HTTP请求"""
+    def make_request(self, url: str, method: str = "GET",
+                    header_type: str = "desktop", use_urllib: bool = False, **kwargs) -> Optional[str]:
+        """发送HTTP请求 - 融合main.py的双重请求策略"""
         self._rate_limit()
-        
+
+        # 🔧 融合main.py的双重请求方法
+        if use_urllib or header_type == "mobile":
+            return self._make_urllib_request(url, header_type)
+        else:
+            return self._make_requests_request(url, method, header_type, **kwargs)
+
+    def _make_requests_request(self, url: str, method: str, header_type: str, **kwargs) -> Optional[str]:
+        """使用requests库发送请求"""
         headers = self.get_headers(header_type)
         timeout = random.randint(*self.config.TIMEOUT_RANGE)
-        
+
         for attempt in range(self.config.MAX_RETRIES):
             try:
                 if method.upper() == "GET":
                     response = self.session.get(
-                        url, headers=headers, timeout=timeout, **kwargs
+                        url, headers=headers, timeout=timeout, verify=False, **kwargs
                     )
                 else:
                     response = self.session.request(
-                        method, url, headers=headers, timeout=timeout, **kwargs
+                        method, url, headers=headers, timeout=timeout, verify=False, **kwargs
                     )
-                
+
                 response.raise_for_status()
+                response.encoding = 'utf-8'  # 🔧 融合main.py的编码设置
                 return response.text
-                
-            except (requests.RequestException, socket.timeout, 
+
+            except (requests.RequestException, socket.timeout,
                    urllib.error.URLError, ConnectionResetError) as e:
-                print(f"请求失败 (尝试 {attempt + 1}/{self.config.MAX_RETRIES}): {e}")
+                print(f"Requests请求失败 (尝试 {attempt + 1}/{self.config.MAX_RETRIES}): {e}")
                 print(f"URL: {url}")
-                
+
                 if attempt < self.config.MAX_RETRIES - 1:
-                    delay = random.uniform(*self.config.RETRY_DELAY) * (attempt + 1)
+                    # 🔧 融合main.py的指数退避策略
+                    delay = self.config.RETRY_DELAY[0] * (attempt + 1) * 2
                     time.sleep(delay)
                 else:
-                    print(f"所有重试都失败了: {url}")
+                    print(f"Requests所有重试都失败了: {url}")
                     return None
-        
+
+        return None
+
+    def _make_urllib_request(self, url: str, header_type: str = "desktop") -> Optional[str]:
+        """使用urllib发送请求 - 融合main.py的实现"""
+        import urllib.request
+        import urllib.error
+        import ssl
+
+        # 🔧 融合main.py的SSL上下文处理
+        ssl_context = ssl.create_default_context()
+        ssl_context.check_hostname = False
+        ssl_context.verify_mode = ssl.CERT_NONE
+
+        headers = self.get_headers(header_type)
+        timeout_range = self.config.TIMEOUT_RANGE
+
+        for attempt in range(self.config.MAX_RETRIES):
+            try:
+                timeout = random.randint(*timeout_range)
+                request = urllib.request.Request(url, headers=headers)
+                response = urllib.request.urlopen(request, timeout=timeout, context=ssl_context)
+                html = response.read().decode("utf-8")
+                return html
+
+            except (urllib.error.URLError, ConnectionResetError, socket.timeout, ssl.SSLError) as e:
+                print(f"Urllib请求失败 (尝试 {attempt + 1}/{self.config.MAX_RETRIES}): {e}")
+                print(f"URL: {url}")
+
+                if attempt < self.config.MAX_RETRIES - 1:
+                    # 🔧 融合main.py的指数退避策略
+                    wait_time = (attempt + 1) * 2
+                    time.sleep(wait_time)
+                else:
+                    print(f"Urllib所有重试都失败了: {url}")
+                    return None
+
         return None
     
     def make_api_request(self, endpoint: str, params: Dict = None) -> Optional[Dict]:

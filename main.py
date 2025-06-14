@@ -424,57 +424,52 @@ class ModianSpider:
         endtime = "none"
         itemreal_class = project_status["item_class"]
 
-        # 修复时间信息提取逻辑
+        # 🔧 优化时间信息提取 - 从页面文本中提取
+        page_text = soup_detail_page.get_text()
+
+        # 提取开始时间
+        start_time_patterns = [
+            r'开始时间.*?(\d{4}-\d{1,2}-\d{1,2}\s+\d{1,2}:\d{2})',
+            r'(\d{4}-\d{1,2}-\d{1,2}\s+\d{1,2}:\d{2}).*?开始',
+            r'开始.*?(\d{4}-\d{1,2}-\d{1,2})',
+            r'(\d{4}-\d{1,2}-\d{1,2}).*?开始'
+        ]
+
+        for pattern in start_time_patterns:
+            start_match = re.search(pattern, page_text)
+            if start_match:
+                starttime = start_match.group(1)
+                logger.info(f"找到开始时间: {starttime}")
+                break
+
+        # 提取结束时间
+        end_time_patterns = [
+            r'结束时间.*?(\d{4}-\d{1,2}-\d{1,2}\s+\d{1,2}:\d{2})',
+            r'(\d{4}-\d{1,2}-\d{1,2}\s+\d{1,2}:\d{2}).*?结束',
+            r'剩余时间.*?(\d{4}-\d{1,2}-\d{1,2})',
+            r'(\d{4}-\d{1,2}-\d{1,2}).*?前达到'
+        ]
+
+        for pattern in end_time_patterns:
+            end_match = re.search(pattern, page_text)
+            if end_match:
+                endtime = end_match.group(1)
+                logger.info(f"找到结束时间: {endtime}")
+                break
+
+        # 根据项目状态设置默认时间
         if project_status["is_preheat"]:
-            # 预热项目的时间信息通常在不同的位置
-            start_time_div = soup_detail_page.find('div', {'class': 'col2 start-time'})
-            if start_time_div:
-                h3_tags = start_time_div.find_all('h3')
-                if len(h3_tags) > 0 and h3_tags[0]:
-                     starttime = h3_tags[0].text.strip()
-                     if "开始" in starttime:
-                         starttime = starttime.replace("开始","").strip()
-
-                if len(h3_tags) > 1 and h3_tags[1]:
-                    endtime_text_candidate = h3_tags[1].text.strip()
-                    if "结束" in endtime_text_candidate:
-                        endtime = endtime_text_candidate.replace("结束","").strip()
-                    else:
-                        endtime = "预热中"
-                else:
-                    endtime = "预热中"
-
-                # 检查预热时间是否已过
-                if starttime != "none" and starttime != "预热中":
-                    try:
-                        now = datetime.datetime.now()
-                        starttime_std = datetime.datetime.strptime(starttime, "%Y-%m-%d %H:%M")
-                        if starttime_std < now:
-                            itemreal_class = "众筹中"
-                            endtime = "众筹中—预热异常转众筹中"
-                    except ValueError:
-                        pass
+            if starttime == "none":
+                starttime = "预热中"
+            if endtime == "none":
+                endtime = "预热中"
         elif project_status["is_idea"]:
             starttime = "创意中"
             endtime = "创意中"
-        else: # Going, Success, Fail
-            # 修复众筹中项目的时间提取
-            remain_time_div = soup_detail_page.find('div', {'class': 'col2 remain-time'})
-            if remain_time_div:
-                h3_tags = remain_time_div.find_all('h3')
-                if len(h3_tags) > 0 and h3_tags[0]:
-                    if h3_tags[0].get('start_time'):
-                        starttime = h3_tags[0].get('start_time')
-                    if h3_tags[0].get('end_time'):
-                        endtime = h3_tags[0].get('end_time')
-                if len(h3_tags) > 1 and h3_tags[1]:
-                    if h3_tags[1].get('end_time'):
-                        endtime = h3_tags[1].get('end_time')
 
         data.extend([starttime, endtime, itemreal_class])
 
-        # 修复作者信息提取逻辑
-        sponsor_info_div = soup_detail_page.find('div', {'class': 'sponsor-info clearfix'})
+        # 🔧 优化作者信息提取 - 从页面文本中提取
         sponsor_href = "none"
         true_authorid_from_re = "none"
         author_image = "none"
@@ -483,58 +478,50 @@ class ModianSpider:
         author_uid_attr = "0"
         parsed_author_page_details = ["0", "0", "0", "{}", "{}", "none"]
 
-        if sponsor_info_div:
-            # 修复作者链接提取 - 查找包含用户ID的链接
-            avater_link = sponsor_info_div.find('a', {'class': 'avater'})
-            if avater_link and avater_link.get('href'):
-                sponsor_href = avater_link.get('href')
-                match_id = self.config.USER_ID_PATTERN.search(sponsor_href)
-                if match_id:
-                    true_authorid_from_re = match_id.group(1)
-                    # 获取作者页面信息
-                    try:
-                        author_page_html = self.askURL2(sponsor_href)
-                        if author_page_html:
-                            parsed_author_page_details = self.parse_author_page_info(author_page_html, true_authorid_from_re)
-                    except Exception as e:
-                        logger.warning(f"获取作者页面失败: {e}")
+        # 从页面文本中提取作者名称 - 查找"发起了这个项目"前的文本
+        author_match = re.search(r'([^\n]+)\s*发起了这个项目', page_text)
+        if author_match:
+            author_name = author_match.group(1).strip()
+            logger.info(f"找到作者名称: {author_name}")
 
-            # 修复作者头像提取
-            img_tag = sponsor_info_div.find('img')
-            if img_tag and img_tag.get('src'):
-                author_image = img_tag.get('src')
+        # 从页面文本中提取项目分类 - "项目类别：桌游"
+        category_match = re.search(r'项目类别[：:]\s*([^\n\r]+)', page_text)
+        if category_match:
+            category = category_match.group(1).strip()
+            logger.info(f"找到项目分类: {category}")
 
-            # 修复分类信息提取 - 更精确的选择器
-            category_span = sponsor_info_div.find('span', string=re.compile(r'项目类别：'))
-            if category_span:
-                category = category_span.text.replace('项目类别：', '').strip()
-            else:
-                # 备用方案：查找包含"项目类别"的span
-                for span in sponsor_info_div.find_all('span'):
-                    if span.text and '项目类别：' in span.text:
-                        category = span.text.replace('项目类别：', '').strip()
-                        break
-                else:
-                    # 再次备用：查找tags区域
-                    tags_p = sponsor_info_div.find('p', {'class': 'tags'})
-                    if tags_p:
-                        category_span_alt = tags_p.find('span')
-                        if category_span_alt and category_span_alt.text:
-                            text = category_span_alt.text
-                            if '项目类别：' in text:
-                                category = text.replace('项目类别：', '').strip()
+        # 查找作者链接 - 查找包含uid的链接
+        author_links = soup_detail_page.find_all('a', href=re.compile(r'uid=\d+'))
+        if author_links:
+            sponsor_href = author_links[0].get('href')
+            if not sponsor_href.startswith('http'):
+                sponsor_href = 'https://me.modian.com' + sponsor_href
 
-            # 修复作者名称和UID提取
-            name_span = sponsor_info_div.find('span', attrs={'data-nickname': True})
-            if name_span:
-                author_name = name_span.get('data-nickname', name_span.text.strip())
-                author_uid_attr = name_span.get('data-username', "0")
-            else:
-                # 备用方案：查找.name类的span
-                name_span_alt = sponsor_info_div.find('span', {'class': 'name'})
-                if name_span_alt:
-                    author_name = name_span_alt.text.strip()
-                    author_uid_attr = name_span_alt.get('data-username', "0")
+            # 提取用户ID
+            uid_match = re.search(r'uid=(\d+)', sponsor_href)
+            if uid_match:
+                true_authorid_from_re = uid_match.group(1)
+                author_uid_attr = true_authorid_from_re
+                logger.info(f"找到作者UID: {true_authorid_from_re}")
+
+                # 获取作者页面信息
+                try:
+                    author_page_html = self.askURL2(sponsor_href)
+                    if author_page_html:
+                        parsed_author_page_details = self.parse_author_page_info(author_page_html, true_authorid_from_re)
+                except Exception as e:
+                    logger.warning(f"获取作者页面失败: {e}")
+
+        # 查找作者头像
+        author_imgs = soup_detail_page.find_all('img')
+        for img in author_imgs:
+            src = img.get('src')
+            if src and ('avatar' in src or 'dst_avatar' in src):
+                author_image = src
+                if not author_image.startswith('http'):
+                    author_image = 'https:' + author_image
+                logger.info(f"找到作者头像: {author_image[:50]}...")
+                break
 
 
         data.append(sponsor_href) # User homepage link
@@ -543,50 +530,94 @@ class ModianSpider:
         data.append(author_name)
         data.append(author_uid_attr) # This is the one from data-username, often the same as true_authorid_from_re
 
-        # Project base info (money, percent, goal, sponsor_num)
+        # 🔧 优化众筹信息提取 - 从页面文本中提取
         money = "0"
         percent = "0"
         goal_money = "0"
         sponsor_num = "0"
 
-        if project_status["is_preheat"]:
-            center_div = soup_detail_page.find('div', {'class': 'center'})
-            if center_div:
-                goal_div = center_div.find('div', {'class': 'col1 project-goal'})
-                if goal_div and goal_div.find('h3') and goal_div.find('h3').find('span'):
-                    goal_money = goal_div.find('h3').find('span').text.strip().replace('￥', '')
+        # 从页面文本中提取已筹金额 - 处理编码问题
+        money_patterns = [
+            r'已筹[¥￥Â¥]([0-9,]+)',  # 正常编码
+            r'å·²ç­¹[¥￥Â¥]([0-9,]+)',  # 编码后的中文
+            r'已筹.*?[¥￥Â¥]\s*([0-9,]+)',  # 宽松匹配
+            r'å·²ç­¹.*?[¥￥Â¥]\s*([0-9,]+)'   # 编码后宽松匹配
+        ]
 
-                subscribe_span = center_div.find('span', {'subscribe_count': True})
-                if subscribe_span:
-                    sponsor_num = subscribe_span.text.strip().replace('人订阅', '') # "人订阅" or just number
-                    if not sponsor_num.isdigit() and subscribe_span.get('subscribe_count'): # Fallback to attribute
-                        sponsor_num = subscribe_span.get('subscribe_count', "0")
+        for pattern in money_patterns:
+            money_match = re.search(pattern, page_text)
+            if money_match:
+                money = money_match.group(1).replace(',', '')
+                logger.info(f"找到已筹金额: ¥{money}")
+                break
 
+        # 从页面文本中提取目标金额
+        goal_patterns = [
+            r'目标金额\s*[¥￥Â¥]([0-9,]+)',  # 正常编码
+            r'ç®æ éé¢\s*[¥￥Â¥]([0-9,]+)',  # 编码后的中文
+            r'目标金额.*?[¥￥Â¥]\s*([0-9,]+)',  # 宽松匹配
+            r'ç®æ éé¢.*?[¥￥Â¥]\s*([0-9,]+)',   # 编码后宽松匹配
+            r'目标[¥￥Â¥]([0-9,]+)',  # 简化格式
+            r'ç®æ[¥￥Â¥]([0-9,]+)',  # 编码后简化格式
+            r'[¥￥Â¥]([0-9,]+).*?目标',  # 反向匹配
+            r'([0-9,]+).*?目标金额'  # 数字在前
+        ]
 
-        elif project_status["is_idea"]:
-            goal_money = 'none' # No goal in idea phase typically
-            sponsor_num = 'none' # No sponsors, but maybe "likes" - see main_middle
-        else: # Going, Success, Fail
-            center_div = soup_detail_page.find('div', {'class': 'center'})
-            if center_div:
-                money_span = center_div.find('span', {'backer_money': True})
-                if money_span:
-                    money = money_span.text.strip().replace('￥', '')
+        for pattern in goal_patterns:
+            goal_match = re.search(pattern, page_text)
+            if goal_match:
+                goal_money = goal_match.group(1).replace(',', '')
+                logger.info(f"找到目标金额: ¥{goal_money}")
+                break
 
-                rate_span = center_div.find('span', {'rate': True})
-                if rate_span:
-                    percent = rate_span.text.strip().replace('%', '')
+        # 从页面文本中提取完成百分比
+        percent_match = re.search(r'([0-9.]+)%', page_text)
+        if percent_match:
+            percent = percent_match.group(1)
+            logger.info(f"找到完成百分比: {percent}%")
 
-                goal_span = center_div.find('span', {'class': 'goal-money'})
-                if goal_span:
-                    goal_money = goal_span.text.strip().replace('目标金额 ', '').replace('￥', '')
+        # 如果没有找到目标金额，尝试从百分比反推
+        if goal_money == "0" and money != "0" and percent != "0":
+            try:
+                calculated_goal = float(money) * 100 / float(percent)
+                goal_money = str(int(calculated_goal))
+                logger.info(f"从百分比反推目标金额: ¥{goal_money} (计算: {money} × 100 ÷ {percent})")
+            except Exception as e:
+                logger.warning(f"目标金额反推计算失败: {e}")
 
-                backer_span = center_div.find('span', {'backer_count': True})
-                if backer_span:
-                    sponsor_num = backer_span.text.strip().replace('人支持', '') # "人支持" or just number
-                    if not sponsor_num.isdigit() and backer_span.get('backer_count'): # Fallback
-                        sponsor_num = backer_span.get('backer_count', "0")
+        # 从页面文本中提取支持者数量
+        supporter_patterns = [
+            r'(\d+)人\s*支持人数',  # 正常编码
+            r'(\d+)äºº\s*æ¯æäººæ°',  # 编码后的中文
+            r'支持人数\s*(\d+)',
+            r'æ¯æäººæ°\s*(\d+)',
+            r'(\d+)\s*人\s*支持',
+            r'(\d+)\s*äºº\s*æ¯æ',
+            r'支持者\s*(\d+)',
+            r'æ¯æè\s*(\d+)',
+            r'(\d+)\s*支持者',
+            r'(\d+)\s*æ¯æè',
+            r'(\d+)\s*人$',  # 简化格式
+            r'(\d+)\s*äºº$'  # 编码后简化格式
+        ]
 
+        for pattern in supporter_patterns:
+            supporter_match = re.search(pattern, page_text)
+            if supporter_match:
+                sponsor_num = supporter_match.group(1)
+                logger.info(f"找到支持者数量: {sponsor_num}人")
+                break
+
+        # 验证数据合理性
+        if money != "0" and goal_money != "0":
+            try:
+                calculated_percent = (float(money) / float(goal_money)) * 100
+                if percent == "0":
+                    percent = f"{calculated_percent:.1f}"
+            except:
+                pass
+
+        logger.info(f"解析众筹信息: 已筹¥{money}, 目标¥{goal_money}, 完成率{percent}%, 支持者{sponsor_num}人")
 
         data.extend([money, percent, goal_money, sponsor_num])
         data.append(true_authorid_from_re) # The ID extracted from sponsor_href
@@ -599,53 +630,84 @@ class ModianSpider:
         img_list = []
         video_list = []
 
-        # 修复项目内容区域查找
-        main_left_div = soup_detail_page.find('div', {'class': 'main-left'})
-        if main_left_div:
-            # 查找项目详情内容区域
-            project_content_div = main_left_div.find('div', {'class': 'project-content'})
-            if project_content_div:
-                # 查找内容包装器
-                content_wrap = project_content_div.find('div', {'class': 'content-wrap'})
-                if content_wrap:
-                    # 在内容包装器中查找图片
-                    for img_tag in content_wrap.find_all('img'):
-                        src = img_tag.get('src')
-                        if src and src.strip():
-                            # 过滤掉默认头像等无关图片
-                            if 'default_profile' not in src and 'icon-' not in src:
-                                img_list.append(src)
+        # 🔧 优化媒体内容提取 - 查找所有相关区域
+        content_areas = [
+            soup_detail_page.find('div', {'class': 'main-left'}),
+            soup_detail_page.find('div', {'class': 'project-content'}),
+            soup_detail_page.find('div', {'class': 'content-wrap'}),
+            soup_detail_page.find('div', {'id': 'projectDetail'}),
+            soup_detail_page.find('section', {'class': 'project-detail'})
+        ]
 
-                    # 查找视频
-                    for video_tag in content_wrap.find_all('video'):
-                        if video_tag.get('src'):
-                            video_list.append(video_tag.get('src'))
-                        else:
-                            # 查找source标签
-                            for source_tag in video_tag.find_all('source'):
-                                if source_tag.get('src'):
-                                    video_list.append(source_tag.get('src'))
-                                    break
-
-                    # 查找iframe中的视频（如B站、优酷等）
-                    for iframe_tag in content_wrap.find_all('iframe'):
-                        src = iframe_tag.get('src')
-                        if src and ('bilibili' in src or 'youku' in src or 'qq.com' in src):
-                            video_list.append(src)
-                else:
-                    # 备用方案：直接在project-content中查找
-                    for img_tag in project_content_div.find_all('img'):
-                        src = img_tag.get('src')
-                        if src and src.strip() and 'default_profile' not in src:
+        for area in content_areas:
+            if area:
+                # 查找图片
+                for img_tag in area.find_all('img'):
+                    src = img_tag.get('src')
+                    if src and src.strip():
+                        # 过滤掉头像、图标等无关图片
+                        if not any(keyword in src for keyword in [
+                            'default_profile', 'icon-', 'avatar', 'logo',
+                            'headPic', 'default_1x1', 'video-play'
+                        ]):
+                            # 确保URL完整
+                            if src.startswith('//'):
+                                src = 'https:' + src
+                            elif src.startswith('/'):
+                                src = 'https://zhongchou.modian.com' + src
                             img_list.append(src)
 
-                    for video_tag in project_content_div.find_all('video'):
-                        if video_tag.get('src'):
-                            video_list.append(video_tag.get('src'))
+                # 查找视频
+                for video_tag in area.find_all('video'):
+                    if video_tag.get('src'):
+                        video_src = video_tag.get('src')
+                        if video_src.startswith('//'):
+                            video_src = 'https:' + video_src
+                        elif video_src.startswith('/'):
+                            video_src = 'https://zhongchou.modian.com' + video_src
+                        video_list.append(video_src)
+                    else:
+                        # 查找source标签
+                        for source_tag in video_tag.find_all('source'):
+                            if source_tag.get('src'):
+                                video_src = source_tag.get('src')
+                                if video_src.startswith('//'):
+                                    video_src = 'https:' + video_src
+                                elif video_src.startswith('/'):
+                                    video_src = 'https://zhongchou.modian.com' + video_src
+                                video_list.append(video_src)
+                                break
 
-        # 去重
-        img_list = list(set(img_list))
-        video_list = list(set(video_list))
+                # 查找iframe中的视频（如B站、优酷等）
+                for iframe_tag in area.find_all('iframe'):
+                    src = iframe_tag.get('src')
+                    if src and any(domain in src for domain in [
+                        'bilibili', 'youku', 'qq.com', 'iqiyi', 'tudou', 'youtube'
+                    ]):
+                        if src.startswith('//'):
+                            src = 'https:' + src
+                        video_list.append(src)
+
+        # 🔧 从页面文本中查找视频链接
+        page_text = soup_detail_page.get_text()
+        video_url_patterns = [
+            r'https?://[^\s]*\.mp4',
+            r'https?://[^\s]*\.avi',
+            r'https?://[^\s]*\.mov',
+            r'https?://[^\s]*\.wmv',
+            r'https?://mediac\d+\.modian\.com/[^\s]*\.mp4'
+        ]
+
+        for pattern in video_url_patterns:
+            video_matches = re.findall(pattern, page_text)
+            for match in video_matches:
+                video_list.append(match)
+
+        # 去重并过滤
+        img_list = list(set([img for img in img_list if img and len(img) > 10]))
+        video_list = list(set([video for video in video_list if video and len(video) > 10]))
+
+        logger.info(f"找到项目媒体: {len(img_list)}张图片, {len(video_list)}个视频")
 
         data.extend([len(img_list), str(img_list), len(video_list), str(video_list)])
         return data
@@ -713,143 +775,123 @@ class ModianSpider:
         userlist_num = "0"
         collect_number = "0"
 
-        nav_wrap_inner = soup_detail_page.find('div', {'class': 'nav-wrap-inner'})
-        if nav_wrap_inner:
-            nav_left = nav_wrap_inner.find('ul', {'class': 'nav-left'})
-            if nav_left:
-                # 🔧 深度修复更新数提取
-                update_li = nav_left.find('li', {'class': 'pro-gengxin'})
-                if update_li:
-                    logger.debug(f"找到更新数li: {update_li}")
-                    # 方案1: 使用错误拼写的属性名（实际HTML中的拼写）
-                    update_span = update_li.find('span', attrs={'upadte_count': True})
-                    if update_span:
-                        update_number = update_span.text.strip()
-                        logger.debug(f"更新数(方案1): {update_number}")
-                    else:
-                        # 方案2: 尝试正确拼写的属性名
-                        update_span = update_li.find('span', attrs={'update_count': True})
-                        if update_span:
-                            update_number = update_span.text.strip()
-                            logger.debug(f"更新数(方案2): {update_number}")
-                        else:
-                            # 方案3: 查找任何span并提取数字
-                            update_span = update_li.find('span')
-                            if update_span:
-                                update_number = update_span.text.strip()
-                                logger.debug(f"更新数(方案3): {update_number}")
-                            else:
-                                # 方案4: 从li文本中提取数字
-                                li_text = update_li.get_text()
-                                numbers = re.findall(r'\d+', li_text)
-                                if numbers:
-                                    update_number = numbers[-1]  # 取最后一个数字
-                                    logger.debug(f"更新数(方案4): {update_number}")
+        # 🔧 优化策略：从页面文本中直接提取数字信息
+        page_text = soup_detail_page.get_text()
 
-                # 🔧 深度修复评论数提取
-                comment_li = nav_left.find('li', {'class': 'nav-comment'})
-                if comment_li:
-                    logger.debug(f"找到评论数li: {comment_li}")
-                    # 方案1: 使用comment_count属性
-                    comment_span = comment_li.find('span', attrs={'comment_count': True})
-                    if comment_span:
-                        comment_number = comment_span.text.strip()
-                        logger.debug(f"评论数(方案1): {comment_number}")
-                    else:
-                        # 方案2: 查找strong标签（可能在strong中）
-                        comment_strong = comment_li.find('strong', attrs={'comment_count': True})
-                        if comment_strong:
-                            comment_number = comment_strong.text.strip()
-                            logger.debug(f"评论数(方案2): {comment_number}")
-                        else:
-                            # 方案3: 查找任何span
-                            comment_span = comment_li.find('span')
-                            if comment_span:
-                                comment_number = comment_span.text.strip()
-                                logger.debug(f"评论数(方案3): {comment_number}")
-                            else:
-                                # 方案4: 从li文本中提取数字
-                                li_text = comment_li.get_text()
-                                numbers = re.findall(r'\d+', li_text)
-                                if numbers:
-                                    comment_number = numbers[-1]
-                                    logger.debug(f"评论数(方案4): {comment_number}")
+        # 提取更新数 - 查找"项目更新 X"模式
+        update_patterns = [
+            r'项目更新\s*(\d+)',
+            r'更新\s*(\d+)',
+            r'(\d+)\s*次更新',
+            r'更新.*?(\d+)'
+        ]
 
-                # 🔧 深度修复支持者/点赞数提取
-                userlist_li = nav_left.find('li', class_='dialog_user_list')
-                if userlist_li:
-                    logger.debug(f"找到支持者数li: {userlist_li}")
-                    if project_status["is_idea"]:
-                        # 创意项目查找点赞数
-                        span_tag = userlist_li.find('span', attrs={'bull_count': True})
-                        attr_name = 'bull_count'
-                    else:
-                        # 其他项目查找支持者数
-                        span_tag = userlist_li.find('span', attrs={'backer_count': True})
-                        attr_name = 'backer_count'
+        for pattern in update_patterns:
+            update_match = re.search(pattern, page_text)
+            if update_match:
+                update_number = update_match.group(1)
+                logger.info(f"找到更新数: {update_number}")
+                break
 
-                    if span_tag:
-                        userlist_num = span_tag.text.strip()
-                        logger.debug(f"支持者数(方案1): {userlist_num}")
-                    else:
-                        # 方案2: 查找任何span
-                        span_alt = userlist_li.find('span')
-                        if span_alt:
-                            userlist_num = span_alt.text.strip()
-                            logger.debug(f"支持者数(方案2): {userlist_num}")
-                        else:
-                            # 方案3: 从data属性中获取
-                            data_count = userlist_li.get('data-count')
-                            if data_count:
-                                userlist_num = data_count
-                                logger.debug(f"支持者数(方案3): {userlist_num}")
-                            else:
-                                # 方案4: 从li文本中提取数字
-                                li_text = userlist_li.get_text()
-                                numbers = re.findall(r'\d+', li_text)
-                                if numbers:
-                                    userlist_num = numbers[-1]
-                                    logger.debug(f"支持者数(方案4): {userlist_num}")
+        # 提取评论数 - 查找"评论 X"模式
+        comment_patterns = [
+            r'评论\s*(\d+)',
+            r'(\d+)\s*条评论',
+            r'评论.*?(\d+)',
+            r'(\d+)\s*评论'
+        ]
 
-            # 🔧 深度修复收藏数提取
-            nav_right = nav_wrap_inner.find('ul', {'class': 'nav-right'})
-            if nav_right:
-                atten_li = nav_right.find('li', {'class': 'atten'})
-                if atten_li:
-                    logger.debug(f"找到收藏数li: {atten_li}")
-                    # 方案1: 查找span中的文本
-                    collect_span = atten_li.find('span')
-                    if collect_span:
-                        collect_number = collect_span.text.strip()
-                        logger.debug(f"收藏数(方案1): {collect_number}")
-                    else:
-                        # 方案2: 从li文本中提取数字（排除图标）
+        for pattern in comment_patterns:
+            comment_match = re.search(pattern, page_text)
+            if comment_match:
+                comment_number = comment_match.group(1)
+                logger.info(f"找到评论数: {comment_number}")
+                break
+
+        # 提取支持者数 - 查找"支持者 X"或"X人"模式
+        supporter_patterns = [
+            r'支持者\s*(\d+)',
+            r'(\d+)\s*人\s*支持',
+            r'(\d+)\s*支持者',
+            r'支持人数.*?(\d+)',
+            r'(\d+)\s*人$'  # 行末的数字+人
+        ]
+
+        for pattern in supporter_patterns:
+            supporter_match = re.search(pattern, page_text)
+            if supporter_match:
+                userlist_num = supporter_match.group(1)
+                logger.info(f"找到支持者数: {userlist_num}")
+                break
+
+        # 提取收藏数 - 查找收藏相关数字
+        collect_patterns = [
+            r'收藏\s*(\d+)',
+            r'(\d+)\s*收藏',
+            r'关注\s*(\d+)',
+            r'(\d+)\s*关注'
+        ]
+
+        for pattern in collect_patterns:
+            collect_match = re.search(pattern, page_text)
+            if collect_match:
+                collect_number = collect_match.group(1)
+                logger.info(f"找到收藏数: {collect_number}")
+                break
+
+        # 🔧 回退到传统DOM解析（如果文本解析失败）
+        if all(x == "0" for x in [update_number, comment_number, userlist_num, collect_number]):
+            logger.info("文本解析失败，回退到DOM解析")
+            nav_wrap_inner = soup_detail_page.find('div', {'class': 'nav-wrap-inner'})
+            if nav_wrap_inner:
+                nav_left = nav_wrap_inner.find('ul', {'class': 'nav-left'})
+                if nav_left:
+                    # 更新数
+                    update_li = nav_left.find('li', {'class': 'pro-gengxin'})
+                    if update_li:
+                        li_text = update_li.get_text()
+                        numbers = re.findall(r'\d+', li_text)
+                        if numbers:
+                            update_number = numbers[-1]
+
+                    # 评论数
+                    comment_li = nav_left.find('li', {'class': 'nav-comment'})
+                    if comment_li:
+                        li_text = comment_li.get_text()
+                        numbers = re.findall(r'\d+', li_text)
+                        if numbers:
+                            comment_number = numbers[-1]
+
+                    # 支持者数
+                    userlist_li = nav_left.find('li', class_='dialog_user_list')
+                    if userlist_li:
+                        li_text = userlist_li.get_text()
+                        numbers = re.findall(r'\d+', li_text)
+                        if numbers:
+                            userlist_num = numbers[-1]
+
+                # 收藏数
+                nav_right = nav_wrap_inner.find('ul', {'class': 'nav-right'})
+                if nav_right:
+                    atten_li = nav_right.find('li', {'class': 'atten'})
+                    if atten_li:
                         li_text = atten_li.get_text()
                         numbers = re.findall(r'\d+', li_text)
                         if numbers:
                             collect_number = numbers[-1]
-                            logger.debug(f"收藏数(方案2): {collect_number}")
 
-        # 🔧 增强的数据清理和验证
+        # 🔧 数据清理和验证
         def clean_number(num_str, field_name=""):
             """增强的数字清理函数"""
             if not num_str:
-                logger.debug(f"{field_name}: 空值，返回0")
                 return "0"
 
-            # 转换为字符串
             num_str = str(num_str).strip()
-
-            # 移除非数字字符
             cleaned = re.sub(r'[^\d]', '', num_str)
 
-            # 验证结果
             if cleaned and cleaned.isdigit():
-                result = cleaned
-                logger.debug(f"{field_name}: '{num_str}' -> '{result}'")
-                return result
+                return cleaned
             else:
-                logger.debug(f"{field_name}: '{num_str}' -> '0' (无效数字)")
                 return "0"
 
         update_number = clean_number(update_number, "更新数")
