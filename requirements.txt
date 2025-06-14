@@ -13,6 +13,7 @@ numpy>=1.21.0
 # Web UI依赖
 Flask>=2.3.0
 Flask-SocketIO>=5.3.0
+Flask-CORS>=4.0.0
 python-socketio>=5.8.0
 
 # 配置文件支持

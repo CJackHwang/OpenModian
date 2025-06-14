@@ -16,8 +16,9 @@ from pathlib import Path
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, project_root)
 
-from flask import Flask, render_template, request, jsonify, send_file
+from flask import Flask, render_template, request, jsonify, send_file, send_from_directory
 from flask_socketio import SocketIO, emit
+from flask_cors import CORS
 import uuid
 
 from spider.core import SpiderCore
@@ -25,9 +26,20 @@ from spider.config import SpiderConfig
 # from spider.monitor import SpiderMonitor  # 暂时不使用
 from database.db_manager import DatabaseManager
 
-app = Flask(__name__)
+# 检查Vue构建文件是否存在
+vue_dist_path = os.path.join(project_root, "web_ui_vue", "dist")
+vue_build_exists = os.path.exists(vue_dist_path)
+
+if vue_build_exists:
+    # 如果Vue构建文件存在，使用Vue前端
+    app = Flask(__name__, static_folder=vue_dist_path, static_url_path='')
+else:
+    # 否则使用传统模板
+    app = Flask(__name__)
+
 app.config['SECRET_KEY'] = 'modian_spider_secret_key_2024'
 socketio = SocketIO(app, cors_allowed_origins="*")
+CORS(app)  # 启用CORS支持
 
 # 全局变量
 spider_instances = {}
@@ -90,7 +102,26 @@ class WebSpiderMonitor:
 @app.route('/')
 def index():
     """主页"""
-    return render_template('index.html')
+    if vue_build_exists:
+        return send_from_directory(vue_dist_path, 'index.html')
+    else:
+        return render_template('index.html')
+
+@app.route('/<path:path>')
+def vue_routes(path):
+    """Vue路由处理"""
+    if vue_build_exists:
+        # 检查是否是静态文件
+        if '.' in path:
+            try:
+                return send_from_directory(vue_dist_path, path)
+            except:
+                pass
+        # 对于Vue路由，返回index.html
+        return send_from_directory(vue_dist_path, 'index.html')
+    else:
+        # 传统路由处理
+        return render_template('index.html')
 
 @app.route('/api/start_crawl', methods=['POST'])
 def start_crawl():
@@ -431,18 +462,29 @@ if __name__ == '__main__':
     os.makedirs('static/css', exist_ok=True)
     os.makedirs('static/js', exist_ok=True)
 
-    # 查找可用端口
-    port = find_available_port()
+    # 只在主进程中执行端口检测和启动信息显示
+    if os.environ.get('WERKZEUG_RUN_MAIN') != 'true':
+        # 查找可用端口
+        port = find_available_port()
 
-    if port is None:
-        print("❌ 无法找到可用端口 (8080-8090)")
-        print("请手动停止占用端口的程序或使用其他端口")
-        exit(1)
+        if port is None:
+            print("❌ 无法找到可用端口 (8080-8090)")
+            print("请手动停止占用端口的程序或使用其他端口")
+            exit(1)
 
-    print("🚀 摩点爬虫Web UI启动中...")
-    print(f"📱 访问地址: http://localhost:{port}")
-    print("⏹️  按 Ctrl+C 停止服务")
-    print("-" * 50)
+        if port != 8080:
+            print(f"⚠️  端口8080被占用，使用端口{port}")
+
+        print("🚀 摩点爬虫Web UI启动中...")
+        print(f"📱 访问地址: http://localhost:{port}")
+        print("⏹️  按 Ctrl+C 停止服务")
+        print("-" * 50)
+
+        # 将端口保存到环境变量，供重启后的进程使用
+        os.environ['SPIDER_WEB_PORT'] = str(port)
+    else:
+        # 重启后的进程从环境变量获取端口
+        port = int(os.environ.get('SPIDER_WEB_PORT', 8080))
 
     try:
         socketio.run(app, debug=True, host='0.0.0.0', port=port)

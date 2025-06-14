@@ -1,0 +1,220 @@
+// Material Design 3 主样式文件 - Quasar版本
+
+// M3 全局样式
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Roboto', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+// 滚动条样式
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+// Quasar组件样式增强
+.q-card {
+  border-radius: 16px !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+  &:hover {
+    transform: translateY(-2px);
+  }
+}
+
+.q-btn {
+  border-radius: 20px !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  font-weight: 500;
+  letter-spacing: 0.1px;
+  text-transform: none;
+
+  &:hover {
+    transform: translateY(-1px);
+  }
+}
+
+// 日志容器特殊样式
+.log-container {
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: #2d2d2d;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: #555;
+    border-radius: 3px;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    background: #777;
+  }
+}
+
+// 响应式工具类
+.mobile-only {
+  @media (min-width: 960px) {
+    display: none !important;
+  }
+}
+
+.desktop-only {
+  @media (max-width: 959px) {
+    display: none !important;
+  }
+}
+
+// 动画类
+.fade-in {
+  animation: fadeIn 0.5s ease-in;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.slide-in-left {
+  animation: slideInLeft 0.3s ease-out;
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.slide-in-right {
+  animation: slideInRight 0.3s ease-out;
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+// 状态指示器
+.status-indicator {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 8px;
+}
+
+.status-running {
+  background-color: #4caf50;
+  animation: pulse 2s infinite;
+}
+
+.status-completed {
+  background-color: #2196f3;
+}
+
+.status-failed {
+  background-color: #f44336;
+}
+
+.status-stopped {
+  background-color: #9e9e9e;
+}
+
+@keyframes pulse {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+// 工具类
+.text-truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cursor-pointer {
+  cursor: pointer;
+}
+
+.user-select-none {
+  user-select: none;
+}
+
+// Quasar表格样式增强
+.q-table {
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+// Quasar对话框样式
+.q-dialog {
+  .q-card {
+    border-radius: 28px;
+  }
+}
+
+// Quasar芯片样式增强
+.q-chip {
+  font-weight: 500;
+  border-radius: 16px;
+}
+
+// Quasar抽屉样式
+.q-drawer {
+  .q-item {
+    border-radius: 12px;
+    margin: 4px 8px;
+  }
+}
+
+// Quasar工具栏样式
+.q-toolbar {
+  .q-toolbar__title {
+    font-weight: 500;
+  }
+}
