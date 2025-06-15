@@ -63,11 +63,25 @@ class WebSpiderMonitor:
             'logs': []
         }
     
-    def update_progress(self, current, total):
-        """更新进度"""
-        self.stats['current_page'] = current
-        self.stats['total_pages'] = total
-        self.stats['progress'] = (current / total * 100) if total > 0 else 0
+    def update_progress(self, current_page=0, total_pages=0, total_projects=0, completed_projects=0, project_progress=0):
+        """更新进度（增强版本）"""
+        self.stats['current_page'] = current_page
+        self.stats['total_pages'] = total_pages
+        self.stats['total_projects'] = total_projects
+        self.stats['projects_processed'] = completed_projects
+
+        # 计算总体进度：页面爬取占30%，项目详情爬取占70%
+        if total_pages > 0 and total_projects > 0:
+            page_progress = (current_page / total_pages) * 30
+            detail_progress = (completed_projects / total_projects) * 70
+            self.stats['progress'] = page_progress + detail_progress
+        elif total_pages > 0:
+            self.stats['progress'] = (current_page / total_pages) * 100
+        elif project_progress > 0:
+            self.stats['progress'] = project_progress
+        else:
+            self.stats['progress'] = 0
+
         self.emit_update()
     
     def add_log(self, level, message):
@@ -94,6 +108,36 @@ class WebSpiderMonitor:
             'task_id': self.task_id,
             'stats': self.stats
         })
+
+def cleanup_old_tasks():
+    """清理旧任务状态，避免冲突"""
+    try:
+        # 清理已完成或失败的任务
+        tasks_to_remove = []
+        for task_id, task_info in active_tasks.items():
+            status = task_info['monitor'].stats.get('status', 'unknown')
+            if status in ['completed', 'failed', 'stopped', 'error']:
+                tasks_to_remove.append(task_id)
+
+        for task_id in tasks_to_remove:
+            # 清理爬虫实例
+            if task_id in spider_instances:
+                spider = spider_instances[task_id]
+                try:
+                    spider._cleanup_lightning_managers()
+                except:
+                    pass
+                del spider_instances[task_id]
+
+            # 清理任务记录
+            if task_id in active_tasks:
+                del active_tasks[task_id]
+
+        if tasks_to_remove:
+            print(f"🧹 清理了 {len(tasks_to_remove)} 个旧任务状态")
+
+    except Exception as e:
+        print(f"清理旧任务状态失败: {e}")
 
 @app.route('/')
 def index():
@@ -129,7 +173,10 @@ def start_crawl():
     """启动爬虫任务"""
     try:
         data = request.json
-        
+
+        # 🔧 清理旧任务状态，避免冲突
+        cleanup_old_tasks()
+
         # 生成任务ID
         task_id = str(uuid.uuid4())
         
@@ -170,11 +217,11 @@ def start_crawl():
                 monitor.add_log('info', f'开始爬取任务 {task_id}')
                 monitor.update_stats(status='running')
 
-                # 进度更新回调（预留接口）
-                # def update_progress_callback(current, total):
-                #     monitor.update_progress(current, total)
-                # def log_callback(level, message):
-                #     monitor.add_log(level, message)
+                # 设置进度更新回调
+                def update_progress_callback(current_page=0, total_pages=0, total_projects=0, completed_projects=0, project_progress=0):
+                    monitor.update_progress(current_page, total_pages, total_projects, completed_projects, project_progress)
+
+                spider.set_progress_callback(update_progress_callback)
 
                 # 启动爬虫
                 success = spider.start_crawling(
@@ -470,9 +517,17 @@ def get_database_projects():
     """获取数据库中的项目数据"""
     try:
         time_period = request.args.get('period', 'all')
+        category = request.args.get('category', 'all')
         limit = int(request.args.get('limit', 100))
 
-        projects = db_manager.get_projects_by_time(time_period, limit)
+        # 如果有分类筛选，使用搜索功能
+        if category != 'all':
+            conditions = {'category': category}
+            projects = db_manager.search_projects(conditions, limit, 0)
+            print(f"🔍 分类筛选 '{category}': 找到 {len(projects)} 个项目")
+        else:
+            projects = db_manager.get_projects_by_time(time_period, limit)
+            print(f"📊 时间筛选 '{time_period}': 找到 {len(projects)} 个项目")
 
         return jsonify({
             'success': True,

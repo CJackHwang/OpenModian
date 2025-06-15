@@ -743,8 +743,39 @@ class DatabaseManager:
                         where_clauses.append("author_name LIKE ?")
                         params.append(f"%{value}%")
                     elif field == 'category':
-                        where_clauses.append("category = ?")
-                        params.append(value)
+                        # 🔧 增强分类筛选：支持中英文分类匹配
+                        category_mapping = {
+                            'games': ['games', '游戏'],
+                            'publishing': ['publishing', '出版'],
+                            'tablegames': ['tablegames', '桌游'],
+                            'toys': ['toys', '潮玩模型'],
+                            'cards': ['cards', '卡牌'],
+                            'technology': ['technology', '科技'],
+                            'film-video': ['film-video', '影视'],
+                            'music': ['music', '音乐'],
+                            'activities': ['activities', '活动'],
+                            'design': ['design', '设计'],
+                            'curio': ['curio', '文玩'],
+                            'home': ['home', '家居'],
+                            'food': ['food', '食品'],
+                            'comics': ['comics', '动漫'],
+                            'charity': ['charity', '爱心通道'],
+                            'animals': ['animals', '动物救助'],
+                            'wishes': ['wishes', '个人愿望'],
+                            'others': ['others', '其他']
+                        }
+
+                        # 查找匹配的分类值
+                        possible_values = category_mapping.get(value, [value])
+                        if len(possible_values) > 1:
+                            placeholders = ','.join(['?' for _ in possible_values])
+                            where_clauses.append(f"category IN ({placeholders})")
+                            params.extend(possible_values)
+                        else:
+                            where_clauses.append("category = ?")
+                            params.append(value)
+
+                        print(f"🔍 分类筛选: {value} -> 匹配值: {possible_values}")
                     elif field == 'status':
                         where_clauses.append("project_status = ?")
                         params.append(value)
@@ -826,8 +857,37 @@ class DatabaseManager:
                         where_clauses.append("author_name LIKE ?")
                         params.append(f"%{value}%")
                     elif field == 'category':
-                        where_clauses.append("category = ?")
-                        params.append(value)
+                        # 🔧 增强分类筛选：支持中英文分类匹配
+                        category_mapping = {
+                            'games': ['games', '游戏'],
+                            'publishing': ['publishing', '出版'],
+                            'tablegames': ['tablegames', '桌游'],
+                            'toys': ['toys', '潮玩模型'],
+                            'cards': ['cards', '卡牌'],
+                            'technology': ['technology', '科技'],
+                            'film-video': ['film-video', '影视'],
+                            'music': ['music', '音乐'],
+                            'activities': ['activities', '活动'],
+                            'design': ['design', '设计'],
+                            'curio': ['curio', '文玩'],
+                            'home': ['home', '家居'],
+                            'food': ['food', '食品'],
+                            'comics': ['comics', '动漫'],
+                            'charity': ['charity', '爱心通道'],
+                            'animals': ['animals', '动物救助'],
+                            'wishes': ['wishes', '个人愿望'],
+                            'others': ['others', '其他']
+                        }
+
+                        # 查找匹配的分类值
+                        possible_values = category_mapping.get(value, [value])
+                        if len(possible_values) > 1:
+                            placeholders = ','.join(['?' for _ in possible_values])
+                            where_clauses.append(f"category IN ({placeholders})")
+                            params.extend(possible_values)
+                        else:
+                            where_clauses.append("category = ?")
+                            params.append(value)
                     elif field == 'status':
                         where_clauses.append("project_status = ?")
                         params.append(value)

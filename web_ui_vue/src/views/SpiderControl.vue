@@ -222,6 +222,24 @@
                 />
               </div>
 
+              <!-- 详细进度信息 -->
+              <div class="mb-4" v-if="currentTask.stats">
+                <v-row>
+                  <v-col cols="12" md="6">
+                    <div class="text-subtitle-2 mb-1">页面进度</div>
+                    <div class="text-body-2">
+                      {{ currentTask.stats.current_page || 0 }} / {{ currentTask.stats.total_pages || 0 }} 页
+                    </div>
+                  </v-col>
+                  <v-col cols="12" md="6">
+                    <div class="text-subtitle-2 mb-1">项目进度</div>
+                    <div class="text-body-2">
+                      {{ currentTask.stats.projects_processed || 0 }} / {{ currentTask.stats.total_projects || 0 }} 个项目
+                    </div>
+                  </v-col>
+                </v-row>
+              </div>
+
               <!-- 统计信息 -->
               <v-row class="text-center">
                 <v-col cols="6" md="3">

@@ -268,7 +268,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
 
@@ -309,6 +309,17 @@ const categoryOptions = [
   { value: 'toys', title: '潮玩模型' },
   { value: 'cards', title: '卡牌' },
   { value: 'technology', title: '科技' },
+  { value: 'film-video', title: '影视' },
+  { value: 'music', title: '音乐' },
+  { value: 'activities', title: '活动' },
+  { value: 'design', title: '设计' },
+  { value: 'curio', title: '文玩' },
+  { value: 'home', title: '家居' },
+  { value: 'food', title: '食品' },
+  { value: 'comics', title: '动漫' },
+  { value: 'charity', title: '爱心通道' },
+  { value: 'animals', title: '动物救助' },
+  { value: 'wishes', title: '个人愿望' },
   { value: 'others', title: '其他' }
 ]
 
@@ -320,13 +331,36 @@ const categoryDisplayNames = {
   'toys': '潮玩模型',
   'cards': '卡牌',
   'technology': '科技',
+  'film-video': '影视',
+  'music': '音乐',
+  'activities': '活动',
+  'design': '设计',
+  'curio': '文玩',
+  'home': '家居',
+  'food': '食品',
+  'comics': '动漫',
+  'charity': '爱心通道',
+  'animals': '动物救助',
+  'wishes': '个人愿望',
   'others': '其他',
+  // 支持中文分类（向后兼容）
   '桌游': '桌游',
   '游戏': '游戏',
   '出版': '出版',
   '潮玩模型': '潮玩模型',
   '卡牌': '卡牌',
-  '科技': '科技'
+  '科技': '科技',
+  '影视': '影视',
+  '音乐': '音乐',
+  '活动': '活动',
+  '设计': '设计',
+  '文玩': '文玩',
+  '家居': '家居',
+  '食品': '食品',
+  '动漫': '动漫',
+  '爱心通道': '爱心通道',
+  '动物救助': '动物救助',
+  '个人愿望': '个人愿望'
 }
 
 // 表格列定义
@@ -342,23 +376,17 @@ const headers = [
   { title: '爬取时间', key: 'crawl_time', sortable: true, width: '150px' }
 ]
 
-// 计算属性
+// 计算属性 - 现在主要用于显示，实际筛选通过API完成
 const filteredProjects = computed(() => {
-  let filtered = projects.value
-
-  // 分类筛选
-  if (filters.category !== 'all') {
-    filtered = filtered.filter(p => p.category === filters.category)
-  }
-
-  // 搜索筛选
+  // 如果有搜索条件，在前端进行实时搜索筛选
   if (filters.search) {
-    filtered = filtered.filter(p =>
+    return projects.value.filter(p =>
       p.project_name?.toLowerCase().includes(filters.search.toLowerCase())
     )
   }
 
-  return filtered
+  // 否则直接返回从API获取的数据
+  return projects.value
 })
 
 // 方法
@@ -366,12 +394,25 @@ const refreshData = async () => {
   try {
     loading.value = true
 
+    // 构建查询参数
+    const params = new URLSearchParams({
+      period: filters.period,
+      limit: '1000'
+    })
+
+    // 添加分类筛选参数
+    if (filters.category !== 'all') {
+      params.append('category', filters.category)
+    }
+
     // 加载项目数据
-    const projectsResponse = await axios.get('/api/database/projects')
+    const projectsResponse = await axios.get(`/api/database/projects?${params.toString()}`)
     if (projectsResponse.data.success) {
       projects.value = projectsResponse.data.projects || []
-      console.log('📊 加载项目数据:', projects.value.length, '条')
-      console.log('📊 前5个项目的分类:', projects.value.slice(0, 5).map(p => ({ name: p.project_name, category: p.category })))
+      console.log(`📊 加载项目数据: ${projects.value.length} 条，分类筛选: ${filters.category}`)
+      if (projects.value.length > 0) {
+        console.log('📊 前5个项目的分类:', projects.value.slice(0, 5).map(p => ({ name: p.project_name, category: p.category })))
+      }
     }
 
     // 加载统计数据
@@ -391,7 +432,8 @@ const refreshData = async () => {
 }
 
 const applyFilters = () => {
-  // 筛选逻辑由计算属性处理
+  // 重新加载数据以应用筛选条件
+  refreshData()
 }
 
 const debounceSearch = (() => {
@@ -511,6 +553,12 @@ const goToProjectDetail = (projectId) => {
     router.push(`/projects/${projectId}`)
   }
 }
+
+// 监听筛选条件变化
+watch([() => filters.category, () => filters.period], () => {
+  console.log(`🔄 筛选条件变化: 分类=${filters.category}, 时间=${filters.period}`)
+  applyFilters()
+})
 
 // 生命周期
 onMounted(() => {

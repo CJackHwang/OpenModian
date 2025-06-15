@@ -1384,9 +1384,9 @@ class AdaptiveParser:
         except Exception as e:
             self._log("warning", f"关键导航数据提取失败: {e}")
 
-        # 🔧 简化策略：直接使用动态数据获取，跳过无效的静态解析
+        # 🔧 完全移除静态解析，仅使用动态数据获取
         if self.config.ENABLE_DYNAMIC_DATA:
-            self._log("info", "跳过静态解析，直接使用动态数据获取")
+            self._log("info", "使用动态数据获取（已移除静态解析功能）")
             try:
                 dynamic_data = self._get_complete_dynamic_data(soup)
                 if dynamic_data:
@@ -1396,12 +1396,16 @@ class AdaptiveParser:
                     if dynamic_data.get("comment_count", "0") != "0":
                         result["comment_count"] = dynamic_data["comment_count"]
                     self._log("info", f"✅ 动态数据获取完成: 看好数={result['like_count']}, 评论数={result['comment_count']}")
+                else:
+                    self._log("warning", "动态数据获取返回空结果")
             except Exception as e:
                 self._log("warning", f"动态数据获取失败: {e}")
+        else:
+            self._log("warning", "动态数据获取已禁用，无法获取看好数和评论数")
 
         # 最终验证和日志
         extracted_count = sum(1 for v in result.values() if v != "0")
-        self._log("info", f"📊 导航数据提取完成: {extracted_count}/3 个字段成功")
+        self._log("info", f"📊 导航数据提取完成: {extracted_count}/2 个字段成功（看好数、评论数）")
 
         return result
 
@@ -1439,23 +1443,48 @@ class AdaptiveParser:
 
 
     def _get_complete_dynamic_data(self, soup: BeautifulSoup) -> Dict[str, str]:
-        """获取完整的动态数据（闪电般快速版本）"""
+        """获取完整的动态数据（修复并发问题版本）"""
         try:
             # 从页面中提取项目ID
             project_id = self._extract_project_id_from_page(soup)
             if not project_id:
+                self._log("warning", "无法提取项目ID")
                 return {"like_count": "0", "comment_count": "0"}
 
-            # 使用闪电般快速动态数据管理器
-            if not hasattr(self, '_lightning_manager'):
-                from .lightning_fast_dynamic import LightningDataManager
-                self._lightning_manager = LightningDataManager(self.config, self.network_utils)
+            # 🔧 修复并发问题：为每个线程创建独立的动态数据管理器
+            # 使用线程本地存储确保每个并发任务都有独立的管理器实例
+            thread_id = threading.current_thread().ident
+            manager_key = f'_lightning_manager_{thread_id}'
 
-            return self._lightning_manager.get_lightning_data(project_id)
+            if not hasattr(self, manager_key):
+                from .lightning_fast_dynamic import LightningDataManager
+                manager = LightningDataManager(self.config, self.network_utils)
+                setattr(self, manager_key, manager)
+                self._log("info", f"为线程 {thread_id} 创建独立的动态数据管理器")
+
+            manager = getattr(self, manager_key)
+            result = manager.get_lightning_data(project_id)
+
+            self._log("info", f"项目 {project_id} 动态数据获取结果: 看好数={result.get('like_count', '0')}, 评论数={result.get('comment_count', '0')}")
+            return result
 
         except Exception as e:
-            self._log("warning", f"闪电动态数据获取失败: {e}")
+            self._log("warning", f"项目动态数据获取失败: {e}")
             return {"like_count": "0", "comment_count": "0"}
+
+    def _cleanup_lightning_managers(self):
+        """清理所有动态数据管理器"""
+        try:
+            # 查找所有线程特定的管理器并清理
+            for attr_name in dir(self):
+                if attr_name.startswith('_lightning_manager_'):
+                    manager = getattr(self, attr_name)
+                    if hasattr(manager, 'cleanup'):
+                        manager.cleanup()
+                    delattr(self, attr_name)
+            self._log("info", "动态数据管理器清理完成")
+        except Exception as e:
+            self._log("warning", f"清理动态数据管理器失败: {e}")
 
     def _extract_update_count_only(self, soup: BeautifulSoup) -> str:
         """专门提取更新数"""
@@ -1606,6 +1635,25 @@ class SpiderCore:
 
         self._log("info", f"爬虫初始化完成，输出目录: {self.config.OUTPUT_DIR}")
 
+    def _cleanup_lightning_managers(self):
+        """清理所有动态数据管理器"""
+        try:
+            # 清理解析器中的管理器
+            if hasattr(self.parser, '_cleanup_lightning_managers'):
+                self.parser._cleanup_lightning_managers()
+
+            # 清理自身的管理器（如果有的话）
+            for attr_name in list(vars(self).keys()):
+                if attr_name.startswith('_lightning_manager_'):
+                    manager = getattr(self, attr_name)
+                    if hasattr(manager, 'cleanup'):
+                        manager.cleanup()
+                    delattr(self, attr_name)
+
+            self._log("info", "动态数据管理器清理完成")
+        except Exception as e:
+            self._log("warning", f"清理动态数据管理器失败: {e}")
+
     def _log(self, level: str, message: str):
         """统一日志输出"""
         print(message)
@@ -1659,7 +1707,8 @@ class SpiderCore:
 
             # 更新进度
             if self._progress_callback:
-                self._progress_callback(0, end_page - start_page + 1, len(project_urls), 0)
+                total_pages = end_page - start_page + 1
+                self._progress_callback(current_page=total_pages, total_pages=total_pages, total_projects=len(project_urls), completed_projects=0)
 
             # 爬取项目详情
             success = self._crawl_project_details(project_urls)
@@ -1689,6 +1738,8 @@ class SpiderCore:
             return False
         finally:
             self._is_running = False
+            # 清理动态数据管理器
+            self._cleanup_lightning_managers()
 
     def _crawl_project_lists(self, start_page: int, end_page: int,
                            category: str) -> List[Tuple[str, str, str, str]]:
@@ -1716,7 +1767,7 @@ class SpiderCore:
                     if self._progress_callback:
                         current_progress = page - start_page + 1
                         total_pages = end_page - start_page + 1
-                        self._progress_callback(current_progress, total_pages, len(project_urls), 0)
+                        self._progress_callback(current_page=current_progress, total_pages=total_pages, total_projects=len(project_urls), completed_projects=0)
                 else:
                     self.monitor.record_page(False)
                     self._log("warning", f"第 {page} 页未发现项目")
@@ -1877,22 +1928,25 @@ class SpiderCore:
         return False
 
     def _crawl_project_details(self, project_urls: List[Tuple[str, str, str, str]]) -> bool:
-        """爬取项目详情"""
+        """爬取项目详情（增强进度显示版本）"""
         if not project_urls:
             return False
+
+        total_projects = len(project_urls)
+        self._log("info", f"开始并发爬取 {total_projects} 个项目详情，并发数: {self.config.MAX_CONCURRENT_REQUESTS}")
 
         # 使用线程池并发爬取
         with ThreadPoolExecutor(max_workers=self.config.MAX_CONCURRENT_REQUESTS) as executor:
             # 提交任务
             future_to_project = {
-                executor.submit(self._crawl_single_project, i, project_info): project_info
+                executor.submit(self._crawl_single_project, i, project_info): (i, project_info)
                 for i, project_info in enumerate(project_urls)
             }
 
             # 处理结果
             completed = 0
             for future in as_completed(future_to_project):
-                project_info = future_to_project[future]
+                _, project_info = future_to_project[future]
 
                 try:
                     result = future.result()
@@ -1900,21 +1954,32 @@ class SpiderCore:
                         with self._lock:
                             self.projects_data.append(result)
                         self.monitor.record_project("processed")
+                        self._log("success", f"项目 {project_info[2]} 处理成功")
                     else:
                         self.monitor.record_project("failed")
                         self.failed_urls.append(project_info[0])
+                        self._log("warning", f"项目 {project_info[2]} 处理失败")
 
                 except Exception as e:
-                    print(f"处理项目失败 {project_info[2]}: {e}")
+                    self._log("error", f"处理项目失败 {project_info[2]}: {e}")
                     self.monitor.record_error("project_process_error", str(e))
                     self.monitor.record_project("failed")
                     self.failed_urls.append(project_info[0])
 
                 completed += 1
-                if completed % 10 == 0:
-                    print(f"已完成 {completed}/{len(project_urls)} 个项目")
 
-        print(f"项目详情爬取完成，成功: {len(self.projects_data)}, 失败: {len(self.failed_urls)}")
+                # 更新进度到Web UI
+                if self._progress_callback:
+                    # 计算总体进度：页面爬取 + 项目详情爬取
+                    project_progress = (completed / total_projects) * 100
+                    self._progress_callback(current_page=0, total_pages=0, total_projects=total_projects, completed_projects=completed, project_progress=project_progress)
+
+                # 定期输出进度
+                if completed % 5 == 0 or completed == total_projects:
+                    progress_percent = (completed / total_projects) * 100
+                    self._log("info", f"项目详情进度: {completed}/{total_projects} ({progress_percent:.1f}%)")
+
+        self._log("info", f"项目详情爬取完成，成功: {len(self.projects_data)}, 失败: {len(self.failed_urls)}")
         return len(self.projects_data) > 0
 
     def _crawl_single_project(self, index: int, project_info: Tuple[str, str, str, str]) -> Optional[List[Any]]:

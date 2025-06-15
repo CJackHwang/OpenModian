@@ -744,10 +744,14 @@ const categoryOptions = [
 ]
 
 const statusOptions = [
-  { value: 'active', title: '进行中' },
-  { value: 'completed', title: '已完成' },
-  { value: 'failed', title: '失败' },
-  { value: 'cancelled', title: '已取消' }
+  { value: '创意', title: '创意' },
+  { value: '预热', title: '预热' },
+  { value: '众筹中', title: '众筹中' },
+  { value: '众筹成功', title: '众筹成功' },
+  { value: '项目终止', title: '项目终止' },
+  { value: '众筹失败', title: '众筹失败' },
+  { value: '众筹取消', title: '众筹取消' },
+  { value: '未知情况', title: '未知情况' }
 ]
 
 // 表格列定义
@@ -1153,6 +1157,16 @@ const getCategoryDisplayName = (category) => {
 
 const getStatusColor = (status) => {
   const colors = {
+    // 实际网页状态
+    '创意': 'info',
+    '预热': 'warning',
+    '众筹中': 'success',
+    '众筹成功': 'primary',
+    '项目终止': 'error',
+    '众筹失败': 'error',
+    '众筹取消': 'warning',
+    '未知情况': 'default',
+    // 向后兼容旧状态
     'active': 'success',
     'completed': 'primary',
     'failed': 'error',

@@ -8,47 +8,39 @@
 import time
 import threading
 from typing import Dict, Optional
-import atexit
 
 
 class LightningFastExtractor:
-    """闪电般快速提取器"""
-    
-    _shared_driver = None
-    _driver_lock = threading.Lock()
-    _last_used = 0
-    
+    """闪电般快速提取器 - 修复并发问题版本"""
+
     def __init__(self, config):
         self.config = config
         self.timeout = getattr(config, 'LIGHTNING_TIMEOUT', 10)  # 10秒超时，等待特效完成
+        self._driver = None  # 每个实例独立的驱动
+        self._driver_lock = threading.Lock()
 
     def _log(self, level: str, message: str):
         """简单日志输出"""
         print(f"[{level.upper()}] {message}")
-        
-    @classmethod
-    def _get_shared_driver(cls):
-        """获取共享的浏览器实例"""
-        with cls._driver_lock:
-            current_time = time.time()
-            
-            # 如果驱动不存在或超过5分钟未使用，重新创建
-            if (cls._shared_driver is None or 
-                current_time - cls._last_used > 300):
-                
-                if cls._shared_driver:
-                    try:
-                        cls._shared_driver.quit()
-                    except:
-                        pass
-                
-                cls._shared_driver = cls._create_lightning_driver()
-            
-            cls._last_used = current_time
-            return cls._shared_driver
+
+    def _get_driver(self):
+        """获取当前实例的独立浏览器实例"""
+        with self._driver_lock:
+            if self._driver is None:
+                self._driver = self._create_lightning_driver()
+            return self._driver
+
+    def _cleanup_driver(self):
+        """清理当前实例的驱动"""
+        with self._driver_lock:
+            if self._driver:
+                try:
+                    self._driver.quit()
+                except:
+                    pass
+                self._driver = None
     
-    @classmethod
-    def _create_lightning_driver(cls):
+    def _create_lightning_driver(self):
         """创建闪电般快速的浏览器"""
         try:
             from selenium import webdriver
@@ -103,20 +95,21 @@ class LightningFastExtractor:
             return None
     
     def get_lightning_data(self, project_id: str) -> Dict[str, str]:
-        """闪电般获取数据 - 基于用户观察的第三次数据真实策略"""
-        driver = self._get_shared_driver()
+        """闪电般获取数据 - 修复并发问题版本"""
+        driver = self._get_driver()
         if not driver:
             return {"like_count": "0", "comment_count": "0"}
 
         project_url = f"https://zhongchou.modian.com/item/{project_id}.html"
 
-        # 🔧 基于用户观察：第三次数据是真实的，实现3次重试机制
+        # 🔧 修复并发问题：使用独立驱动实例，确保数据不混淆
         for attempt in range(3):
             try:
                 start_time = time.time()
 
-                # 快速导航
+                # 快速导航到项目页面
                 driver.get(project_url)
+                print(f"🌐 访问项目 {project_id} (第{attempt+1}次尝试)")
 
                 # 立即执行滚动脚本并等待动画完成
                 driver.execute_script("""
@@ -142,15 +135,15 @@ class LightningFastExtractor:
                 # 如果获取到有效数据，或者是第3次尝试，返回结果
                 if (data["like_count"] != "0" or data["comment_count"] != "0") or attempt == 2:
                     if data["like_count"] != "0" or data["comment_count"] != "0":
-                        print(f"⚡ 闪电获取成功 (第{attempt+1}次)，耗时: {elapsed:.0f}ms")
+                        print(f"⚡ 项目 {project_id} 获取成功 (第{attempt+1}次)，看好数={data['like_count']}, 评论数={data['comment_count']}, 耗时: {elapsed:.0f}ms")
                     else:
-                        print(f"⏰ 闪电获取完成 (第{attempt+1}次)，耗时: {elapsed:.0f}ms")
+                        print(f"⏰ 项目 {project_id} 获取完成 (第{attempt+1}次)，耗时: {elapsed:.0f}ms")
                     return data
                 else:
-                    print(f"🔄 第{attempt+1}次尝试未获取到数据，继续重试...")
+                    print(f"🔄 项目 {project_id} 第{attempt+1}次尝试未获取到数据，继续重试...")
 
             except Exception as e:
-                print(f"第{attempt+1}次闪电获取失败: {e}")
+                print(f"项目 {project_id} 第{attempt+1}次闪电获取失败: {e}")
                 if attempt == 2:  # 最后一次尝试
                     return {"like_count": "0", "comment_count": "0"}
 
@@ -240,50 +233,59 @@ class LightningFastExtractor:
 
         return result
     
-    @classmethod
-    def cleanup(cls):
-        """清理共享驱动"""
-        with cls._driver_lock:
-            if cls._shared_driver:
-                try:
-                    cls._shared_driver.quit()
-                except:
-                    pass
-                cls._shared_driver = None
+    def cleanup(self):
+        """清理当前实例的驱动"""
+        self._cleanup_driver()
 
-
-# 注册清理函数
-atexit.register(LightningFastExtractor.cleanup)
+    def __del__(self):
+        """析构函数，确保驱动被清理"""
+        try:
+            self.cleanup()
+        except:
+            pass
 
 
 class LightningDataManager:
-    """闪电数据管理器"""
-    
+    """闪电数据管理器 - 修复并发问题版本"""
+
     def __init__(self, config, network_utils):
         self.config = config
         self.network_utils = network_utils
-        self.extractor = LightningFastExtractor(config)
+        self.extractor = LightningFastExtractor(config)  # 每个管理器独立的提取器
         self._cache = {}
-        
+
     def get_lightning_data(self, project_id: str) -> Dict[str, str]:
-        """获取闪电数据"""
+        """获取闪电数据 - 确保每个项目获取独有数据"""
         # 检查缓存
         if project_id in self._cache:
             cache_time, data = self._cache[project_id]
             if time.time() - cache_time < 1800:  # 30分钟缓存
+                print(f"📦 使用缓存数据: 项目 {project_id}")
                 return data
-        
+
         # 闪电获取
         start_time = time.time()
         data = self.extractor.get_lightning_data(project_id)
         elapsed_time = time.time() - start_time
-        
-        print(f"⚡ 闪电数据获取完成: {elapsed_time:.2f}秒")
-        
+
+        print(f"⚡ 项目 {project_id} 闪电数据获取完成: {elapsed_time:.2f}秒")
+
         # 缓存结果
         self._cache[project_id] = (time.time(), data)
-        
+
         return data
+
+    def cleanup(self):
+        """清理资源"""
+        if hasattr(self, 'extractor'):
+            self.extractor.cleanup()
+
+    def __del__(self):
+        """析构函数"""
+        try:
+            self.cleanup()
+        except:
+            pass
     
     def batch_lightning_data(self, project_ids: list) -> Dict[str, Dict[str, str]]:
         """批量闪电获取"""
