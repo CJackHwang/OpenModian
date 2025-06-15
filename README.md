@@ -113,7 +113,7 @@ npm install
 npm run build
 
 # 4. 启动服务
-cd ../web_ui
+cd ..
 python3 app.py
 ```
 
@@ -137,27 +137,42 @@ python3 app.py
 ### 项目结构
 ```
 spider_modian-main/
-├── spider/                 # 爬虫核心模块
-│   ├── core.py            # 爬虫引擎
-│   ├── config.py          # 配置管理
-│   ├── lightning_fast_dynamic.py  # 动态数据获取
-│   └── ...
-├── web_ui/                # Flask后端
-│   └── app.py            # Web API服务
-├── web_ui_vue/           # Vue3前端
-│   ├── src/              # 源代码
-│   ├── dist/             # 构建输出
-│   └── package.json      # 依赖配置
-├── database/             # 数据库模块
-│   ├── db_manager.py     # 数据库管理
-│   └── modian_data.db    # SQLite数据库
-├── data/                 # 数据存储目录
-├── logs/                 # 日志文件
-├── config/               # 配置文件
-├── tests/                # 测试文件
-├── start_vue_ui.py       # 一键启动脚本
-├── requirements.txt      # Python依赖
-└── README.md            # 项目文档
+├── spider/                    # 🕷️ 爬虫核心模块
+│   ├── core.py               # 爬虫引擎核心逻辑
+│   ├── config.py             # 配置管理和常量定义
+│   ├── lightning_fast_dynamic.py  # 闪电快速动态数据获取
+│   ├── exporter.py           # 数据导出模块
+│   ├── monitor.py            # 爬虫监控和统计
+│   ├── utils.py              # 工具函数和辅助类
+│   └── validator.py          # 数据验证模块
+├── web_ui_vue/               # 🎨 Vue3前端界面
+│   ├── src/                  # 前端源代码
+│   │   ├── components/       # Vue组件
+│   │   ├── views/           # 页面视图
+│   │   ├── stores/          # Pinia状态管理
+│   │   └── router/          # 路由配置
+│   ├── dist/                # 构建输出目录
+│   ├── package.json         # 前端依赖配置
+│   └── vite.config.js       # Vite构建配置
+├── data/                     # 📁 数据存储目录
+│   ├── database/            # SQLite数据库文件
+│   ├── raw/                 # 原始爬取数据
+│   ├── exports/             # 用户导出文件
+│   ├── cache/               # 缓存数据
+│   └── reports/             # 分析报告
+├── config/                   # ⚙️ 配置文件
+│   └── spider_config.yaml   # 爬虫配置文件
+├── logs/                     # 📋 日志文件目录
+│   ├── spider/              # 爬虫日志
+│   ├── system/              # 系统日志
+│   └── webui/               # Web界面日志
+├── tests/                    # 🧪 测试文件
+│   └── test_spider.py       # 爬虫单元测试
+├── app.py                    # 🌐 Flask Web服务器
+├── start_vue_ui.py          # 🚀 一键启动脚本
+├── requirements.txt         # 📦 Python依赖列表
+├── TODO.txt                 # 📝 开发任务清单
+└── README.md               # 📖 项目说明文档
 ```
 
 ## 📖 使用指南
@@ -264,17 +279,24 @@ python3 -m pytest --cov=spider tests/
 
 ## 📝 更新日志
 
-### v2.0.0 (2025-06-15)
-- ✨ 全新Vue 3 + Material Design 3界面
-- 🚀 闪电快速动态数据获取
-- 🗄️ 高级SQL-like数据管理界面
-- 📊 实时监控仪表板
-- 🔧 一键启动脚本
+### v2.1.0 (2025-06-15) - 项目优化版本
+- 🧹 **项目结构优化**：清理冗余文件，统一项目架构
+- 📚 **文档完善**：更新README，完善项目说明和使用指南
+- 🗂️ **目录整理**：优化数据存储结构，清理测试和调试文件
+- ⚡ **性能提升**：移除过时代码，提升系统运行效率
+- 🔧 **配置优化**：统一配置管理，简化部署流程
 
-### v1.0.0
-- 🕷️ 基础爬虫功能
-- 💾 数据存储和导出
-- 🌐 简单Web界面
+### v2.0.0 (2025-06-15) - 现代化重构版本
+- ✨ **全新Vue 3界面**：基于Vue 3 + Vuetify 3 + Material Design 3
+- 🚀 **闪电动态数据**：优化的Selenium集成，快速获取异步数据
+- 🗄️ **高级数据管理**：SQL-like数据管理界面，支持高级筛选
+- 📊 **实时监控仪表板**：WebSocket实时通信，任务状态监控
+- 🔧 **一键启动脚本**：自动化部署，支持开发和生产模式
+
+### v1.0.0 - 基础功能版本
+- 🕷️ **基础爬虫功能**：摩点众筹数据采集
+- 💾 **数据存储导出**：Excel、CSV、JSON格式支持
+- 🌐 **简单Web界面**：基础的数据查看和管理
 
 ## 🤝 贡献指南
 
