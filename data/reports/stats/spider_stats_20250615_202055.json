@@ -1,0 +1,33 @@
+{
+  "stats": {
+    "start_time": "2025-06-15T20:18:37.594939",
+    "end_time": "2025-06-15T20:20:55.609418",
+    "runtime_seconds": 138.014479,
+    "total_requests": 65,
+    "successful_requests": 65,
+    "failed_requests": 0,
+    "cached_requests": 26,
+    "success_rate": 100.0,
+    "error_rate": 0.0,
+    "pages_processed": 5,
+    "pages_failed": 0,
+    "projects_found": 60,
+    "projects_processed": 60,
+    "projects_failed": 0,
+    "projects_skipped": 0,
+    "avg_request_time": 0.816,
+    "avg_parse_time": 8.646,
+    "requests_per_minute": 29.97,
+    "error_counts": {},
+    "consecutive_errors": 0,
+    "data_validation_passed": 47,
+    "data_validation_failed": 13
+  },
+  "errors": {
+    "error_counts": {},
+    "recent_errors": [],
+    "consecutive_errors": 0,
+    "error_rate": 0.0
+  },
+  "generated_at": "2025-06-15T20:20:55.679753"
+}

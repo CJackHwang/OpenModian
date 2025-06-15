@@ -111,8 +111,8 @@ class AdaptiveParser:
                 continue
         return None
 
-    def adaptive_parse_project_list(self, html: str) -> List[Tuple[str, str, str, str]]:
-        """智能适配解析项目列表"""
+    def adaptive_parse_project_list(self, html: str) -> List[Tuple[str, str, str, str, Dict[str, str]]]:
+        """智能适配解析项目列表 - 增强版，提取首页列表中的所有可用数据"""
         projects = []
         soup = BeautifulSoup(html, "html.parser")
 
@@ -163,7 +163,10 @@ class AdaptiveParser:
                             project_image = ParserUtils.safe_get_attr(img_element, 'src')
                             project_image = self.data_utils.validate_url(project_image)
 
-                        projects.append((project_url, project_id, project_name, project_image))
+                        # 🎯 提取首页列表中的额外数据
+                        list_data = self._extract_list_page_data(item, project_id)
+
+                        projects.append((project_url, project_id, project_name, project_image, list_data))
 
                     except Exception as e:
                         print(f"解析单个项目失败: {e}")
@@ -180,7 +183,7 @@ class AdaptiveParser:
         print("⚠️ 所有选择器策略都失败了，尝试通用解析")
         return self._fallback_parse_project_list(soup)
 
-    def _fallback_parse_project_list(self, soup: BeautifulSoup) -> List[Tuple[str, str, str, str]]:
+    def _fallback_parse_project_list(self, soup: BeautifulSoup) -> List[Tuple[str, str, str, str, Dict[str, str]]]:
         """通用回退解析策略"""
         projects = []
 
@@ -208,13 +211,104 @@ class AdaptiveParser:
                     project_image = ParserUtils.safe_get_attr(img_element, 'src')
                     project_image = self.data_utils.validate_url(project_image)
 
-                projects.append((project_url, project_id, project_name, project_image))
+                # 尝试从父元素提取列表数据
+                parent_li = link.find_parent('li')
+                if parent_li:
+                    list_data = self._extract_list_page_data(parent_li, project_id)
+                else:
+                    list_data = {
+                        "list_backer_money": "0",
+                        "list_rate": "0",
+                        "list_backer_count": "0",
+                        "list_author_name": "none"
+                    }
+
+                projects.append((project_url, project_id, project_name, project_image, list_data))
 
             except Exception as e:
                 print(f"通用解析失败: {e}")
                 continue
 
         return projects
+
+    def _extract_list_page_data(self, item_element, project_id: str) -> Dict[str, str]:
+        """从首页列表项中提取额外数据"""
+        list_data = {
+            "list_backer_money": "0",      # 已筹金额
+            "list_rate": "0",              # 完成率
+            "list_backer_count": "0",      # 支持者数量
+            "list_author_name": "none"     # 作者名称
+        }
+
+        try:
+            # 1. 提取已筹金额 - 从backer_money属性
+            backer_money_spans = item_element.select('span[backer_money]')
+            for span in backer_money_spans:
+                span_text = ParserUtils.safe_get_text(span).strip()
+                if span_text and span_text.replace(',', '').replace('.', '').isdigit():
+                    list_data["list_backer_money"] = span_text.replace(',', '')
+                    break
+
+            # 2. 提取完成率 - 从rate属性
+            rate_spans = item_element.select('span[rate]')
+            for span in rate_spans:
+                span_text = ParserUtils.safe_get_text(span).strip()
+                if span_text and '%' in span_text:
+                    list_data["list_rate"] = span_text.replace('%', '')
+                    break
+                elif span_text and span_text.replace('.', '').isdigit():
+                    try:
+                        rate_val = float(span_text)
+                        if rate_val > 10:  # 如果大于10，可能是百分比形式
+                            list_data["list_rate"] = str(rate_val)
+                        else:  # 如果小于等于10，可能是小数形式，需要乘100
+                            list_data["list_rate"] = str(rate_val * 100)
+                        break
+                    except ValueError:
+                        continue
+
+            # 3. 提取支持者数量 - 从backer_count属性
+            backer_count_spans = item_element.select('span[backer_count]')
+            for span in backer_count_spans:
+                span_text = ParserUtils.safe_get_text(span).strip()
+                if span_text and span_text.isdigit():
+                    list_data["list_backer_count"] = span_text
+                    break
+
+            # 4. 提取作者名称 - 从作者区域
+            author_elements = item_element.select('.author p, .author a')
+            for elem in author_elements:
+                author_text = ParserUtils.safe_get_text(elem).strip()
+                if author_text and len(author_text) > 0 and len(author_text) < 50:
+                    list_data["list_author_name"] = author_text
+                    break
+
+            # 🔧 回退到文本解析（如果HTML属性提取失败）
+            if list_data["list_backer_count"] == "0":
+                item_text = item_element.get_text()
+                # 查找"支持者"模式
+                supporter_matches = re.findall(r'(\d+)\s*支持者', item_text)
+                if supporter_matches:
+                    list_data["list_backer_count"] = supporter_matches[0]
+                else:
+                    # 查找其他支持者模式
+                    supporter_patterns = [
+                        r'(\d+)\s*人\s*支持',
+                        r'支持者\s*(\d+)',
+                        r'(\d+)\s*人',
+                    ]
+                    for pattern in supporter_patterns:
+                        match = re.search(pattern, item_text)
+                        if match:
+                            list_data["list_backer_count"] = match.group(1)
+                            break
+
+            self._log("debug", f"列表数据提取: 项目{project_id} -> 已筹¥{list_data['list_backer_money']}, 完成率{list_data['list_rate']}%, 支持者{list_data['list_backer_count']}人")
+
+        except Exception as e:
+            self._log("warning", f"列表数据提取失败: {e}")
+
+        return list_data
 
     def _extract_js_data(self, soup: BeautifulSoup) -> Dict[str, Any]:
         """从JavaScript代码中提取项目数据"""
@@ -582,117 +676,175 @@ class AdaptiveParser:
         sponsor_num = "0"
 
         try:
-            # 从页面文本中提取已筹金额 - "已筹¥1,608"
-            page_text = soup.get_text()
+            # 🎯 优先使用HTML属性提取（最准确的方法）
+            self._log("info", "开始解析众筹信息...")
 
-            # 解析已筹金额 - 处理编码问题 "å·²ç­¹Â¥1,608"
-            money_patterns = [
-                r'已筹[¥￥Â¥]([0-9,]+)',  # 正常编码
-                r'å·²ç­¹[¥￥Â¥]([0-9,]+)',  # 编码后的中文
-                r'已筹.*?[¥￥Â¥]\s*([0-9,]+)',  # 宽松匹配
-                r'å·²ç­¹.*?[¥￥Â¥]\s*([0-9,]+)'   # 编码后宽松匹配
-            ]
-
-            for pattern in money_patterns:
-                money_match = re.search(pattern, page_text)
-                if money_match:
-                    money = self.data_utils.format_money(money_match.group(1).replace(',', ''))
-                    self._log("info", f"找到已筹金额: ¥{money}")
+            # 1. 提取已筹金额 - 从backer_money属性
+            backer_money_spans = soup.find_all('span', attrs={'backer_money': True})
+            for span in backer_money_spans:
+                span_text = ParserUtils.safe_get_text(span).strip()
+                if span_text and span_text.replace(',', '').replace('.', '').isdigit():
+                    money = span_text.replace(',', '')
+                    self._log("info", f"从backer_money属性提取已筹金额: ¥{money}")
                     break
 
-            # 解析目标金额 - 处理编码问题和多种格式
-            goal_patterns = [
-                r'目标金额\s*[¥￥Â¥]([0-9,]+)',  # 正常编码
-                r'ç®æ éé¢\s*[¥￥Â¥]([0-9,]+)',  # 编码后的中文
-                r'目标金额.*?[¥￥Â¥]\s*([0-9,]+)',  # 宽松匹配
-                r'ç®æ éé¢.*?[¥￥Â¥]\s*([0-9,]+)',   # 编码后宽松匹配
-                r'目标[¥￥Â¥]([0-9,]+)',  # 简化格式
-                r'ç®æ[¥￥Â¥]([0-9,]+)',  # 编码后简化格式
-                r'目标.*?([0-9,]+)',  # 最宽松匹配
-                r'ç®æ.*?([0-9,]+)'   # 编码后最宽松匹配
-            ]
+            # 2. 提取完成率 - 从rate属性
+            rate_spans = soup.find_all('span', attrs={'rate': True})
+            for span in rate_spans:
+                span_text = ParserUtils.safe_get_text(span).strip()
+                if span_text and '%' in span_text:
+                    percent = span_text.replace('%', '')
+                    self._log("info", f"从rate属性提取完成率: {percent}%")
+                    break
+                elif span_text and span_text.replace('.', '').isdigit():
+                    # 有些页面rate属性值是数字，需要转换为百分比
+                    try:
+                        rate_val = float(span_text)
+                        if rate_val > 10:  # 如果大于10，可能是百分比形式
+                            percent = str(rate_val)
+                        else:  # 如果小于等于10，可能是小数形式，需要乘100
+                            percent = str(rate_val * 100)
+                        self._log("info", f"从rate属性计算完成率: {percent}%")
+                        break
+                    except ValueError:
+                        continue
 
-            for pattern in goal_patterns:
-                goal_match = re.search(pattern, page_text)
+            # 3. 提取支持者数量 - 从backer_count属性
+            backer_count_spans = soup.find_all('span', attrs={'backer_count': True})
+            for span in backer_count_spans:
+                span_text = ParserUtils.safe_get_text(span).strip()
+                if span_text and span_text.isdigit():
+                    sponsor_num = span_text
+                    self._log("info", f"从backer_count属性提取支持者数量: {sponsor_num}人")
+                    break
+
+            # 4. 提取目标金额 - 从goal-money类或文本解析
+            goal_money_elements = soup.find_all('span', class_='goal-money')
+            for elem in goal_money_elements:
+                goal_text = ParserUtils.safe_get_text(elem).strip()
+                # 提取数字部分
+                goal_match = re.search(r'[¥￥]?\s*([0-9,]+)', goal_text)
                 if goal_match:
-                    goal_money = self.data_utils.format_money(goal_match.group(1).replace(',', ''))
-                    self._log("info", f"找到目标金额: ¥{goal_money}")
+                    goal_money = goal_match.group(1).replace(',', '')
+                    self._log("info", f"从goal-money类提取目标金额: ¥{goal_money}")
                     break
 
-            # 解析完成百分比 - "160.8%"
-            percent_match = re.search(r'([0-9.]+)%', page_text)
-            if percent_match:
-                percent = percent_match.group(1)
-                self._log("info", f"找到完成百分比: {percent}%")
+            # 🔧 回退到文本解析（如果HTML属性提取失败）
+            if money == "0" or goal_money == "0" or sponsor_num == "0":
+                self._log("info", "HTML属性提取不完整，回退到文本解析...")
+                page_text = soup.get_text()
 
-            # 🎯 基于HTML分析结果：直接提取所有金额，智能匹配
-            if money == "0" or goal_money == "0":
-                all_money_matches = re.findall(r'[¥￥]\s*([0-9,]+)', page_text)
-                if len(all_money_matches) >= 2:
-                    # 清理并转换为数字
-                    money_values = []
-                    for match in all_money_matches:
-                        clean_value = match.replace(',', '')
-                        if clean_value.isdigit():
-                            money_values.append(int(clean_value))
+                # 解析已筹金额 - 处理编码问题 "已筹¥1,608"
+                if money == "0":
+                    money_patterns = [
+                        r'已筹[¥￥Â¥]([0-9,]+)',  # 正常编码
+                        r'å·²ç­¹[¥￥Â¥]([0-9,]+)',  # 编码后的中文
+                        r'已筹.*?[¥￥Â¥]\s*([0-9,]+)',  # 宽松匹配
+                        r'å·²ç­¹.*?[¥￥Â¥]\s*([0-9,]+)'   # 编码后宽松匹配
+                    ]
 
-                    if len(money_values) >= 2:
-                        # 根据百分比智能判断哪个是已筹，哪个是目标
-                        if percent != "0":
-                            try:
-                                percent_val = float(percent)
-                                if percent_val > 100:
-                                    # 超额完成，已筹应该是较大值
-                                    money = str(max(money_values))
-                                    remaining = [v for v in money_values if v != max(money_values)]
-                                    goal_money = str(max(remaining)) if remaining else str(min(money_values))
-                                else:
-                                    # 未完成，已筹应该是较小值
-                                    money = str(min(money_values))
-                                    remaining = [v for v in money_values if v != min(money_values)]
-                                    goal_money = str(max(remaining)) if remaining else str(max(money_values))
+                    for pattern in money_patterns:
+                        money_match = re.search(pattern, page_text)
+                        if money_match:
+                            money = self.data_utils.format_money(money_match.group(1).replace(',', ''))
+                            self._log("info", f"文本解析找到已筹金额: ¥{money}")
+                            break
 
-                                self._log("info", f"智能匹配金额: 已筹¥{money}, 目标¥{goal_money} (基于{percent}%)")
-                            except ValueError:
-                                # 如果百分比解析失败，使用默认逻辑
+                # 解析目标金额 - 处理编码问题和多种格式
+                if goal_money == "0":
+                    goal_patterns = [
+                        r'目标金额\s*[¥￥Â¥]([0-9,]+)',  # 正常编码
+                        r'ç®æ éé¢\s*[¥￥Â¥]([0-9,]+)',  # 编码后的中文
+                        r'目标金额.*?[¥￥Â¥]\s*([0-9,]+)',  # 宽松匹配
+                        r'ç®æ éé¢.*?[¥￥Â¥]\s*([0-9,]+)',   # 编码后宽松匹配
+                        r'目标[¥￥Â¥]([0-9,]+)',  # 简化格式
+                        r'ç®æ[¥￥Â¥]([0-9,]+)',  # 编码后简化格式
+                        r'目标.*?([0-9,]+)',  # 最宽松匹配
+                        r'ç®æ.*?([0-9,]+)'   # 编码后最宽松匹配
+                    ]
+
+                    for pattern in goal_patterns:
+                        goal_match = re.search(pattern, page_text)
+                        if goal_match:
+                            goal_money = self.data_utils.format_money(goal_match.group(1).replace(',', ''))
+                            self._log("info", f"文本解析找到目标金额: ¥{goal_money}")
+                            break
+
+                # 解析完成百分比 - "160.8%"
+                if percent == "0":
+                    percent_match = re.search(r'([0-9.]+)%', page_text)
+                    if percent_match:
+                        percent = percent_match.group(1)
+                        self._log("info", f"文本解析找到完成百分比: {percent}%")
+
+                # 解析支持者数量
+                if sponsor_num == "0":
+                    # 使用HTML分析中发现的有效模式
+                    supporter_matches = re.findall(r'(\d+)\s*支持者', page_text)
+                    if supporter_matches:
+                        sponsor_num = supporter_matches[0]
+                        self._log("info", f"文本解析找到支持者数量: {sponsor_num}人")
+                    else:
+                        # 回退到其他模式
+                        supporter_patterns = [
+                            r'(\d+)\s*人\s*支持',
+                            r'支持者\s*(\d+)',
+                            r'支持人数\s*(\d+)',
+                            r'(\d+)\s*人',  # 最宽松的模式
+                        ]
+
+                        for pattern in supporter_patterns:
+                            supporter_match = re.search(pattern, page_text)
+                            if supporter_match:
+                                sponsor_num = supporter_match.group(1)
+                                self._log("info", f"文本解析回退模式找到支持者数量: {sponsor_num}人")
+                                break
+
+                # 🎯 智能金额匹配（如果仍有缺失数据）
+                if money == "0" or goal_money == "0":
+                    all_money_matches = re.findall(r'[¥￥]\s*([0-9,]+)', page_text)
+                    if len(all_money_matches) >= 2:
+                        # 清理并转换为数字
+                        money_values = []
+                        for match in all_money_matches:
+                            clean_value = match.replace(',', '')
+                            if clean_value.isdigit():
+                                money_values.append(int(clean_value))
+
+                        if len(money_values) >= 2:
+                            # 根据百分比智能判断哪个是已筹，哪个是目标
+                            if percent != "0":
+                                try:
+                                    percent_val = float(percent)
+                                    if percent_val > 100:
+                                        # 超额完成，已筹应该是较大值
+                                        money = str(max(money_values))
+                                        remaining = [v for v in money_values if v != max(money_values)]
+                                        goal_money = str(max(remaining)) if remaining else str(min(money_values))
+                                    else:
+                                        # 未完成，已筹应该是较小值
+                                        money = str(min(money_values))
+                                        remaining = [v for v in money_values if v != min(money_values)]
+                                        goal_money = str(max(remaining)) if remaining else str(max(money_values))
+
+                                    self._log("info", f"智能匹配金额: 已筹¥{money}, 目标¥{goal_money} (基于{percent}%)")
+                                except ValueError:
+                                    # 如果百分比解析失败，使用默认逻辑
+                                    money_values.sort()
+                                    money = str(money_values[0])
+                                    goal_money = str(money_values[1])
+                                    self._log("info", f"默认匹配金额: 已筹¥{money}, 目标¥{goal_money}")
+                            else:
+                                # 没有百分比信息，使用默认逻辑
                                 money_values.sort()
                                 money = str(money_values[0])
                                 goal_money = str(money_values[1])
-                                self._log("info", f"默认匹配金额: 已筹¥{money}, 目标¥{goal_money}")
-                        else:
-                            # 没有百分比信息，使用默认逻辑
-                            money_values.sort()
-                            money = str(money_values[0])
-                            goal_money = str(money_values[1])
-                            self._log("info", f"无百分比，默认匹配: 已筹¥{money}, 目标¥{goal_money}")
-
-            # 🎯 基于HTML分析结果：使用验证有效的支持者模式
-            if sponsor_num == "0":
-                # 使用HTML分析中发现的有效模式
-                supporter_matches = re.findall(r'(\d+)\s*支持者', page_text)
-                if supporter_matches:
-                    sponsor_num = supporter_matches[0]
-                    self._log("info", f"直接提取支持者数量: {sponsor_num}人")
-                else:
-                    # 回退到其他模式
-                    supporter_patterns = [
-                        r'(\d+)\s*人\s*支持',
-                        r'支持者\s*(\d+)',
-                        r'支持人数\s*(\d+)',
-                        r'(\d+)\s*人',  # 最宽松的模式
-                    ]
-
-                    for pattern in supporter_patterns:
-                        supporter_match = re.search(pattern, page_text)
-                        if supporter_match:
-                            sponsor_num = supporter_match.group(1)
-                            self._log("info", f"回退模式找到支持者数量: {sponsor_num}人")
-                            break
+                                self._log("info", f"无百分比，默认匹配: 已筹¥{money}, 目标¥{goal_money}")
 
             # 🔧 验证数据合理性（不进行反推计算）
             self._validate_extracted_data(money, percent, goal_money, sponsor_num)
 
-            self._log("info", f"解析众筹信息: 已筹¥{money}, 目标¥{goal_money}, 完成率{percent}%, 支持者{sponsor_num}人")
+            self._log("info", f"✅ 众筹信息解析完成: 已筹¥{money}, 目标¥{goal_money}, 完成率{percent}%, 支持者{sponsor_num}人")
 
         except Exception as e:
             self._log("warning", f"众筹信息解析失败: {e}")
@@ -919,7 +1071,6 @@ class AdaptiveParser:
         update_count = "0"
         comment_count = "0"
         supporter_count = "0"
-        collect_count = "0"
 
         self._log("debug", "开始导航信息解析...")
 
@@ -928,8 +1079,7 @@ class AdaptiveParser:
         if critical_data and any(v != "0" for v in critical_data.values()):
             # 使用关键数据提取的结果
             comment_count = critical_data.get("comment_count", "0")
-            supporter_count = critical_data.get("supporter_count", "0")
-            collect_count = critical_data.get("like_count", "0")  # 点赞数作为收藏数
+            supporter_count = critical_data.get("like_count", "0")  # 看好数
             self._log("info", "✅ 关键数据专门提取成功")
 
             # 更新数仍需要通过其他方法获取
@@ -941,34 +1091,34 @@ class AdaptiveParser:
                 update_count = js_data.get("update_count", "0")
                 comment_count = js_data.get("comment_count", "0")
                 supporter_count = js_data.get("supporter_count", "0")
-                collect_count = js_data.get("collect_count", "0")
+
                 self._log("info", "✅ JavaScript数据提取成功")
             else:
                 # 🔧 策略2: 增强的DOM解析（多重选择器）
                 nav_data = self._extract_nav_from_dom_enhanced(soup)
                 if nav_data and any(x != "0" for x in nav_data):
-                    update_count, comment_count, supporter_count, collect_count = nav_data
+                    update_count, comment_count, supporter_count = nav_data[:3]
                     self._log("info", "✅ 增强DOM解析成功")
                 else:
                     # 🔧 策略3: 优化的文本解析（更强正则）
                     text_data = self._extract_nav_from_text_enhanced(soup)
                     if text_data and any(x != "0" for x in text_data):
-                        update_count, comment_count, supporter_count, collect_count = text_data
+                        update_count, comment_count, supporter_count = text_data[:3]
                         self._log("info", "✅ 增强文本解析成功")
                     else:
                         # 🔧 策略4: 传统DOM解析（回退）
                         fallback_data = self._extract_nav_from_dom_fallback(soup)
-                        update_count, comment_count, supporter_count, collect_count = fallback_data
+                        update_count, comment_count, supporter_count = fallback_data[:3]
                         self._log("warning", "使用回退解析策略")
 
         # 🔧 数据验证和修正
-        update_count, comment_count, supporter_count, collect_count = self._validate_nav_data(
-            update_count, comment_count, supporter_count, collect_count
+        update_count, comment_count, supporter_count = self._validate_nav_data(
+            update_count, comment_count, supporter_count
         )
 
-        self._log("info", f"📊 导航信息最终结果: 更新数={update_count}, 评论数={comment_count}, 支持者数={supporter_count}, 收藏数={collect_count}")
+        self._log("info", f"📊 导航信息最终结果: 更新数={update_count}, 评论数={comment_count}, 支持者数={supporter_count}")
 
-        return [update_count, comment_count, supporter_count, collect_count]
+        return [update_count, comment_count, supporter_count]
 
     def _extract_nav_from_javascript(self, soup: BeautifulSoup) -> Dict[str, str]:
         """从JavaScript数据中提取导航信息"""
@@ -1255,7 +1405,7 @@ class AdaptiveParser:
 
 
     def _validate_nav_data(self, update_count: str, comment_count: str,
-                          supporter_count: str, collect_count: str) -> tuple:
+                          supporter_count: str) -> tuple:
         """验证和修正导航数据"""
 
         def validate_number(value: str, field_name: str, max_reasonable: int = 100000) -> str:
@@ -1281,13 +1431,12 @@ class AdaptiveParser:
         update_count = validate_number(update_count, "更新数", 1000)
         comment_count = validate_number(comment_count, "评论数", 50000)  # 降低评论数上限
         supporter_count = validate_number(supporter_count, "支持者数", 100000)
-        collect_count = validate_number(collect_count, "收藏数", 50000)
 
         # 逻辑验证：支持者数通常不应该为0（除非是新项目）
         if supporter_count == "0" and any(x != "0" for x in [update_count, comment_count]):
             self._log("warning", "支持者数为0但有其他活动数据，可能解析有误")
 
-        return update_count, comment_count, supporter_count, collect_count
+        return update_count, comment_count, supporter_count
 
     def _parse_content_media(self, soup: BeautifulSoup) -> List[Any]:
         """解析项目媒体内容"""
@@ -1519,15 +1668,27 @@ class SpiderCore:
 
             # 过滤和验证项目
             filtered_projects = []
-            for project_url, project_id, project_name, project_image in projects:
+            for project_data in projects:
                 try:
+                    # 解包项目数据（兼容新旧格式）
+                    if len(project_data) == 5:
+                        project_url, project_id, project_name, project_image, list_data = project_data
+                    else:
+                        project_url, project_id, project_name, project_image = project_data
+                        list_data = {}
+
                     # 检查是否跳过
                     if self._should_skip_project(project_name):
                         self.monitor.record_project("skipped")
                         continue
 
+                    # 只返回基本的4个字段，保持兼容性
                     filtered_projects.append((project_url, project_id, project_name, project_image))
                     self.monitor.record_project("found")
+
+                    # 记录列表数据用于调试
+                    if list_data and any(v != "0" and v != "none" for v in list_data.values()):
+                        print(f"📊 列表数据: {project_name[:20]}... -> 支持者{list_data.get('list_backer_count', '0')}人")
 
                 except Exception as e:
                     print(f"验证项目失败: {e}")

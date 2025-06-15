@@ -1,0 +1,48 @@
+{
+  "stats": {
+    "start_time": "2025-06-15T21:21:16.917190",
+    "end_time": "2025-06-15T21:22:17.083384",
+    "runtime_seconds": 60.166194,
+    "total_requests": 26,
+    "successful_requests": 26,
+    "failed_requests": 0,
+    "cached_requests": 26,
+    "success_rate": 100.0,
+    "error_rate": 0.0,
+    "pages_processed": 2,
+    "pages_failed": 0,
+    "projects_found": 24,
+    "projects_processed": 22,
+    "projects_failed": 2,
+    "projects_skipped": 0,
+    "avg_request_time": 0.0,
+    "avg_parse_time": 10.599,
+    "requests_per_minute": 31.1,
+    "error_counts": {
+      "project_detail_error": 2
+    },
+    "consecutive_errors": 0,
+    "data_validation_passed": 18,
+    "data_validation_failed": 4
+  },
+  "errors": {
+    "error_counts": {
+      "project_detail_error": 2
+    },
+    "recent_errors": [
+      {
+        "type": "project_detail_error",
+        "message": "'AdaptiveParser' object has no attribute '_extract_nav_from_dom_enhanced'",
+        "timestamp": "2025-06-15T21:21:49.491394"
+      },
+      {
+        "type": "project_detail_error",
+        "message": "'AdaptiveParser' object has no attribute '_extract_nav_from_dom_enhanced'",
+        "timestamp": "2025-06-15T21:21:53.496397"
+      }
+    ],
+    "consecutive_errors": 0,
+    "error_rate": 0.0
+  },
+  "generated_at": "2025-06-15T21:22:17.277745"
+}

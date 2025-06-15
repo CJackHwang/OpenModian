@@ -218,7 +218,7 @@
           </div>
         </template>
 
-        <!-- 点赞数列 -->
+        <!-- 看好数列 -->
         <template #item.supporter_count="{ item }">
           <div class="text-center">
             <v-chip size="small" color="success" variant="tonal">
@@ -337,7 +337,7 @@ const headers = [
   { title: '筹款金额', key: 'raised_amount', sortable: true, width: '130px' },
   { title: '支持者', key: 'backer_count', sortable: true, width: '80px' },
   { title: '评论数', key: 'comment_count', sortable: true, width: '80px' },
-  { title: '点赞数', key: 'supporter_count', sortable: true, width: '80px' },
+  { title: '看好数', key: 'supporter_count', sortable: true, width: '80px' },
   { title: '状态', key: 'project_status', sortable: true, width: '100px' },
   { title: '爬取时间', key: 'crawl_time', sortable: true, width: '150px' }
 ]

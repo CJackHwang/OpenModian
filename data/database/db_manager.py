@@ -46,7 +46,7 @@ class DatabaseManager:
                     update_count INTEGER,
                     comment_count INTEGER,
                     supporter_count INTEGER,
-                    collect_count INTEGER,
+
                     project_status TEXT,
                     rewards_data TEXT,
                     content_images TEXT,
@@ -315,7 +315,7 @@ class DatabaseManager:
 
                 # 计算各字段的变化趋势
                 numeric_fields = ['raised_amount', 'backer_count', 'comment_count',
-                                'supporter_count', 'collect_count', 'completion_rate']
+                                'supporter_count', 'completion_rate']
 
                 for field in numeric_fields:
                     values = [r[field] for r in records if r[field] is not None]
@@ -346,7 +346,11 @@ class DatabaseManager:
                     try:
                         # 处理不同的数据格式
                         if isinstance(project, dict):
-                            project_data = project
+                            # 检查是否是中文字段名，需要转换
+                            if '项目名称' in project or '项目link' in project:
+                                project_data = self._convert_chinese_fields_to_english(project)
+                            else:
+                                project_data = project
                         elif isinstance(project, list):
                             # 假设是按照特定顺序的列表
                             project_data = self._convert_list_to_dict(project)
@@ -372,9 +376,9 @@ class DatabaseManager:
                                 category, author_name, author_link, author_image,
                                 start_time, end_time, raised_amount, target_amount,
                                 completion_rate, backer_count, update_count, comment_count,
-                                supporter_count, collect_count, project_status,
+                                supporter_count, project_status,
                                 rewards_data, content_images, content_videos, data_hash
-                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         ''', (
                             project_data.get('project_id', ''),
                             project_data.get('project_url', ''),
@@ -393,7 +397,6 @@ class DatabaseManager:
                             project_data.get('update_count', 0),
                             project_data.get('comment_count', 0),
                             project_data.get('supporter_count', 0),
-                            project_data.get('collect_count', 0),
                             project_data.get('project_status', ''),
                             project_data.get('rewards_data', ''),
                             project_data.get('content_images', ''),
@@ -434,6 +437,112 @@ class DatabaseManager:
                 project_dict[field] = None
 
         return project_dict
+
+    def _convert_chinese_fields_to_english(self, chinese_project: Dict[str, Any]) -> Dict[str, Any]:
+        """将中文字段名转换为英文字段名"""
+        # 中文字段到英文字段的映射
+        field_mapping = {
+            '项目link': 'project_url',
+            '项目6位id': 'project_id',
+            '项目名称': 'project_name',
+            '项目图': 'project_image',
+            '开始时间': 'start_time',
+            '结束时间': 'end_time',
+            '项目结果': 'project_status',
+            '用户主页(链接)': 'author_link',
+            '用户头像(图片链接)': 'author_image',
+            '分类': 'category',
+            '用户名': 'author_name',
+            '用户UID(data-username)': 'author_uid',
+            '已筹金额': 'raised_amount',
+            '百分比': 'completion_rate',
+            '目标金额': 'target_amount',
+            '支持者(数量)': 'backer_count',
+            '项目更新数': 'update_count',
+            '评论数': 'comment_count',
+            '项目支持者/点赞数': 'supporter_count',  # 这里改为"看好数"
+            '收藏数': 'collect_count',
+            '回报列表信息(字符串)': 'rewards_data',
+            '项目详情-图片(列表字符串)': 'content_images',
+            '项目详情-视频(列表字符串)': 'content_videos'
+        }
+
+        english_project = {}
+
+        # 转换字段名
+        for chinese_key, english_key in field_mapping.items():
+            if chinese_key in chinese_project:
+                value = chinese_project[chinese_key]
+
+                # 特殊处理某些字段
+                if english_key in ['raised_amount', 'target_amount', 'completion_rate']:
+                    # 确保数值字段是数字类型
+                    try:
+                        if value is not None and value != '':
+                            english_project[english_key] = float(value)
+                        else:
+                            english_project[english_key] = 0.0
+                    except (ValueError, TypeError):
+                        english_project[english_key] = 0.0
+
+                elif english_key in ['backer_count', 'update_count', 'comment_count', 'supporter_count', 'collect_count']:
+                    # 确保计数字段是整数类型
+                    try:
+                        if value is not None and value != '':
+                            # 处理字符串形式的数字
+                            if isinstance(value, str):
+                                # 移除可能的非数字字符
+                                clean_value = ''.join(filter(str.isdigit, value))
+                                english_project[english_key] = int(clean_value) if clean_value else 0
+                            else:
+                                english_project[english_key] = int(value)
+                        else:
+                            english_project[english_key] = 0
+                    except (ValueError, TypeError):
+                        english_project[english_key] = 0
+
+                elif english_key == 'project_status':
+                    # 项目状态标准化
+                    if value == '未知情况':
+                        english_project[english_key] = 'ongoing'
+                    else:
+                        english_project[english_key] = str(value) if value else 'unknown'
+
+                else:
+                    # 其他字段直接转换为字符串
+                    english_project[english_key] = str(value) if value is not None else ''
+
+        # 设置默认值
+        defaults = {
+            'project_url': '',
+            'project_id': '',
+            'project_name': '',
+            'project_image': '',
+            'category': '',
+            'author_name': '',
+            'author_link': '',
+            'author_image': '',
+            'start_time': '',
+            'end_time': '',
+            'raised_amount': 0.0,
+            'target_amount': 0.0,
+            'completion_rate': 0.0,
+            'backer_count': 0,
+            'update_count': 0,
+            'comment_count': 0,
+            'supporter_count': 0,
+            'collect_count': 0,
+            'project_status': 'unknown',
+            'rewards_data': '',
+            'content_images': '',
+            'content_videos': ''
+        }
+
+        for key, default_value in defaults.items():
+            if key not in english_project:
+                english_project[key] = default_value
+
+        return english_project
 
     def get_projects_by_time(self, time_period: str = 'all', limit: int = 100) -> List[Dict[str, Any]]:
         """根据时间段获取项目数据"""
@@ -566,3 +675,249 @@ class DatabaseManager:
     def get_all_tasks(self, limit: int = 100) -> List[Dict[str, Any]]:
         """获取所有任务记录"""
         return self.get_recent_tasks(limit)
+
+    def search_projects(self, conditions: Dict[str, Any], limit: int = 100, offset: int = 0, sort_config: List[Dict] = None) -> List[Dict[str, Any]]:
+        """高级搜索项目"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+
+                # 构建WHERE子句
+                where_clauses = []
+                params = []
+
+                for field, value in conditions.items():
+                    if value is None or value == '':
+                        continue
+
+                    if field == 'project_name':
+                        where_clauses.append("project_name LIKE ?")
+                        params.append(f"%{value}%")
+                    elif field == 'author_name':
+                        where_clauses.append("author_name LIKE ?")
+                        params.append(f"%{value}%")
+                    elif field == 'category':
+                        where_clauses.append("category = ?")
+                        params.append(value)
+                    elif field == 'status':
+                        where_clauses.append("project_status = ?")
+                        params.append(value)
+                    elif field == 'min_amount':
+                        where_clauses.append("raised_amount >= ?")
+                        params.append(float(value))
+                    elif field == 'max_amount':
+                        where_clauses.append("raised_amount <= ?")
+                        params.append(float(value))
+                    elif field == 'date_from':
+                        where_clauses.append("DATE(crawl_time) >= ?")
+                        params.append(value)
+                    elif field == 'date_to':
+                        where_clauses.append("DATE(crawl_time) <= ?")
+                        params.append(value)
+                    elif field.endswith('_min'):
+                        base_field = field[:-4]
+                        where_clauses.append(f"{base_field} >= ?")
+                        params.append(float(value))
+                    elif field.endswith('_max'):
+                        base_field = field[:-4]
+                        where_clauses.append(f"{base_field} <= ?")
+                        params.append(float(value))
+                    elif field.endswith('_not'):
+                        base_field = field[:-4]
+                        where_clauses.append(f"{base_field} != ?")
+                        params.append(value)
+                    else:
+                        # 默认精确匹配
+                        where_clauses.append(f"{field} = ?")
+                        params.append(value)
+
+                # 构建SQL查询
+                sql = "SELECT * FROM projects"
+
+                if where_clauses:
+                    sql += " WHERE " + " AND ".join(where_clauses)
+
+                # 添加排序
+                if sort_config:
+                    order_clauses = []
+                    for sort_item in sort_config:
+                        field = sort_item.get('field', 'crawl_time')
+                        direction = sort_item.get('direction', 'desc').upper()
+                        order_clauses.append(f"{field} {direction}")
+                    sql += " ORDER BY " + ", ".join(order_clauses)
+                else:
+                    sql += " ORDER BY crawl_time DESC"
+
+                # 添加分页
+                sql += " LIMIT ? OFFSET ?"
+                params.extend([limit, offset])
+
+                cursor.execute(sql, params)
+                return [dict(row) for row in cursor.fetchall()]
+
+        except Exception as e:
+            print(f"搜索项目失败: {e}")
+            return []
+
+    def count_projects(self, conditions: Dict[str, Any]) -> int:
+        """统计符合条件的项目数量"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+
+                # 构建WHERE子句（与search_projects相同的逻辑）
+                where_clauses = []
+                params = []
+
+                for field, value in conditions.items():
+                    if value is None or value == '':
+                        continue
+
+                    if field == 'project_name':
+                        where_clauses.append("project_name LIKE ?")
+                        params.append(f"%{value}%")
+                    elif field == 'author_name':
+                        where_clauses.append("author_name LIKE ?")
+                        params.append(f"%{value}%")
+                    elif field == 'category':
+                        where_clauses.append("category = ?")
+                        params.append(value)
+                    elif field == 'status':
+                        where_clauses.append("project_status = ?")
+                        params.append(value)
+                    elif field == 'min_amount':
+                        where_clauses.append("raised_amount >= ?")
+                        params.append(float(value))
+                    elif field == 'max_amount':
+                        where_clauses.append("raised_amount <= ?")
+                        params.append(float(value))
+                    elif field == 'date_from':
+                        where_clauses.append("DATE(crawl_time) >= ?")
+                        params.append(value)
+                    elif field == 'date_to':
+                        where_clauses.append("DATE(crawl_time) <= ?")
+                        params.append(value)
+                    elif field.endswith('_min'):
+                        base_field = field[:-4]
+                        where_clauses.append(f"{base_field} >= ?")
+                        params.append(float(value))
+                    elif field.endswith('_max'):
+                        base_field = field[:-4]
+                        where_clauses.append(f"{base_field} <= ?")
+                        params.append(float(value))
+                    elif field.endswith('_not'):
+                        base_field = field[:-4]
+                        where_clauses.append(f"{base_field} != ?")
+                        params.append(value)
+                    else:
+                        # 默认精确匹配
+                        where_clauses.append(f"{field} = ?")
+                        params.append(value)
+
+                # 构建SQL查询
+                sql = "SELECT COUNT(*) FROM projects"
+
+                if where_clauses:
+                    sql += " WHERE " + " AND ".join(where_clauses)
+
+                cursor.execute(sql, params)
+                return cursor.fetchone()[0]
+
+        except Exception as e:
+            print(f"统计项目数量失败: {e}")
+            return 0
+
+    def update_project(self, project_id: int, project_data: Dict[str, Any]) -> bool:
+        """更新项目信息"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+
+                # 构建更新字段
+                update_fields = []
+                params = []
+
+                # 允许更新的字段
+                updatable_fields = [
+                    'project_name', 'category', 'author_name', 'project_status',
+                    'raised_amount', 'target_amount', 'completion_rate',
+                    'backer_count', 'comment_count', 'supporter_count', 'collect_count',
+                    'start_time', 'end_time', 'project_url', 'project_image',
+                    'author_link', 'author_image', 'update_count',
+                    'rewards_data', 'content_images', 'content_videos'
+                ]
+
+                for field in updatable_fields:
+                    if field in project_data:
+                        update_fields.append(f"{field} = ?")
+                        params.append(project_data[field])
+
+                if not update_fields:
+                    return False
+
+                # 添加项目ID到参数
+                params.append(project_id)
+
+                # 执行更新
+                sql = f"UPDATE projects SET {', '.join(update_fields)} WHERE id = ?"
+                cursor.execute(sql, params)
+                conn.commit()
+
+                return cursor.rowcount > 0
+
+        except Exception as e:
+            print(f"更新项目失败: {e}")
+            return False
+
+    def delete_project(self, project_id: int) -> bool:
+        """删除单个项目"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute('DELETE FROM projects WHERE id = ?', (project_id,))
+                conn.commit()
+                return cursor.rowcount > 0
+        except Exception as e:
+            print(f"删除项目失败: {e}")
+            return False
+
+    def batch_delete_projects(self, project_ids: List[int]) -> int:
+        """批量删除项目"""
+        deleted_count = 0
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+
+                # 使用IN子句批量删除
+                if project_ids:
+                    placeholders = ','.join(['?'] * len(project_ids))
+                    sql = f"DELETE FROM projects WHERE id IN ({placeholders})"
+                    cursor.execute(sql, project_ids)
+                    deleted_count = cursor.rowcount
+                    conn.commit()
+
+                print(f"批量删除完成: 删除了 {deleted_count} 个项目")
+
+        except Exception as e:
+            print(f"批量删除项目失败: {e}")
+
+        return deleted_count
+
+    def get_project_by_id(self, project_id: int) -> Optional[Dict[str, Any]]:
+        """根据数据库ID获取项目"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+
+                cursor.execute('SELECT * FROM projects WHERE id = ?', (project_id,))
+                row = cursor.fetchone()
+
+                if row:
+                    return dict(row)
+                return None
+
+        except Exception as e:
+            print(f"获取项目失败: {e}")
+            return None

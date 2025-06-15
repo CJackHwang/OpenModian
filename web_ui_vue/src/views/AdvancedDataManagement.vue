@@ -180,15 +180,35 @@
               density="compact"
             />
           </v-col>
-          <v-col cols="12" md="4" class="d-flex align-center">
+          <v-col cols="12" md="4" class="d-flex align-center ga-2">
             <v-btn
               color="primary"
               prepend-icon="mdi-magnify"
               @click="searchProjects"
               :loading="loading"
-              block
+              flex
             >
               搜索
+            </v-btn>
+            <v-btn
+              color="secondary"
+              prepend-icon="mdi-refresh"
+              @click="resetSearch"
+              :disabled="loading"
+              variant="outlined"
+              flex
+            >
+              重置
+            </v-btn>
+            <v-btn
+              color="info"
+              prepend-icon="mdi-view-list"
+              @click="showAllProjects"
+              :disabled="loading"
+              variant="tonal"
+              flex
+            >
+              显示全部
             </v-btn>
           </v-col>
         </v-row>
@@ -220,20 +240,24 @@
         </v-chip>
       </v-card-title>
 
-      <v-data-table
-        v-model="selectedItems"
-        :headers="headers"
-        :items="projects"
-        :loading="loading"
-        :items-per-page="pagination.itemsPerPage"
-        :page="pagination.page"
-        :server-items-length="totalCount"
-        class="elevation-0"
-        item-value="id"
-        show-select
-        @update:page="onPageChange"
-        @update:items-per-page="onItemsPerPageChange"
-      >
+      <!-- 表格容器，支持水平滚动 -->
+      <div class="table-container" style="overflow-x: auto; width: 100%;">
+        <v-data-table
+          v-model="selectedItems"
+          :headers="headers"
+          :items="projects"
+          :loading="loading"
+          :items-per-page="pagination.itemsPerPage"
+          :page="pagination.page"
+          :server-items-length="totalCount"
+          class="elevation-0"
+          item-value="id"
+          show-select
+          fixed-header
+          :style="{ minWidth: '1200px' }"
+          @update:page="onPageChange"
+          @update:items-per-page="onItemsPerPageChange"
+        >
         <!-- 项目名称列 -->
         <template #item.project_name="{ item }">
           <div class="d-flex align-center">
@@ -302,7 +326,7 @@
           </div>
         </template>
 
-        <!-- 点赞数列 -->
+        <!-- 看好数列 -->
         <template #item.supporter_count="{ item }">
           <div class="text-center">
             <v-chip size="x-small" color="success" variant="tonal">
@@ -357,18 +381,33 @@
             <v-icon size="64" class="mb-4 text-medium-emphasis">mdi-database-search</v-icon>
             <div class="text-h6 text-medium-emphasis">没有找到匹配的数据</div>
             <div class="text-subtitle-2 text-medium-emphasis mb-4">
-              请调整搜索条件或添加新项目
+              当前搜索条件没有匹配的项目，请尝试以下操作：
             </div>
-            <v-btn
-              color="primary"
-              prepend-icon="mdi-plus"
-              @click="showAddDialog = true"
-            >
-              添加项目
-            </v-btn>
+            <div class="d-flex justify-center ga-2 mb-4">
+              <v-btn
+                color="primary"
+                prepend-icon="mdi-refresh"
+                @click="resetSearch"
+                variant="outlined"
+              >
+                重置搜索
+              </v-btn>
+              <v-btn
+                color="info"
+                prepend-icon="mdi-view-list"
+                @click="showAllProjects"
+                variant="tonal"
+              >
+                显示全部
+              </v-btn>
+            </div>
+            <div class="text-caption text-medium-emphasis">
+              或者调整上方的搜索条件后重新搜索
+            </div>
           </div>
         </template>
-      </v-data-table>
+        </v-data-table>
+      </div>
     </v-card>
 
     <!-- 项目详情对话框 -->
@@ -471,7 +510,7 @@
             <v-col cols="12" md="3">
               <v-text-field
                 :model-value="formatNumber(selectedProject.supporter_count || 0)"
-                label="点赞数"
+                label="看好数"
                 readonly
                 variant="outlined"
               />
@@ -619,7 +658,7 @@
               <v-col cols="12" md="3">
                 <v-text-field
                   v-model.number="editingProject.supporter_count"
-                  label="点赞数"
+                  label="看好数"
                   type="number"
                   variant="outlined"
                 />
@@ -733,7 +772,7 @@ const headers = [
   { title: '筹款金额', key: 'raised_amount', sortable: true, width: '120px' },
   { title: '支持者', key: 'backer_count', sortable: true, width: '80px' },
   { title: '评论', key: 'comment_count', sortable: true, width: '70px' },
-  { title: '点赞', key: 'supporter_count', sortable: true, width: '70px' },
+  { title: '看好数', key: 'supporter_count', sortable: true, width: '70px' },
   { title: '状态', key: 'project_status', sortable: true, width: '90px' },
   { title: '操作', key: 'actions', sortable: false, width: '120px' }
 ]
@@ -742,6 +781,7 @@ const headers = [
 const searchProjects = async () => {
   try {
     loading.value = true
+    console.log('🔍 开始搜索项目...')
 
     // 清理空值
     const conditions = {}
@@ -752,6 +792,14 @@ const searchProjects = async () => {
     })
 
     const offset = (pagination.page - 1) * pagination.itemsPerPage
+    const hasSearchConditions = Object.keys(conditions).length > 0
+
+    console.log('📊 搜索参数:', {
+      conditions,
+      limit: pagination.itemsPerPage,
+      offset,
+      hasSearchConditions
+    })
 
     const response = await axios.post('/api/database/projects/search', {
       conditions,
@@ -759,13 +807,15 @@ const searchProjects = async () => {
       offset
     })
 
-    if (response.data.success) {
-      projects.value = response.data.projects
-      totalCount.value = response.data.total_count
-      console.log('🔍 搜索结果:', projects.value.length, '条，总计:', totalCount.value)
+    console.log('📡 API响应:', response.data)
 
-      // 添加到筛选历史
-      if (Object.keys(conditions).length > 0 && filterHistoryRef.value) {
+    if (response.data.success) {
+      projects.value = response.data.projects || []
+      totalCount.value = response.data.total_count || 0
+      console.log('✅ 搜索成功:', projects.value.length, '条，总计:', totalCount.value)
+
+      // 只有在有搜索条件时才添加到筛选历史
+      if (hasSearchConditions && filterHistoryRef.value) {
         filterHistoryRef.value.addToHistory({
           type: 'simple',
           searchConditions: { ...searchConditions },
@@ -773,19 +823,68 @@ const searchProjects = async () => {
           resultCount: totalCount.value
         })
       }
+    } else {
+      console.error('❌ 搜索失败:', response.data.message)
+      projects.value = []
+      totalCount.value = 0
+      // 可以在这里添加用户提示
     }
   } catch (error) {
-    console.error('搜索失败:', error)
+    console.error('❌ 搜索请求失败:', error)
+    projects.value = []
+    totalCount.value = 0
+    // 可以在这里添加用户提示
   } finally {
     loading.value = false
   }
 }
 
 const resetSearch = () => {
+  console.log('🔄 重置搜索条件...')
+
+  // 清空所有搜索条件
   Object.keys(searchConditions).forEach(key => {
     searchConditions[key] = ''
   })
+
+  // 重置分页
   pagination.page = 1
+
+  // 重置高级筛选
+  if (filterMode.value === 'advanced') {
+    currentAdvancedFilters.value = {
+      filters: [],
+      sort: []
+    }
+  }
+
+  // 重新搜索（这时会显示所有数据）
+  if (filterMode.value === 'simple') {
+    searchProjects()
+  } else {
+    searchProjectsAdvanced()
+  }
+}
+
+const showAllProjects = () => {
+  console.log('📋 显示所有项目...')
+
+  // 确保所有搜索条件都为空
+  Object.keys(searchConditions).forEach(key => {
+    searchConditions[key] = ''
+  })
+
+  // 重置分页到第一页
+  pagination.page = 1
+
+  // 重置高级筛选
+  currentAdvancedFilters.value = {
+    filters: [],
+    sort: []
+  }
+
+  // 切换到简单搜索模式并执行搜索
+  filterMode.value = 'simple'
   searchProjects()
 }
 
@@ -825,12 +924,14 @@ const onFiltersChanged = (filterConfig) => {
 const searchProjectsAdvanced = async () => {
   try {
     loading.value = true
+    console.log('🔍 开始高级搜索...')
 
     // 转换高级筛选条件为后端格式
     const conditions = convertAdvancedFilters(currentAdvancedFilters.value.filters)
     const sortConfig = currentAdvancedFilters.value.sort
 
     const offset = (pagination.page - 1) * pagination.itemsPerPage
+    console.log('📊 高级搜索参数:', { conditions, sort: sortConfig, limit: pagination.itemsPerPage, offset })
 
     const response = await axios.post('/api/database/projects/search', {
       conditions,
@@ -839,10 +940,12 @@ const searchProjectsAdvanced = async () => {
       offset
     })
 
+    console.log('📡 高级搜索API响应:', response.data)
+
     if (response.data.success) {
-      projects.value = response.data.projects
-      totalCount.value = response.data.total_count
-      console.log('🔍 高级搜索结果:', projects.value.length, '条，总计:', totalCount.value)
+      projects.value = response.data.projects || []
+      totalCount.value = response.data.total_count || 0
+      console.log('✅ 高级搜索成功:', projects.value.length, '条，总计:', totalCount.value)
 
       // 添加到筛选历史
       if (currentAdvancedFilters.value.filters.length > 0 && filterHistoryRef.value) {
@@ -854,9 +957,15 @@ const searchProjectsAdvanced = async () => {
           resultCount: totalCount.value
         })
       }
+    } else {
+      console.error('❌ 高级搜索失败:', response.data.message)
+      projects.value = []
+      totalCount.value = 0
     }
   } catch (error) {
-    console.error('高级搜索失败:', error)
+    console.error('❌ 高级搜索请求失败:', error)
+    projects.value = []
+    totalCount.value = 0
   } finally {
     loading.value = false
   }
@@ -1098,5 +1207,51 @@ onMounted(() => {
 
 .v-card-title {
   background: rgba(var(--v-theme-surface-variant), 0.1);
+}
+
+/* 表格容器滚动样式 */
+.table-container {
+  overflow-x: auto;
+  width: 100%;
+  /* 自定义滚动条样式 */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(var(--v-theme-primary), 0.3) transparent;
+}
+
+.table-container::-webkit-scrollbar {
+  height: 8px;
+}
+
+.table-container::-webkit-scrollbar-track {
+  background: rgba(var(--v-theme-surface-variant), 0.1);
+  border-radius: 4px;
+}
+
+.table-container::-webkit-scrollbar-thumb {
+  background: rgba(var(--v-theme-primary), 0.3);
+  border-radius: 4px;
+}
+
+.table-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(var(--v-theme-primary), 0.5);
+}
+
+/* 表格固定最小宽度，防止列压缩 */
+.v-data-table :deep(.v-table__wrapper) {
+  min-width: 1200px;
+}
+
+/* 确保表格列不会被压缩得太小 */
+.v-data-table :deep(th),
+.v-data-table :deep(td) {
+  white-space: nowrap;
+  min-width: 60px;
+}
+
+/* 项目名称列允许换行 */
+.v-data-table :deep(th:first-child),
+.v-data-table :deep(td:first-child) {
+  white-space: normal;
+  min-width: 200px;
 }
 </style>
