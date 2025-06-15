@@ -323,6 +323,5 @@ python3 -m pytest --cov=spider tests/
 
 **如果这个项目对你有帮助，请给它一个 ⭐**
 
-Made with ❤️ by Spider Team
 
 </div>
