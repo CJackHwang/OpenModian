@@ -1,0 +1,78 @@
+{
+  "stats": {
+    "start_time": "2025-06-15T23:05:00.899624",
+    "end_time": "2025-06-15T23:05:16.280142",
+    "runtime_seconds": 15.380518,
+    "total_requests": 13,
+    "successful_requests": 13,
+    "failed_requests": 0,
+    "cached_requests": 13,
+    "success_rate": 100.0,
+    "error_rate": 0.0,
+    "pages_processed": 1,
+    "pages_failed": 0,
+    "projects_found": 12,
+    "projects_processed": 4,
+    "projects_failed": 8,
+    "projects_skipped": 0,
+    "avg_request_time": 0.0,
+    "avg_parse_time": 3.306,
+    "requests_per_minute": 77.96,
+    "error_counts": {
+      "project_detail_error": 8
+    },
+    "consecutive_errors": 0,
+    "data_validation_passed": 4,
+    "data_validation_failed": 0
+  },
+  "errors": {
+    "error_counts": {
+      "project_detail_error": 8
+    },
+    "recent_errors": [
+      {
+        "type": "project_detail_error",
+        "message": "'AdaptiveParser' object has no attribute '_extract_nav_from_dom_enhanced'",
+        "timestamp": "2025-06-15T23:05:02.955367"
+      },
+      {
+        "type": "project_detail_error",
+        "message": "'AdaptiveParser' object has no attribute '_extract_nav_from_dom_enhanced'",
+        "timestamp": "2025-06-15T23:05:05.287226"
+      },
+      {
+        "type": "project_detail_error",
+        "message": "'AdaptiveParser' object has no attribute '_extract_nav_from_dom_enhanced'",
+        "timestamp": "2025-06-15T23:05:05.604838"
+      },
+      {
+        "type": "project_detail_error",
+        "message": "'AdaptiveParser' object has no attribute '_extract_nav_from_dom_enhanced'",
+        "timestamp": "2025-06-15T23:05:06.321082"
+      },
+      {
+        "type": "project_detail_error",
+        "message": "'AdaptiveParser' object has no attribute '_extract_nav_from_dom_enhanced'",
+        "timestamp": "2025-06-15T23:05:08.077819"
+      },
+      {
+        "type": "project_detail_error",
+        "message": "'AdaptiveParser' object has no attribute '_extract_nav_from_dom_enhanced'",
+        "timestamp": "2025-06-15T23:05:08.235988"
+      },
+      {
+        "type": "project_detail_error",
+        "message": "'AdaptiveParser' object has no attribute '_extract_nav_from_dom_enhanced'",
+        "timestamp": "2025-06-15T23:05:09.028811"
+      },
+      {
+        "type": "project_detail_error",
+        "message": "'AdaptiveParser' object has no attribute '_extract_nav_from_dom_enhanced'",
+        "timestamp": "2025-06-15T23:05:11.267366"
+      }
+    ],
+    "consecutive_errors": 0,
+    "error_rate": 0.0
+  },
+  "generated_at": "2025-06-15T23:05:16.309931"
+}

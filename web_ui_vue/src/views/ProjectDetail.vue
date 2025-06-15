@@ -158,13 +158,7 @@
                     <div class="text-caption">评论数</div>
                   </div>
                 </v-col>
-                <v-col cols="4">
-                  <div class="text-center">
-                    <v-icon color="orange" class="mb-1">mdi-star</v-icon>
-                    <div class="font-weight-medium">{{ project.collect_count || 0 }}</div>
-                    <div class="text-caption">收藏数</div>
-                  </div>
-                </v-col>
+
               </v-row>
             </v-card-text>
           </v-card>

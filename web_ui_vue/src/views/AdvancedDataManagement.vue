@@ -515,14 +515,7 @@
                 variant="outlined"
               />
             </v-col>
-            <v-col cols="12" md="3">
-              <v-text-field
-                :model-value="formatNumber(selectedProject.collect_count || 0)"
-                label="收藏数"
-                readonly
-                variant="outlined"
-              />
-            </v-col>
+
           </v-row>
 
           <v-row>
@@ -663,14 +656,7 @@
                   variant="outlined"
                 />
               </v-col>
-              <v-col cols="12" md="3">
-                <v-text-field
-                  v-model.number="editingProject.collect_count"
-                  label="收藏数"
-                  type="number"
-                  variant="outlined"
-                />
-              </v-col>
+
             </v-row>
           </v-form>
         </v-card-text>

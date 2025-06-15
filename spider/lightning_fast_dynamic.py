@@ -20,7 +20,11 @@ class LightningFastExtractor:
     
     def __init__(self, config):
         self.config = config
-        self.timeout = getattr(config, 'LIGHTNING_TIMEOUT', 2)  # 2秒超时
+        self.timeout = getattr(config, 'LIGHTNING_TIMEOUT', 10)  # 10秒超时，等待特效完成
+
+    def _log(self, level: str, message: str):
+        """简单日志输出"""
+        print(f"[{level.upper()}] {message}")
         
     @classmethod
     def _get_shared_driver(cls):
@@ -89,9 +93,9 @@ class LightningFastExtractor:
             service = Service(ChromeDriverManager().install())
             driver = webdriver.Chrome(service=service, options=chrome_options)
             
-            # 设置超时
-            driver.set_page_load_timeout(2)
-            driver.implicitly_wait(0.5)
+            # 设置超时 - 增加超时时间解决渲染问题
+            driver.set_page_load_timeout(8)
+            driver.implicitly_wait(1)
             
             return driver
         except Exception as e:
@@ -99,75 +103,141 @@ class LightningFastExtractor:
             return None
     
     def get_lightning_data(self, project_id: str) -> Dict[str, str]:
-        """闪电般获取数据"""
+        """闪电般获取数据 - 基于用户观察的第三次数据真实策略"""
         driver = self._get_shared_driver()
         if not driver:
             return {"like_count": "0", "comment_count": "0"}
-        
+
         project_url = f"https://zhongchou.modian.com/item/{project_id}.html"
-        
-        try:
-            start_time = time.time()
-            
-            # 快速导航
-            driver.get(project_url)
-            
-            # 立即执行滚动脚本
-            driver.execute_script("""
-                window.scrollTo(0, document.body.scrollHeight/2);
-                window.scrollTo(0, document.body.scrollHeight);
-            """)
-            
-            # 快速检查数据（最多检查3次，每次间隔500ms）
-            for i in range(3):
+
+        # 🔧 基于用户观察：第三次数据是真实的，实现3次重试机制
+        for attempt in range(3):
+            try:
+                start_time = time.time()
+
+                # 快速导航
+                driver.get(project_url)
+
+                # 立即执行滚动脚本并等待动画完成
+                driver.execute_script("""
+                    window.scrollTo(0, document.body.scrollHeight/2);
+                    window.scrollTo(0, document.body.scrollHeight);
+
+                    // 尝试触发数字动画完成
+                    setTimeout(function() {
+                        var event = new Event('scroll');
+                        window.dispatchEvent(event);
+                    }, 100);
+                """)
+
+                # 🔧 等待时间递增：第1次2秒，第2次4秒，第3次6秒
+                wait_time = 2 + (attempt * 2)
+                time.sleep(wait_time)
+
+                # 获取数据
                 data = self._quick_extract(driver)
-                
-                # 如果获取到有效数据，立即返回
-                if data["like_count"] != "0" or data["comment_count"] != "0":
-                    elapsed = (time.time() - start_time) * 1000
-                    print(f"⚡ 闪电获取成功，耗时: {elapsed:.0f}ms")
+
+                elapsed = (time.time() - start_time) * 1000
+
+                # 如果获取到有效数据，或者是第3次尝试，返回结果
+                if (data["like_count"] != "0" or data["comment_count"] != "0") or attempt == 2:
+                    if data["like_count"] != "0" or data["comment_count"] != "0":
+                        print(f"⚡ 闪电获取成功 (第{attempt+1}次)，耗时: {elapsed:.0f}ms")
+                    else:
+                        print(f"⏰ 闪电获取完成 (第{attempt+1}次)，耗时: {elapsed:.0f}ms")
                     return data
-                
-                # 短暂等待
-                if i < 2:  # 最后一次不等待
-                    time.sleep(0.5)
-            
-            elapsed = (time.time() - start_time) * 1000
-            print(f"⏰ 闪电获取超时，耗时: {elapsed:.0f}ms")
-            return data
-            
-        except Exception as e:
-            print(f"闪电获取失败: {e}")
-            return {"like_count": "0", "comment_count": "0"}
+                else:
+                    print(f"🔄 第{attempt+1}次尝试未获取到数据，继续重试...")
+
+            except Exception as e:
+                print(f"第{attempt+1}次闪电获取失败: {e}")
+                if attempt == 2:  # 最后一次尝试
+                    return {"like_count": "0", "comment_count": "0"}
+
+        return {"like_count": "0", "comment_count": "0"}
     
+    def _wait_for_stable_data(self, driver, start_time) -> Dict[str, str]:
+        """等待数据稳定 - 基于你的观察，第三次数据是真实的"""
+        from selenium.webdriver.common.by import By
+
+        # 🔧 基于用户观察：第三次数据是真实的，调整策略
+        # 先等待足够长的时间让特效完成，然后进行稳定性检查
+
+        initial_wait = 3.0  # 初始等待3秒，让特效基本完成
+        max_wait_time = 10  # 最大等待10秒
+        check_interval = 0.5  # 每500ms检查一次
+        stability_checks = 2  # 需要连续2次相同才认为稳定
+
+        # 第一阶段：等待特效完成
+        self._log("info", f"⏳ 等待数字特效完成 ({initial_wait}秒)...")
+        time.sleep(initial_wait)
+
+        # 第二阶段：检查数据稳定性
+        previous_values = []
+        stable_count = 0
+
+        while time.time() - start_time < max_wait_time:
+            current_data = self._quick_extract(driver)
+
+            # 如果获取到数据
+            if current_data["like_count"] != "0" or current_data["comment_count"] != "0":
+                # 检查是否与之前的值相同
+                if previous_values and previous_values[-1] == current_data:
+                    stable_count += 1
+                    self._log("info", f"📊 数据稳定检查 {stable_count}/{stability_checks}: 看好数={current_data['like_count']}, 评论数={current_data['comment_count']}")
+
+                    if stable_count >= stability_checks:
+                        # 数据已稳定，返回结果
+                        self._log("info", "✅ 数据已稳定，返回最终结果")
+                        return current_data
+                else:
+                    # 数据发生变化，重置稳定计数
+                    if previous_values:
+                        self._log("info", f"🔄 数据变化: {previous_values[-1]} -> {current_data}")
+                    stable_count = 0
+
+                # 记录当前值
+                previous_values.append(current_data.copy())
+
+                # 只保留最近3次的记录
+                if len(previous_values) > 3:
+                    previous_values.pop(0)
+
+            time.sleep(check_interval)
+
+        # 超时后返回最后一次获取的数据
+        final_data = previous_values[-1] if previous_values else {"like_count": "0", "comment_count": "0"}
+        self._log("info", f"⏰ 等待超时，返回最后获取的数据: {final_data}")
+        return final_data
+
     def _quick_extract(self, driver) -> Dict[str, str]:
         """快速提取数据"""
         from selenium.webdriver.common.by import By
-        
+
         result = {"like_count": "0", "comment_count": "0"}
-        
+
         try:
             # 快速获取点赞数
             atten_elements = driver.find_elements(By.CSS_SELECTOR, "li.atten span")
             for elem in atten_elements:
                 text = elem.text.strip()
-                if text and text.isdigit() and int(text) > 0:
+                if text and text.isdigit() and int(text) >= 0:  # 允许0值
                     result["like_count"] = text
                     break
         except:
             pass
-        
+
         try:
             # 快速获取评论数
             comment_elements = driver.find_elements(By.CSS_SELECTOR, "li.nav-comment span")
             for elem in comment_elements:
                 text = elem.text.strip()
-                if text and text.isdigit() and int(text) > 0:
+                if text and text.isdigit() and int(text) >= 0:  # 允许0值
                     result["comment_count"] = text
                     break
         except:
             pass
-        
+
         return result
     
     @classmethod

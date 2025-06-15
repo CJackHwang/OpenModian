@@ -293,7 +293,7 @@ class DatabaseManager:
                 cursor.execute('''
                     SELECT raised_amount, target_amount, completion_rate,
                            backer_count, comment_count, supporter_count,
-                           collect_count, crawl_time
+                           crawl_time
                     FROM projects
                     WHERE project_id = ?
                     ORDER BY crawl_time ASC
@@ -420,21 +420,68 @@ class DatabaseManager:
 
     def _convert_list_to_dict(self, project_list: List) -> Dict[str, Any]:
         """将列表格式的项目数据转换为字典格式"""
-        # 定义字段映射
+        # 定义字段映射 - 按照爬虫实际输出的顺序
         field_mapping = [
-            'project_name', 'project_url', 'project_id', 'category',
-            'raised_amount', 'target_amount', 'backer_count', 'completion_rate',
-            'author_name', 'author_link', 'author_image', 'project_image',
-            'start_time', 'end_time', 'project_status', 'update_count',
-            'comment_count', 'supporter_count', 'collect_count'
+            'sequence_number',      # 0: 序号
+            'project_url',          # 1: 项目link
+            'project_id',           # 2: 项目6位id
+            'project_name',         # 3: 项目名称
+            'project_image',        # 4: 项目图
+            'start_time',           # 5: 开始时间
+            'end_time',             # 6: 结束时间
+            'project_status',       # 7: 项目结果
+            'author_link',          # 8: 用户主页(链接)
+            'author_image',         # 9: 用户头像(图片链接)
+            'category',             # 10: 分类
+            'author_name',          # 11: 用户名
+            'author_uid',           # 12: 用户UID(data-username)
+            'raised_amount',        # 13: 已筹金额
+            'completion_rate',      # 14: 百分比
+            'target_amount',        # 15: 目标金额
+            'backer_count',         # 16: 支持者(数量)
+            'real_user_id',         # 17: 真实用户ID(链接提取)
+            'author_fans',          # 18: 作者页-粉丝数
+            'author_following',     # 19: 作者页-关注数
+            'author_likes',         # 20: 作者页-获赞数
+            'author_details',       # 21: 作者页-详情
+            'author_other_info',    # 22: 作者页-其他信息
+            'author_homepage_confirm', # 23: 作者页-主页确认
+            'rewards_data',         # 24: 回报列表信息(字符串)
+            'rewards_count',        # 25: 回报列表项目数
+            'update_count',         # 26: 项目更新数
+            'comment_count',        # 27: 评论数
+            'supporter_count',      # 28: 看好数
+            'content_images_count', # 29: 项目详情-图片数量
+            'content_images',       # 30: 项目详情-图片(列表字符串)
+            'content_videos_count', # 31: 项目详情-视频数量
+            'content_videos'        # 32: 项目详情-视频(列表字符串)
         ]
 
         project_dict = {}
+
+        # 只映射数据库表中实际存在的字段
+        db_fields = {
+            'project_url', 'project_id', 'project_name', 'project_image',
+            'category', 'author_name', 'author_link', 'author_image',
+            'start_time', 'end_time', 'raised_amount', 'target_amount',
+            'completion_rate', 'backer_count', 'update_count', 'comment_count',
+            'supporter_count', 'project_status', 'rewards_data',
+            'content_images', 'content_videos'
+        }
+
         for i, field in enumerate(field_mapping):
-            if i < len(project_list):
+            if field in db_fields and i < len(project_list):
                 project_dict[field] = project_list[i]
-            else:
-                project_dict[field] = None
+
+        # 设置默认值
+        for field in db_fields:
+            if field not in project_dict:
+                if field in ['raised_amount', 'target_amount', 'completion_rate']:
+                    project_dict[field] = 0.0
+                elif field in ['backer_count', 'update_count', 'comment_count', 'supporter_count']:
+                    project_dict[field] = 0
+                else:
+                    project_dict[field] = ''
 
         return project_dict
 
@@ -460,8 +507,7 @@ class DatabaseManager:
             '支持者(数量)': 'backer_count',
             '项目更新数': 'update_count',
             '评论数': 'comment_count',
-            '项目支持者/点赞数': 'supporter_count',  # 这里改为"看好数"
-            '收藏数': 'collect_count',
+            '看好数': 'supporter_count',  # 新字段名
             '回报列表信息(字符串)': 'rewards_data',
             '项目详情-图片(列表字符串)': 'content_images',
             '项目详情-视频(列表字符串)': 'content_videos'
@@ -485,7 +531,7 @@ class DatabaseManager:
                     except (ValueError, TypeError):
                         english_project[english_key] = 0.0
 
-                elif english_key in ['backer_count', 'update_count', 'comment_count', 'supporter_count', 'collect_count']:
+                elif english_key in ['backer_count', 'update_count', 'comment_count', 'supporter_count']:
                     # 确保计数字段是整数类型
                     try:
                         if value is not None and value != '':
@@ -531,7 +577,6 @@ class DatabaseManager:
             'update_count': 0,
             'comment_count': 0,
             'supporter_count': 0,
-            'collect_count': 0,
             'project_status': 'unknown',
             'rewards_data': '',
             'content_images': '',
@@ -842,7 +887,7 @@ class DatabaseManager:
                 updatable_fields = [
                     'project_name', 'category', 'author_name', 'project_status',
                     'raised_amount', 'target_amount', 'completion_rate',
-                    'backer_count', 'comment_count', 'supporter_count', 'collect_count',
+                    'backer_count', 'comment_count', 'supporter_count',
                     'start_time', 'end_time', 'project_url', 'project_image',
                     'author_link', 'author_image', 'update_count',
                     'rewards_data', 'content_images', 'content_videos'
