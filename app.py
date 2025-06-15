@@ -776,18 +776,60 @@ def get_project_history(project_id):
         # 应用分页
         paginated_history = history[offset:offset + limit]
 
+        # 获取变化检测和统计数据
+        changes = db_manager.detect_project_changes(project_id)
+        statistics = db_manager.get_project_statistics(project_id)
+
         return jsonify({
             'success': True,
             'history': paginated_history,
             'total_count': len(history),
             'limit': limit,
-            'offset': offset
+            'offset': offset,
+            'changes': changes,
+            'statistics': statistics
         })
 
     except Exception as e:
         return jsonify({
             'success': False,
             'message': f'获取项目历史失败: {str(e)}'
+        }), 500
+
+@app.route('/api/projects/<project_id>/changes', methods=['GET'])
+def get_project_changes(project_id):
+    """获取项目数据变化检测"""
+    try:
+        changes = db_manager.detect_project_changes(project_id)
+
+        return jsonify({
+            'success': True,
+            'project_id': project_id,
+            'changes': changes
+        })
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'获取项目变化失败: {str(e)}'
+        }), 500
+
+@app.route('/api/projects/<project_id>/statistics', methods=['GET'])
+def get_project_statistics_api(project_id):
+    """获取项目统计数据和趋势分析"""
+    try:
+        statistics = db_manager.get_project_statistics(project_id)
+
+        return jsonify({
+            'success': True,
+            'project_id': project_id,
+            'statistics': statistics
+        })
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'获取项目统计失败: {str(e)}'
         }), 500
 
 @app.route('/api/projects/<project_id>/export', methods=['GET'])

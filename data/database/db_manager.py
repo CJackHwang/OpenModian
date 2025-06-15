@@ -296,11 +296,11 @@ class DatabaseManager:
                 conn.row_factory = sqlite3.Row
                 cursor = conn.cursor()
 
-                # 获取所有历史记录
+                # 获取所有历史记录 - 包含所有关键字段
                 cursor.execute('''
                     SELECT raised_amount, target_amount, completion_rate,
-                           backer_count, comment_count, supporter_count,
-                           crawl_time
+                           backer_count, comment_count, supporter_count, update_count,
+                           crawl_time, project_name
                     FROM projects
                     WHERE project_id = ?
                     ORDER BY crawl_time ASC
@@ -313,32 +313,194 @@ class DatabaseManager:
 
                 # 计算趋势数据
                 stats = {
+                    'project_id': project_id,
+                    'project_name': records[0]['project_name'],
                     'total_records': len(records),
                     'first_crawl': records[0]['crawl_time'],
                     'last_crawl': records[-1]['crawl_time'],
                     'current_data': records[-1],
-                    'trends': {}
+                    'previous_data': records[-2] if len(records) >= 2 else None,
+                    'trends': {},
+                    'has_changes': False
                 }
 
-                # 计算各字段的变化趋势
+                # 计算各字段的变化趋势 - 包含看好数（supporter_count）
                 numeric_fields = ['raised_amount', 'backer_count', 'comment_count',
-                                'supporter_count', 'completion_rate']
+                                'supporter_count', 'completion_rate', 'update_count']
+
+                total_change_detected = False
 
                 for field in numeric_fields:
                     values = [r[field] for r in records if r[field] is not None]
                     if len(values) >= 2:
-                        stats['trends'][field] = {
-                            'first_value': values[0],
-                            'last_value': values[-1],
-                            'change': values[-1] - values[0],
-                            'change_rate': ((values[-1] - values[0]) / values[0] * 100) if values[0] > 0 else 0
+                        first_val = values[0]
+                        last_val = values[-1]
+                        change = last_val - first_val
+
+                        # 计算增长率，避免除零错误
+                        if first_val > 0:
+                            change_rate = (change / first_val) * 100
+                        elif change > 0:
+                            change_rate = 100.0  # 从0增长到正数，视为100%增长
+                        else:
+                            change_rate = 0.0
+
+                        # 检测是否有变化
+                        has_field_change = abs(change) > 0.001  # 对浮点数使用小的阈值
+                        if has_field_change:
+                            total_change_detected = True
+
+                        # 为看好数添加友好的字段名
+                        field_display_name = field
+                        if field == 'supporter_count':
+                            field_display_name = 'like_count'  # 在显示时使用like_count作为看好数
+
+                        stats['trends'][field_display_name] = {
+                            'first_value': first_val,
+                            'last_value': last_val,
+                            'change': change,
+                            'change_rate': round(change_rate, 2),
+                            'has_change': has_field_change,
+                            'field_name_cn': self._get_field_chinese_name(field)
                         }
+
+                stats['has_changes'] = total_change_detected
+
+                # 添加变化摘要
+                if total_change_detected:
+                    stats['change_summary'] = self._generate_change_summary(stats['trends'])
+                else:
+                    stats['change_summary'] = "数据无变化"
 
                 return stats
 
         except Exception as e:
             print(f"获取项目统计失败: {e}")
             return {}
+
+    def _get_field_chinese_name(self, field: str) -> str:
+        """获取字段的中文名称"""
+        field_names = {
+            'raised_amount': '筹款金额',
+            'backer_count': '支持者数量',
+            'comment_count': '评论数',
+            'supporter_count': '看好数',
+            'completion_rate': '完成率',
+            'update_count': '更新数'
+        }
+        return field_names.get(field, field)
+
+    def _generate_change_summary(self, trends: Dict[str, Any]) -> str:
+        """生成变化摘要"""
+        changes = []
+        for field, data in trends.items():
+            if data.get('has_change', False):
+                field_name = data.get('field_name_cn', field)
+                change = data['change']
+                change_rate = data['change_rate']
+                if change > 0:
+                    changes.append(f"{field_name}增长{change}({change_rate:+.1f}%)")
+                else:
+                    changes.append(f"{field_name}减少{abs(change)}({change_rate:+.1f}%)")
+
+        return "、".join(changes) if changes else "数据无变化"
+
+    def detect_project_changes(self, project_id: str, threshold: float = 0.001) -> Dict[str, Any]:
+        """检测项目数据变化 - 专门用于变化检测"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+
+                # 获取最近两次记录
+                cursor.execute('''
+                    SELECT raised_amount, backer_count, comment_count, supporter_count,
+                           completion_rate, update_count, crawl_time
+                    FROM projects
+                    WHERE project_id = ?
+                    ORDER BY crawl_time DESC
+                    LIMIT 2
+                ''', (project_id,))
+
+                records = [dict(row) for row in cursor.fetchall()]
+
+                if len(records) < 2:
+                    return {
+                        'has_changes': False,
+                        'message': '历史记录不足，无法检测变化',
+                        'records_count': len(records)
+                    }
+
+                current = records[0]
+                previous = records[1]
+
+                changes_detected = {}
+                has_any_change = False
+
+                # 检测各字段变化
+                fields_to_check = ['raised_amount', 'backer_count', 'comment_count',
+                                 'supporter_count', 'completion_rate', 'update_count']
+
+                for field in fields_to_check:
+                    current_val = current.get(field, 0) or 0
+                    previous_val = previous.get(field, 0) or 0
+
+                    change = current_val - previous_val
+                    has_change = abs(change) > threshold
+
+                    if has_change:
+                        has_any_change = True
+
+                    # 计算增长率
+                    if previous_val > 0:
+                        growth_rate = (change / previous_val) * 100
+                    elif change > 0:
+                        growth_rate = 100.0
+                    else:
+                        growth_rate = 0.0
+
+                    field_name = field
+                    if field == 'supporter_count':
+                        field_name = 'like_count'  # 显示为看好数
+
+                    changes_detected[field_name] = {
+                        'previous_value': previous_val,
+                        'current_value': current_val,
+                        'change': change,
+                        'growth_rate': round(growth_rate, 2),
+                        'has_change': has_change,
+                        'field_name_cn': self._get_field_chinese_name(field)
+                    }
+
+                return {
+                    'has_changes': has_any_change,
+                    'changes': changes_detected,
+                    'current_time': current['crawl_time'],
+                    'previous_time': previous['crawl_time'],
+                    'summary': self._generate_change_summary_from_detection(changes_detected)
+                }
+
+        except Exception as e:
+            print(f"检测项目变化失败: {e}")
+            return {
+                'has_changes': False,
+                'error': str(e)
+            }
+
+    def _generate_change_summary_from_detection(self, changes: Dict[str, Any]) -> str:
+        """从变化检测结果生成摘要"""
+        change_items = []
+        for field, data in changes.items():
+            if data.get('has_change', False):
+                field_name = data.get('field_name_cn', field)
+                change = data['change']
+                growth_rate = data['growth_rate']
+                if change > 0:
+                    change_items.append(f"{field_name}+{change}({growth_rate:+.1f}%)")
+                else:
+                    change_items.append(f"{field_name}{change}({growth_rate:+.1f}%)")
+
+        return "、".join(change_items) if change_items else "无变化"
 
     def save_projects(self, projects_data, task_id: str = None) -> int:
         """保存项目数据到数据库 - 支持列表和字典格式"""
