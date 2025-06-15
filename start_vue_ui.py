@@ -124,8 +124,8 @@ def start_integrated_server():
     """启动集成服务器（Flask + Vue）"""
     print("🚀 启动集成服务器...")
 
-    web_ui_dir = Path(__file__).parent / "web_ui"
-    app_file = web_ui_dir / "app.py"
+    project_root = Path(__file__).parent
+    app_file = project_root / "app.py"
 
     if not app_file.exists():
         print("✗ Flask应用文件不存在")
@@ -140,7 +140,7 @@ def start_integrated_server():
         # 启动Flask应用
         subprocess.run([
             sys.executable, str(app_file)
-        ], cwd=web_ui_dir, env=env)
+        ], cwd=project_root, env=env)
 
     except KeyboardInterrupt:
         print("\n集成服务器已停止")
@@ -156,8 +156,8 @@ def start_backend_dev():
     """启动Flask后端开发服务器"""
     print("🚀 启动Flask后端开发服务器...")
 
-    web_ui_dir = Path(__file__).parent / "web_ui"
-    app_file = web_ui_dir / "app.py"
+    project_root = Path(__file__).parent
+    app_file = project_root / "app.py"
 
     if not app_file.exists():
         print("✗ Flask应用文件不存在")
@@ -172,7 +172,7 @@ def start_backend_dev():
         # 启动Flask应用（让Flask自己处理端口检测）
         subprocess.run([
             sys.executable, str(app_file)
-        ], cwd=web_ui_dir, env=env)
+        ], cwd=project_root, env=env)
 
     except KeyboardInterrupt:
         print("\n后端开发服务器已停止")
