@@ -162,6 +162,21 @@
           </v-chip>
         </template>
 
+        <!-- 作者列 -->
+        <template #item.author_name="{ item }">
+          <div class="d-flex align-center">
+            <v-avatar size="24" class="me-2">
+              <v-img
+                v-if="item.author_image"
+                :src="item.author_image"
+                :alt="item.author_name"
+              />
+              <v-icon v-else icon="mdi-account" size="16" />
+            </v-avatar>
+            <span class="text-truncate">{{ item.author_name || '未知作者' }}</span>
+          </div>
+        </template>
+
         <!-- 金额列 -->
         <template #item.raised_amount="{ item }">
           <div class="text-right">
@@ -171,6 +186,54 @@
             <div class="text-caption text-medium-emphasis">
               目标: ¥{{ formatNumber(item.target_amount || 0) }}
             </div>
+            <div class="text-caption" :class="getCompletionColor(item.completion_rate)">
+              {{ formatPercentage(item.completion_rate) }}
+            </div>
+          </div>
+        </template>
+
+        <!-- 支持者数列 -->
+        <template #item.backer_count="{ item }">
+          <div class="text-center">
+            <v-chip size="small" color="primary" variant="tonal">
+              {{ formatNumber(item.backer_count || 0) }}
+            </v-chip>
+          </div>
+        </template>
+
+        <!-- 评论数列 -->
+        <template #item.comment_count="{ item }">
+          <div class="text-center">
+            <v-chip size="small" color="info" variant="tonal">
+              {{ formatNumber(item.comment_count || 0) }}
+            </v-chip>
+          </div>
+        </template>
+
+        <!-- 点赞数列 -->
+        <template #item.supporter_count="{ item }">
+          <div class="text-center">
+            <v-chip size="small" color="success" variant="tonal">
+              {{ formatNumber(item.supporter_count || 0) }}
+            </v-chip>
+          </div>
+        </template>
+
+        <!-- 状态列 -->
+        <template #item.project_status="{ item }">
+          <v-chip
+            size="small"
+            :color="getStatusColor(item.project_status)"
+            variant="tonal"
+          >
+            {{ getStatusText(item.project_status) }}
+          </v-chip>
+        </template>
+
+        <!-- 爬取时间列 -->
+        <template #item.crawl_time="{ item }">
+          <div class="text-caption">
+            {{ formatDateTime(item.crawl_time) }}
           </div>
         </template>
 
@@ -257,9 +320,15 @@ const categoryDisplayNames = {
 
 // 表格列定义
 const headers = [
-  { title: '项目名称', key: 'project_name', sortable: true, width: '300px' },
-  { title: '分类', key: 'category', sortable: true, width: '120px' },
-  { title: '筹款金额', key: 'raised_amount', sortable: true, width: '150px' }
+  { title: '项目名称', key: 'project_name', sortable: true, width: '250px' },
+  { title: '分类', key: 'category', sortable: true, width: '100px' },
+  { title: '作者', key: 'author_name', sortable: true, width: '120px' },
+  { title: '筹款金额', key: 'raised_amount', sortable: true, width: '130px' },
+  { title: '支持者', key: 'backer_count', sortable: true, width: '80px' },
+  { title: '评论数', key: 'comment_count', sortable: true, width: '80px' },
+  { title: '点赞数', key: 'supporter_count', sortable: true, width: '80px' },
+  { title: '状态', key: 'project_status', sortable: true, width: '100px' },
+  { title: '爬取时间', key: 'crawl_time', sortable: true, width: '150px' }
 ]
 
 // 计算属性
@@ -371,6 +440,59 @@ const getCategoryColor = (category) => {
 
 const getCategoryDisplayName = (category) => {
   return categoryDisplayNames[category] || category || '未知分类'
+}
+
+const getStatusColor = (status) => {
+  const colors = {
+    'active': 'success',
+    'completed': 'primary',
+    'failed': 'error',
+    'cancelled': 'warning',
+    '进行中': 'success',
+    '已完成': 'primary',
+    '失败': 'error',
+    '已取消': 'warning'
+  }
+  return colors[status] || 'grey'
+}
+
+const getStatusText = (status) => {
+  const texts = {
+    'active': '进行中',
+    'completed': '已完成',
+    'failed': '失败',
+    'cancelled': '已取消'
+  }
+  return texts[status] || status || '未知'
+}
+
+const getCompletionColor = (rate) => {
+  if (!rate) return 'text-medium-emphasis'
+  const percentage = parseFloat(rate)
+  if (percentage >= 100) return 'text-success'
+  if (percentage >= 50) return 'text-warning'
+  return 'text-error'
+}
+
+const formatPercentage = (rate) => {
+  if (!rate) return '0%'
+  return `${parseFloat(rate).toFixed(1)}%`
+}
+
+const formatDateTime = (dateStr) => {
+  if (!dateStr) return ''
+  try {
+    const date = new Date(dateStr)
+    return date.toLocaleString('zh-CN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  } catch {
+    return dateStr
+  }
 }
 
 // 生命周期

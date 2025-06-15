@@ -241,6 +241,222 @@ class DatabaseManager:
             print(f"删除任务失败: {e}")
             return False
 
+    def get_project_by_id(self, project_id: int) -> Optional[Dict[str, Any]]:
+        """根据ID获取单个项目"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+
+                cursor.execute('SELECT * FROM projects WHERE id = ?', (project_id,))
+                row = cursor.fetchone()
+
+                if row:
+                    return dict(row)
+                return None
+
+        except Exception as e:
+            print(f"获取项目失败: {e}")
+            return None
+
+    def update_project(self, project_id: int, data: Dict[str, Any]) -> bool:
+        """更新项目信息"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+
+                # 构建更新字段
+                update_fields = []
+                values = []
+
+                allowed_fields = [
+                    'project_name', 'category', 'author_name', 'raised_amount',
+                    'target_amount', 'completion_rate', 'backer_count',
+                    'update_count', 'comment_count', 'supporter_count',
+                    'collect_count', 'project_status'
+                ]
+
+                for field in allowed_fields:
+                    if field in data:
+                        update_fields.append(f"{field} = ?")
+                        values.append(data[field])
+
+                if not update_fields:
+                    return False
+
+                values.append(project_id)
+
+                cursor.execute(f'''
+                    UPDATE projects
+                    SET {', '.join(update_fields)}
+                    WHERE id = ?
+                ''', values)
+
+                conn.commit()
+                return cursor.rowcount > 0
+
+        except Exception as e:
+            print(f"更新项目失败: {e}")
+            return False
+
+    def delete_project(self, project_id: int) -> bool:
+        """删除项目"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute('DELETE FROM projects WHERE id = ?', (project_id,))
+                conn.commit()
+                return cursor.rowcount > 0
+        except Exception as e:
+            print(f"删除项目失败: {e}")
+            return False
+
+    def batch_delete_projects(self, project_ids: List[int]) -> int:
+        """批量删除项目"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+
+                placeholders = ','.join(['?'] * len(project_ids))
+                cursor.execute(f'DELETE FROM projects WHERE id IN ({placeholders})', project_ids)
+
+                conn.commit()
+                return cursor.rowcount
+        except Exception as e:
+            print(f"批量删除项目失败: {e}")
+            return 0
+
+    def search_projects(self, conditions: Dict[str, Any], limit: int = 100, offset: int = 0, sort_config: List[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+        """高级搜索项目"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+
+                where_clauses = []
+                values = []
+
+                # 构建WHERE条件
+                if conditions.get('project_name'):
+                    where_clauses.append('project_name LIKE ?')
+                    values.append(f"%{conditions['project_name']}%")
+
+                if conditions.get('category'):
+                    where_clauses.append('category = ?')
+                    values.append(conditions['category'])
+
+                if conditions.get('author_name'):
+                    where_clauses.append('author_name LIKE ?')
+                    values.append(f"%{conditions['author_name']}%")
+
+                if conditions.get('min_amount'):
+                    where_clauses.append('raised_amount >= ?')
+                    values.append(conditions['min_amount'])
+
+                if conditions.get('max_amount'):
+                    where_clauses.append('raised_amount <= ?')
+                    values.append(conditions['max_amount'])
+
+                if conditions.get('status'):
+                    where_clauses.append('project_status = ?')
+                    values.append(conditions['status'])
+
+                if conditions.get('date_from'):
+                    where_clauses.append('DATE(crawl_time) >= ?')
+                    values.append(conditions['date_from'])
+
+                if conditions.get('date_to'):
+                    where_clauses.append('DATE(crawl_time) <= ?')
+                    values.append(conditions['date_to'])
+
+                # 构建SQL查询
+                sql = 'SELECT * FROM projects'
+                if where_clauses:
+                    sql += ' WHERE ' + ' AND '.join(where_clauses)
+
+                # 添加排序
+                if sort_config and len(sort_config) > 0:
+                    order_clauses = []
+                    for sort_item in sort_config:
+                        field = sort_item.get('field', '')
+                        order = sort_item.get('order', 'desc').upper()
+                        if field and order in ['ASC', 'DESC']:
+                            order_clauses.append(f"{field} {order}")
+
+                    if order_clauses:
+                        sql += ' ORDER BY ' + ', '.join(order_clauses)
+                    else:
+                        sql += ' ORDER BY crawl_time DESC'
+                else:
+                    sql += ' ORDER BY crawl_time DESC'
+
+                sql += ' LIMIT ? OFFSET ?'
+                values.extend([limit, offset])
+
+                cursor.execute(sql, values)
+                return [dict(row) for row in cursor.fetchall()]
+
+        except Exception as e:
+            print(f"搜索项目失败: {e}")
+            return []
+
+    def count_projects(self, conditions: Dict[str, Any] = None) -> int:
+        """统计符合条件的项目数量"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+
+                if not conditions:
+                    cursor.execute('SELECT COUNT(*) FROM projects')
+                    return cursor.fetchone()[0]
+
+                where_clauses = []
+                values = []
+
+                # 构建WHERE条件（与search_projects相同）
+                if conditions.get('project_name'):
+                    where_clauses.append('project_name LIKE ?')
+                    values.append(f"%{conditions['project_name']}%")
+
+                if conditions.get('category'):
+                    where_clauses.append('category = ?')
+                    values.append(conditions['category'])
+
+                if conditions.get('author_name'):
+                    where_clauses.append('author_name LIKE ?')
+                    values.append(f"%{conditions['author_name']}%")
+
+                if conditions.get('min_amount'):
+                    where_clauses.append('raised_amount >= ?')
+                    values.append(conditions['min_amount'])
+
+                if conditions.get('max_amount'):
+                    where_clauses.append('raised_amount <= ?')
+                    values.append(conditions['max_amount'])
+
+                if conditions.get('status'):
+                    where_clauses.append('project_status = ?')
+                    values.append(conditions['status'])
+
+                if conditions.get('date_from'):
+                    where_clauses.append('DATE(crawl_time) >= ?')
+                    values.append(conditions['date_from'])
+
+                if conditions.get('date_to'):
+                    where_clauses.append('DATE(crawl_time) <= ?')
+                    values.append(conditions['date_to'])
+
+                sql = 'SELECT COUNT(*) FROM projects'
+                if where_clauses:
+                    sql += ' WHERE ' + ' AND '.join(where_clauses)
+
+                cursor.execute(sql, values)
+                return cursor.fetchone()[0]
+
+        except Exception as e:
+            print(f"统计项目数量失败: {e}")
+            return 0
+
     def save_projects(self, projects_data: List[List[Any]], task_id: str = None) -> int:
         """保存项目数据到数据库"""
         saved_count = 0

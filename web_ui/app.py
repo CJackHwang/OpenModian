@@ -16,7 +16,7 @@ from pathlib import Path
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, project_root)
 
-from flask import Flask, render_template, request, jsonify, send_file, send_from_directory
+from flask import Flask, request, jsonify, send_file, send_from_directory
 from flask_socketio import SocketIO, emit
 from flask_cors import CORS
 import uuid
@@ -26,16 +26,11 @@ from spider.config import SpiderConfig
 # from spider.monitor import SpiderMonitor  # 暂时不使用
 from database.db_manager import DatabaseManager
 
-# 检查Vue构建文件是否存在
+# Vue构建文件路径
 vue_dist_path = os.path.join(project_root, "web_ui_vue", "dist")
-vue_build_exists = os.path.exists(vue_dist_path)
 
-if vue_build_exists:
-    # 如果Vue构建文件存在，使用Vue前端
-    app = Flask(__name__, static_folder=vue_dist_path, static_url_path='')
-else:
-    # 否则使用传统模板
-    app = Flask(__name__)
+# 始终使用Vue前端（如果构建文件不存在会提示用户构建）
+app = Flask(__name__, static_folder=vue_dist_path, static_url_path='')
 
 app.config['SECRET_KEY'] = 'modian_spider_secret_key_2024'
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
@@ -102,15 +97,18 @@ class WebSpiderMonitor:
 @app.route('/')
 def index():
     """主页"""
-    if vue_build_exists:
+    if os.path.exists(vue_dist_path):
         return send_from_directory(vue_dist_path, 'index.html')
     else:
-        return render_template('index.html')
+        return jsonify({
+            'error': 'Vue前端未构建',
+            'message': '请运行 python3 start_vue_ui.py build 构建前端'
+        }), 404
 
 @app.route('/<path:path>')
 def vue_routes(path):
     """Vue路由处理"""
-    if vue_build_exists:
+    if os.path.exists(vue_dist_path):
         # 检查是否是静态文件
         if '.' in path:
             try:
@@ -120,8 +118,10 @@ def vue_routes(path):
         # 对于Vue路由，返回index.html
         return send_from_directory(vue_dist_path, 'index.html')
     else:
-        # 传统路由处理
-        return render_template('index.html')
+        return jsonify({
+            'error': 'Vue前端未构建',
+            'message': '请运行 python3 start_vue_ui.py build 构建前端'
+        }), 404
 
 @app.route('/api/start_crawl', methods=['POST'])
 def start_crawl():
@@ -506,6 +506,125 @@ def export_database():
             'message': f'导出失败: {str(e)}'
         }), 500
 
+@app.route('/api/database/project/<int:project_id>', methods=['GET'])
+def get_project(project_id):
+    """获取单个项目详情"""
+    try:
+        project = db_manager.get_project_by_id(project_id)
+        if project:
+            return jsonify({
+                'success': True,
+                'project': project
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': '项目不存在'
+            }), 404
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'获取项目失败: {str(e)}'
+        }), 500
+
+@app.route('/api/database/project/<int:project_id>', methods=['PUT'])
+def update_project(project_id):
+    """更新项目信息"""
+    try:
+        data = request.get_json()
+        success = db_manager.update_project(project_id, data)
+
+        if success:
+            return jsonify({
+                'success': True,
+                'message': '项目更新成功'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': '项目不存在或更新失败'
+            }), 404
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'更新项目失败: {str(e)}'
+        }), 500
+
+@app.route('/api/database/project/<int:project_id>', methods=['DELETE'])
+def delete_project(project_id):
+    """删除项目"""
+    try:
+        success = db_manager.delete_project(project_id)
+
+        if success:
+            return jsonify({
+                'success': True,
+                'message': '项目删除成功'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': '项目不存在或删除失败'
+            }), 404
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'删除项目失败: {str(e)}'
+        }), 500
+
+@app.route('/api/database/projects/batch', methods=['DELETE'])
+def batch_delete_projects():
+    """批量删除项目"""
+    try:
+        data = request.get_json()
+        project_ids = data.get('project_ids', [])
+
+        if not project_ids:
+            return jsonify({
+                'success': False,
+                'message': '请提供要删除的项目ID列表'
+            }), 400
+
+        deleted_count = db_manager.batch_delete_projects(project_ids)
+
+        return jsonify({
+            'success': True,
+            'message': f'成功删除 {deleted_count} 个项目',
+            'deleted_count': deleted_count
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'批量删除失败: {str(e)}'
+        }), 500
+
+@app.route('/api/database/projects/search', methods=['POST'])
+def search_projects():
+    """高级搜索项目"""
+    try:
+        data = request.get_json()
+        conditions = data.get('conditions', {})
+        sort_config = data.get('sort', [])
+        limit = data.get('limit', 100)
+        offset = data.get('offset', 0)
+
+        projects = db_manager.search_projects(conditions, limit, offset, sort_config)
+        total_count = db_manager.count_projects(conditions)
+
+        return jsonify({
+            'success': True,
+            'projects': projects,
+            'total_count': total_count,
+            'limit': limit,
+            'offset': offset,
+            'sort_config': sort_config
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'搜索失败: {str(e)}'
+        }), 500
+
 @socketio.on('connect')
 def handle_connect():
     """WebSocket连接"""
@@ -532,10 +651,12 @@ def find_available_port(start_port=8080, max_port=8090):
     return None
 
 if __name__ == '__main__':
-    # 确保模板和静态文件目录存在
-    os.makedirs('templates', exist_ok=True)
-    os.makedirs('static/css', exist_ok=True)
-    os.makedirs('static/js', exist_ok=True)
+    # 检查Vue构建文件是否存在
+    if not os.path.exists(vue_dist_path):
+        print("⚠️  Vue前端未构建，请先运行：")
+        print("   python3 start_vue_ui.py build")
+        print("   或者运行：python3 start_vue_ui.py prod")
+        print("")
 
     # 只在主进程中执行端口检测和启动信息显示
     if os.environ.get('WERKZEUG_RUN_MAIN') != 'true':

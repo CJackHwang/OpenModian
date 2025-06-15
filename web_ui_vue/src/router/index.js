@@ -28,6 +28,14 @@ const router = createRouter({
       }
     },
     {
+      path: '/data/advanced',
+      name: 'advanced-data',
+      component: () => import('@/views/AdvancedDataManagement.vue'),
+      meta: {
+        title: '高级数据管理'
+      }
+    },
+    {
       path: '/history',
       name: 'history',
       component: () => import('@/views/TaskHistory.vue'),

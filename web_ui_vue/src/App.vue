@@ -120,6 +120,11 @@ const menuItems = [
     to: '/data'
   },
   {
+    title: '高级数据管理',
+    icon: 'mdi-database-edit',
+    to: '/data/advanced'
+  },
+  {
     title: '任务历史',
     icon: 'mdi-history',
     to: '/history'
