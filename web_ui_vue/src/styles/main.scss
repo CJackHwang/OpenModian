@@ -1,4 +1,4 @@
-// Material Design 3 主样式文件 - Quasar版本
+// Material Design 3 主样式文件 - Vuetify3版本
 
 // M3 全局样式
 * {
@@ -11,46 +11,119 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-// 滚动条样式
+// M3 阴影系统 (Elevation Levels)
+.elevation-0 { box-shadow: none !important; }
+.elevation-1 { box-shadow: 0px 1px 2px 0px rgba(0, 0, 0, 0.3), 0px 1px 3px 1px rgba(0, 0, 0, 0.15) !important; }
+.elevation-2 { box-shadow: 0px 1px 2px 0px rgba(0, 0, 0, 0.3), 0px 2px 6px 2px rgba(0, 0, 0, 0.15) !important; }
+.elevation-3 { box-shadow: 0px 4px 8px 3px rgba(0, 0, 0, 0.15), 0px 1px 3px 0px rgba(0, 0, 0, 0.3) !important; }
+.elevation-4 { box-shadow: 0px 6px 10px 4px rgba(0, 0, 0, 0.15), 0px 2px 3px 0px rgba(0, 0, 0, 0.3) !important; }
+.elevation-5 { box-shadow: 0px 8px 12px 6px rgba(0, 0, 0, 0.15), 0px 4px 4px 0px rgba(0, 0, 0, 0.3) !important; }
+
+// M3 圆角系统
+.rounded-xs { border-radius: 4px !important; }
+.rounded-sm { border-radius: 8px !important; }
+.rounded-md { border-radius: 12px !important; }
+.rounded-lg { border-radius: 16px !important; }
+.rounded-xl { border-radius: 20px !important; }
+.rounded-xxl { border-radius: 24px !important; }
+.rounded-full { border-radius: 28px !important; }
+
+// 滚动条样式 - M3风格
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #f1f1f1;
+  background: rgba(var(--v-theme-surface-variant), 0.3);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
+  background: rgba(var(--v-theme-on-surface-variant), 0.4);
   border-radius: 4px;
+  transition: background 0.2s ease;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #a8a8a8;
+  background: rgba(var(--v-theme-on-surface-variant), 0.6);
 }
 
-// Quasar组件样式增强
-.q-card {
-  border-radius: 16px !important;
+// Vuetify组件M3样式增强
+.v-card {
+  border-radius: 12px !important;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
-  &:hover {
+  &.stats-card:hover {
+    transform: translateY(-4px);
+  }
+
+  &.interactive-card:hover {
     transform: translateY(-2px);
   }
 }
 
-.q-btn {
+.v-btn {
   border-radius: 20px !important;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   font-weight: 500;
   letter-spacing: 0.1px;
   text-transform: none;
 
-  &:hover {
+  &.v-btn--size-small {
+    border-radius: 16px !important;
+  }
+
+  &.v-btn--size-large {
+    border-radius: 24px !important;
+  }
+
+  &:hover:not(.v-btn--disabled) {
     transform: translateY(-1px);
   }
+}
+
+.v-chip {
+  border-radius: 16px !important;
+  font-weight: 500;
+  transition: all 0.2s ease;
+
+  &:hover {
+    transform: scale(1.05);
+  }
+}
+
+.v-dialog .v-card {
+  border-radius: 28px !important;
+}
+
+.v-navigation-drawer {
+  .v-list-item {
+    border-radius: 12px !important;
+    margin: 4px 8px;
+    transition: all 0.2s ease;
+
+    &:hover {
+      transform: translateX(4px);
+    }
+  }
+}
+
+.v-data-table {
+  border-radius: 12px !important;
+  overflow: hidden;
+}
+
+.v-progress-linear {
+  border-radius: 8px !important;
+}
+
+.v-text-field .v-field {
+  border-radius: 12px !important;
+}
+
+.v-select .v-field {
+  border-radius: 12px !important;
 }
 
 // 日志容器特殊样式
@@ -60,16 +133,16 @@ body {
   }
 
   &::-webkit-scrollbar-track {
-    background: #2d2d2d;
+    background: rgba(var(--v-theme-surface), 0.1);
   }
 
   &::-webkit-scrollbar-thumb {
-    background: #555;
+    background: rgba(var(--v-theme-on-surface), 0.3);
     border-radius: 3px;
   }
 
   &::-webkit-scrollbar-thumb:hover {
-    background: #777;
+    background: rgba(var(--v-theme-on-surface), 0.5);
   }
 }
 
@@ -132,30 +205,34 @@ body {
   }
 }
 
-// 状态指示器
+// M3 状态指示器
 .status-indicator {
   display: inline-block;
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
   margin-right: 8px;
+  transition: all 0.2s ease;
 }
 
 .status-running {
-  background-color: #4caf50;
+  background-color: rgb(var(--v-theme-success));
   animation: pulse 2s infinite;
+  box-shadow: 0 0 8px rgba(var(--v-theme-success), 0.4);
 }
 
 .status-completed {
-  background-color: #2196f3;
+  background-color: rgb(var(--v-theme-primary));
+  box-shadow: 0 0 6px rgba(var(--v-theme-primary), 0.3);
 }
 
 .status-failed {
-  background-color: #f44336;
+  background-color: rgb(var(--v-theme-error));
+  box-shadow: 0 0 6px rgba(var(--v-theme-error), 0.3);
 }
 
 .status-stopped {
-  background-color: #9e9e9e;
+  background-color: rgb(var(--v-theme-surface-variant));
 }
 
 @keyframes pulse {
@@ -185,36 +262,163 @@ body {
   user-select: none;
 }
 
-// Quasar表格样式增强
-.q-table {
-  border-radius: 12px;
-  overflow: hidden;
-}
+// M3 状态颜色系统
+.text-state-success { color: rgb(var(--v-theme-success)) !important; }
+.text-state-warning { color: rgb(var(--v-theme-warning)) !important; }
+.text-state-error { color: rgb(var(--v-theme-error)) !important; }
+.text-state-info { color: rgb(var(--v-theme-info)) !important; }
 
-// Quasar对话框样式
-.q-dialog {
-  .q-card {
-    border-radius: 28px;
+.bg-state-success { background-color: rgba(var(--v-theme-success), 0.1) !important; }
+.bg-state-warning { background-color: rgba(var(--v-theme-warning), 0.1) !important; }
+.bg-state-error { background-color: rgba(var(--v-theme-error), 0.1) !important; }
+.bg-state-info { background-color: rgba(var(--v-theme-info), 0.1) !important; }
+
+// M3 表面层级
+.surface-level-0 { background-color: rgb(var(--v-theme-surface)) !important; }
+.surface-level-1 { background-color: rgb(var(--v-theme-surface-variant)) !important; }
+.surface-level-2 { background-color: rgba(var(--v-theme-primary), 0.05) !important; }
+.surface-level-3 { background-color: rgba(var(--v-theme-primary), 0.08) !important; }
+.surface-level-4 { background-color: rgba(var(--v-theme-primary), 0.11) !important; }
+.surface-level-5 { background-color: rgba(var(--v-theme-primary), 0.14) !important; }
+
+// M3 响应式工具类
+.responsive-container {
+  max-width: 100%;
+  overflow-x: auto;
+
+  &::-webkit-scrollbar {
+    height: 6px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: rgba(var(--v-theme-surface-variant), 0.3);
+    border-radius: 3px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: rgba(var(--v-theme-on-surface-variant), 0.4);
+    border-radius: 3px;
   }
 }
 
-// Quasar芯片样式增强
-.q-chip {
-  font-weight: 500;
-  border-radius: 16px;
-}
+// M3 响应式断点系统
+.container-fluid {
+  // 超大屏幕 (≥2560px)
+  @media (min-width: 2560px) {
+    max-width: 2400px;
+    padding: 0 80px;
+  }
 
-// Quasar抽屉样式
-.q-drawer {
-  .q-item {
-    border-radius: 12px;
-    margin: 4px 8px;
+  // 超大屏幕 (≥1920px)
+  @media (min-width: 1920px) and (max-width: 2559px) {
+    max-width: 1800px;
+    padding: 0 60px;
+  }
+
+  // 大屏幕 (≥1264px)
+  @media (min-width: 1264px) and (max-width: 1919px) {
+    max-width: 1200px;
+    padding: 0 48px;
+  }
+
+  // 中等屏幕 (≥960px)
+  @media (min-width: 960px) and (max-width: 1263px) {
+    max-width: 900px;
+    padding: 0 32px;
+  }
+
+  // 平板 (≥600px)
+  @media (min-width: 600px) and (max-width: 959px) {
+    max-width: 100%;
+    padding: 0 24px;
+  }
+
+  // 手机 (<600px)
+  @media (max-width: 599px) {
+    max-width: 100%;
+    padding: 0 16px;
   }
 }
 
-// Quasar工具栏样式
-.q-toolbar {
-  .q-toolbar__title {
-    font-weight: 500;
+// 响应式间距系统
+.responsive-spacing {
+  // 超大屏幕：紧凑间距
+  @media (min-width: 1920px) {
+    &.mb-8 { margin-bottom: 48px !important; }
+    &.mb-6 { margin-bottom: 32px !important; }
+    &.mb-4 { margin-bottom: 24px !important; }
+    &.pa-8 { padding: 48px !important; }
+    &.pa-6 { padding: 32px !important; }
+  }
+
+  // 大屏幕：标准间距
+  @media (min-width: 1264px) and (max-width: 1919px) {
+    &.mb-8 { margin-bottom: 40px !important; }
+    &.mb-6 { margin-bottom: 28px !important; }
+    &.mb-4 { margin-bottom: 20px !important; }
+    &.pa-8 { padding: 40px !important; }
+    &.pa-6 { padding: 28px !important; }
+  }
+
+  // 中等屏幕：适中间距
+  @media (min-width: 960px) and (max-width: 1263px) {
+    &.mb-8 { margin-bottom: 32px !important; }
+    &.mb-6 { margin-bottom: 24px !important; }
+    &.mb-4 { margin-bottom: 16px !important; }
+    &.pa-8 { padding: 32px !important; }
+    &.pa-6 { padding: 24px !important; }
+  }
+
+  // 平板：舒适间距
+  @media (min-width: 600px) and (max-width: 959px) {
+    &.mb-8 { margin-bottom: 24px !important; }
+    &.mb-6 { margin-bottom: 20px !important; }
+    &.mb-4 { margin-bottom: 16px !important; }
+    &.pa-8 { padding: 24px !important; }
+    &.pa-6 { padding: 20px !important; }
+  }
+
+  // 手机：大间距
+  @media (max-width: 599px) {
+    &.mb-8 { margin-bottom: 20px !important; }
+    &.mb-6 { margin-bottom: 16px !important; }
+    &.mb-4 { margin-bottom: 12px !important; }
+    &.pa-8 { padding: 20px !important; }
+    &.pa-6 { padding: 16px !important; }
   }
 }
+
+// M3 交互增强
+.interactive-hover {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: 0px 2px 4px 1px rgba(0, 0, 0, 0.15);
+  }
+}
+
+.interactive-scale {
+  transition: transform 0.2s ease;
+
+  &:hover {
+    transform: scale(1.02);
+  }
+}
+
+// M3 文本样式
+.text-display-large { font-size: 3.5rem; font-weight: 400; line-height: 4rem; }
+.text-display-medium { font-size: 2.8rem; font-weight: 400; line-height: 3.25rem; }
+.text-display-small { font-size: 2.25rem; font-weight: 400; line-height: 2.75rem; }
+.text-headline-large { font-size: 2rem; font-weight: 400; line-height: 2.5rem; }
+.text-headline-medium { font-size: 1.75rem; font-weight: 400; line-height: 2.25rem; }
+.text-headline-small { font-size: 1.5rem; font-weight: 400; line-height: 2rem; }
+.text-title-large { font-size: 1.375rem; font-weight: 500; line-height: 1.75rem; }
+.text-title-medium { font-size: 1rem; font-weight: 500; line-height: 1.5rem; }
+.text-title-small { font-size: 0.875rem; font-weight: 500; line-height: 1.25rem; }
+.text-body-large { font-size: 1rem; font-weight: 400; line-height: 1.5rem; }
+.text-body-medium { font-size: 0.875rem; font-weight: 400; line-height: 1.25rem; }
+.text-body-small { font-size: 0.75rem; font-weight: 400; line-height: 1rem; }
+.text-label-large { font-size: 0.875rem; font-weight: 500; line-height: 1.25rem; }
+.text-label-medium { font-size: 0.75rem; font-weight: 500; line-height: 1rem; }
+.text-label-small { font-size: 0.6875rem; font-weight: 500; line-height: 0.875rem; }

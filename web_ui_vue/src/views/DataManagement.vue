@@ -1,24 +1,31 @@
 <template>
   <div>
-    <!-- 页面标题 -->
-    <v-row class="mb-6">
+    <!-- 页面标题 - M3风格 -->
+    <v-row class="mb-8">
       <v-col>
-        <h1 class="text-h4 font-weight-bold text-primary mb-2">
-          <v-icon icon="mdi-database" class="me-3" size="large" />
-          数据管理
-        </h1>
-        <p class="text-h6 text-medium-emphasis">
-          查看、搜索和管理爬取的项目数据
-        </p>
+        <div class="d-flex align-center mb-4">
+          <div class="title-icon-container me-4">
+            <v-icon icon="mdi-database" size="32" />
+          </div>
+          <div>
+            <h1 class="text-headline-large font-weight-medium text-primary mb-1">
+              数据管理
+            </h1>
+            <p class="text-body-large text-on-surface-variant">
+              查看、搜索和管理爬取的项目数据
+            </p>
+          </div>
+        </div>
       </v-col>
-      <v-col cols="auto">
+      <v-col cols="auto" class="d-flex align-center gap-3">
         <v-btn
           color="primary"
           prepend-icon="mdi-download"
           @click="exportData"
           :loading="exporting"
           variant="elevated"
-          class="me-2"
+          size="large"
+          class="elevation-2"
         >
           导出数据
         </v-btn>
@@ -28,40 +35,75 @@
           @click="refreshData"
           :loading="loading"
           variant="elevated"
+          size="large"
+          class="elevation-2"
         >
           刷新
         </v-btn>
       </v-col>
     </v-row>
 
-    <!-- 数据统计 -->
-    <v-row class="mb-6">
-      <v-col cols="12" sm="6" md="3">
-        <v-card class="text-center pa-4" color="primary-container" elevation="2">
-          <v-icon icon="mdi-database" size="32" class="mb-2" />
-          <div class="text-h6 font-weight-bold">{{ stats.total }}</div>
-          <div class="text-caption">总项目数</div>
+    <!-- 数据统计 - M3风格响应式 -->
+    <v-row class="mb-8 responsive-spacing">
+      <v-col cols="12" sm="6" md="3" xl="3" xxl="2">
+        <v-card class="text-center stats-card interactive-hover responsive-spacing" color="primary-container" elevation="2">
+          <div class="stats-icon-wrapper mb-4">
+            <v-icon icon="mdi-database" size="40" />
+          </div>
+          <div class="text-headline-medium font-weight-medium mb-2 text-on-primary-container">{{ stats.total }}</div>
+          <div class="text-body-medium text-on-primary-container opacity-80">总项目数</div>
         </v-card>
       </v-col>
-      <v-col cols="12" sm="6" md="3">
-        <v-card class="text-center pa-4" color="secondary-container" elevation="2">
-          <v-icon icon="mdi-calendar-today" size="32" class="mb-2" />
-          <div class="text-h6 font-weight-bold">{{ stats.today }}</div>
-          <div class="text-caption">今日新增</div>
+      <v-col cols="12" sm="6" md="3" xl="3" xxl="2">
+        <v-card class="text-center stats-card interactive-hover responsive-spacing" color="secondary-container" elevation="2">
+          <div class="stats-icon-wrapper mb-4">
+            <v-icon icon="mdi-calendar-today" size="40" />
+          </div>
+          <div class="text-headline-medium font-weight-medium mb-2 text-on-secondary-container">{{ stats.today }}</div>
+          <div class="text-body-medium text-on-secondary-container opacity-80">今日新增</div>
         </v-card>
       </v-col>
-      <v-col cols="12" sm="6" md="3">
-        <v-card class="text-center pa-4" color="tertiary-container" elevation="2">
-          <v-icon icon="mdi-calendar-week" size="32" class="mb-2" />
-          <div class="text-h6 font-weight-bold">{{ stats.week }}</div>
-          <div class="text-caption">本周新增</div>
+      <v-col cols="12" sm="6" md="3" xl="3" xxl="2">
+        <v-card class="text-center stats-card interactive-hover responsive-spacing" color="tertiary-container" elevation="2">
+          <div class="stats-icon-wrapper mb-4">
+            <v-icon icon="mdi-calendar-week" size="40" />
+          </div>
+          <div class="text-headline-medium font-weight-medium mb-2 text-on-tertiary-container">{{ stats.week }}</div>
+          <div class="text-body-medium text-on-tertiary-container opacity-80">本周新增</div>
         </v-card>
       </v-col>
-      <v-col cols="12" sm="6" md="3">
-        <v-card class="text-center pa-4" color="surface-variant" elevation="2">
-          <v-icon icon="mdi-currency-cny" size="32" class="mb-2" />
-          <div class="text-h6 font-weight-bold">{{ formatCurrency(stats.totalAmount) }}</div>
-          <div class="text-caption">总筹款金额</div>
+      <v-col cols="12" sm="6" md="3" xl="3" xxl="2">
+        <v-card class="text-center stats-card interactive-hover responsive-spacing" color="surface-container-high" elevation="2">
+          <div class="stats-icon-wrapper mb-4">
+            <v-icon icon="mdi-currency-cny" size="40" />
+          </div>
+          <div class="text-headline-medium font-weight-medium mb-2 text-on-surface">{{ formatCurrency(stats.totalAmount) }}</div>
+          <div class="text-body-medium text-on-surface-variant">总筹款金额</div>
+        </v-card>
+      </v-col>
+
+      <!-- 超大屏幕额外统计 -->
+      <v-col cols="12" sm="6" md="6" xl="6" xxl="2" class="d-none d-xxl-flex">
+        <v-card class="text-center stats-card interactive-hover responsive-spacing" color="error-container" elevation="2">
+          <div class="stats-icon-wrapper mb-4">
+            <v-icon icon="mdi-percent" size="40" />
+          </div>
+          <div class="text-headline-medium font-weight-medium mb-2 text-on-error-container">
+            {{ Math.round((stats.today / Math.max(stats.total, 1)) * 100) }}%
+          </div>
+          <div class="text-body-medium text-on-error-container opacity-80">今日占比</div>
+        </v-card>
+      </v-col>
+
+      <v-col cols="12" sm="6" md="6" xl="6" xxl="2" class="d-none d-xxl-flex">
+        <v-card class="text-center stats-card interactive-hover responsive-spacing" color="surface-container" elevation="2">
+          <div class="stats-icon-wrapper mb-4">
+            <v-icon icon="mdi-chart-timeline-variant" size="40" />
+          </div>
+          <div class="text-headline-medium font-weight-medium mb-2 text-on-surface">
+            {{ Math.round(stats.week / 7) }}
+          </div>
+          <div class="text-body-medium text-on-surface-variant">日均新增</div>
         </v-card>
       </v-col>
     </v-row>
@@ -197,10 +239,14 @@
           <div class="d-flex align-center">
             <v-avatar size="24" class="me-2">
               <v-img
-                v-if="item.author_image"
+                v-if="isValidImageUrl(item.author_image)"
                 :src="item.author_image"
                 :alt="item.author_name"
-              />
+              >
+                <template v-slot:error>
+                  <v-icon icon="mdi-account" size="16" />
+                </template>
+              </v-img>
               <v-icon v-else icon="mdi-account" size="16" />
             </v-avatar>
             <span class="text-truncate">{{ item.author_name || '未知作者' }}</span>
@@ -301,6 +347,7 @@ import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
 import BackupManager from '@/components/BackupManager.vue'
+import { isValidImageUrl } from '@/utils/imageUtils'
 
 const router = useRouter()
 
@@ -394,17 +441,71 @@ const categoryDisplayNames = {
   '个人愿望': '个人愿望'
 }
 
-// 表格列定义
+// 表格列定义 - 响应式
 const headers = [
-  { title: '项目名称', key: 'project_name', sortable: true, width: '250px' },
-  { title: '分类', key: 'category', sortable: true, width: '100px' },
-  { title: '作者', key: 'author_name', sortable: true, width: '120px' },
-  { title: '筹款金额', key: 'raised_amount', sortable: true, width: '130px' },
-  { title: '支持者', key: 'backer_count', sortable: true, width: '80px' },
-  { title: '评论数', key: 'comment_count', sortable: true, width: '80px' },
-  { title: '看好数', key: 'supporter_count', sortable: true, width: '80px' },
-  { title: '状态', key: 'project_status', sortable: true, width: '100px' },
-  { title: '爬取时间', key: 'crawl_time', sortable: true, width: '150px' }
+  {
+    title: '项目名称',
+    key: 'project_name',
+    sortable: true,
+    width: '250px',
+    class: 'text-left'
+  },
+  {
+    title: '分类',
+    key: 'category',
+    sortable: true,
+    width: '100px',
+    class: 'd-none d-md-table-cell'
+  },
+  {
+    title: '作者',
+    key: 'author_name',
+    sortable: true,
+    width: '120px',
+    class: 'd-none d-lg-table-cell'
+  },
+  {
+    title: '筹款金额',
+    key: 'raised_amount',
+    sortable: true,
+    width: '130px',
+    class: 'text-right'
+  },
+  {
+    title: '支持者',
+    key: 'backer_count',
+    sortable: true,
+    width: '80px',
+    class: 'd-none d-sm-table-cell text-center'
+  },
+  {
+    title: '评论数',
+    key: 'comment_count',
+    sortable: true,
+    width: '80px',
+    class: 'd-none d-md-table-cell text-center'
+  },
+  {
+    title: '看好数',
+    key: 'supporter_count',
+    sortable: true,
+    width: '80px',
+    class: 'd-none d-lg-table-cell text-center'
+  },
+  {
+    title: '状态',
+    key: 'project_status',
+    sortable: true,
+    width: '100px',
+    class: 'd-none d-md-table-cell text-center'
+  },
+  {
+    title: '爬取时间',
+    key: 'crawl_time',
+    sortable: true,
+    width: '150px',
+    class: 'd-none d-xl-table-cell text-center'
+  }
 ]
 
 // 计算属性 - 现在主要用于显示，实际筛选通过API完成
@@ -585,6 +686,8 @@ const goToProjectDetail = (projectId) => {
   }
 }
 
+
+
 // 监听筛选条件变化
 watch([() => filters.category, () => filters.period], () => {
   console.log(`🔄 筛选条件变化: 分类=${filters.category}, 时间=${filters.period}`)
@@ -596,3 +699,169 @@ onMounted(() => {
   refreshData()
 })
 </script>
+
+<style scoped>
+.title-icon-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(var(--v-theme-primary), 0.1) 0%, rgba(var(--v-theme-primary), 0.2) 100%);
+  border: 1px solid rgba(var(--v-theme-primary), 0.2);
+}
+
+.stats-card {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid rgba(var(--v-theme-outline-variant), 0.2);
+
+  &:hover {
+    transform: translateY(-4px);
+    box-shadow: 0px 6px 20px 2px rgba(0, 0, 0, 0.1), 0px 2px 6px 0px rgba(0, 0, 0, 0.12);
+  }
+}
+
+.stats-icon-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 72px;
+  height: 72px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.25) 100%);
+  backdrop-filter: blur(8px);
+  margin: 0 auto;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* M3 响应式优化 - 数据管理页面 */
+/* 超大屏幕：最高信息密度 */
+@media (min-width: 2560px) {
+  .stats-card {
+    padding: 32px 24px !important;
+  }
+
+  .stats-icon-wrapper {
+    width: 80px;
+    height: 80px;
+    border-radius: 20px;
+  }
+
+  .title-icon-container {
+    width: 72px;
+    height: 72px;
+    border-radius: 18px;
+  }
+
+  /* 表格在超大屏幕下显示更多列 */
+  .v-data-table {
+    font-size: 14px;
+  }
+
+  .v-data-table th,
+  .v-data-table td {
+    padding: 0 12px !important;
+  }
+}
+
+/* 超大屏幕：高信息密度 */
+@media (min-width: 1920px) and (max-width: 2559px) {
+  .stats-card {
+    padding: 28px 20px !important;
+  }
+
+  .stats-icon-wrapper {
+    width: 76px;
+    height: 76px;
+    border-radius: 19px;
+  }
+
+  .title-icon-container {
+    width: 68px;
+    height: 68px;
+    border-radius: 17px;
+  }
+
+  .v-data-table {
+    font-size: 13px;
+  }
+}
+
+/* 大屏幕：标准信息密度 */
+@media (min-width: 1264px) and (max-width: 1919px) {
+  .stats-card {
+    padding: 24px 18px !important;
+  }
+
+  .stats-icon-wrapper {
+    width: 72px;
+    height: 72px;
+    border-radius: 18px;
+  }
+}
+
+/* 中等屏幕：适中信息密度 */
+@media (min-width: 960px) and (max-width: 1263px) {
+  .stats-card {
+    padding: 20px 16px !important;
+  }
+
+  .stats-icon-wrapper {
+    width: 68px;
+    height: 68px;
+    border-radius: 17px;
+  }
+}
+
+/* 平板：舒适间距 */
+@media (min-width: 600px) and (max-width: 959px) {
+  .stats-card {
+    padding: 20px 16px !important;
+  }
+
+  .stats-icon-wrapper {
+    width: 64px;
+    height: 64px;
+    border-radius: 16px;
+  }
+
+  /* 平板下隐藏部分表格列 */
+  .v-data-table .d-md-table-cell {
+    display: none !important;
+  }
+}
+
+/* 手机：大间距 */
+@media (max-width: 599px) {
+  .title-icon-container {
+    width: 56px;
+    height: 56px;
+    border-radius: 14px;
+  }
+
+  .stats-card {
+    padding: 16px 12px !important;
+  }
+
+  .stats-icon-wrapper {
+    width: 56px;
+    height: 56px;
+    border-radius: 14px;
+  }
+
+  /* 手机下只显示核心列 */
+  .v-data-table .d-sm-table-cell {
+    display: none !important;
+  }
+
+  .v-data-table {
+    font-size: 12px;
+  }
+
+  .v-data-table th,
+  .v-data-table td {
+    padding: 0 8px !important;
+  }
+}
+</style>

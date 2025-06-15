@@ -286,10 +286,14 @@
           <div class="d-flex align-center">
             <v-avatar size="20" class="me-2">
               <v-img
-                v-if="item.author_image"
+                v-if="isValidImageUrl(item.author_image)"
                 :src="item.author_image"
                 :alt="item.author_name"
-              />
+              >
+                <template v-slot:error>
+                  <v-icon icon="mdi-account" size="12" />
+                </template>
+              </v-img>
               <v-icon v-else icon="mdi-account" size="12" />
             </v-avatar>
             <span class="text-truncate text-caption">{{ item.author_name || '未知' }}</span>
@@ -688,6 +692,7 @@ import { ref, reactive, onMounted } from 'vue'
 import axios from 'axios'
 import FilterBuilder from '@/components/FilterBuilder.vue'
 import FilterHistory from '@/components/FilterHistory.vue'
+import { isValidImageUrl } from '@/utils/imageUtils'
 
 // 响应式数据
 const loading = ref(false)

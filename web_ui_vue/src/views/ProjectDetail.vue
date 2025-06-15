@@ -63,8 +63,8 @@
       <v-row class="mb-6">
         <v-col cols="12" md="4">
           <v-card class="h-100">
-            <v-img 
-              :src="project.project_image || '/placeholder-image.jpg'" 
+            <v-img
+              :src="isValidImageUrl(project.project_image) ? project.project_image : '/placeholder-image.jpg'"
               height="200"
               cover
               class="white--text"
@@ -74,12 +74,25 @@
                   <v-progress-circular indeterminate color="grey lighten-5"></v-progress-circular>
                 </v-row>
               </template>
+              <template v-slot:error>
+                <v-row class="fill-height ma-0" align="center" justify="center">
+                  <v-icon size="64" color="grey">mdi-image-off</v-icon>
+                </v-row>
+              </template>
             </v-img>
             <v-card-text>
               <div class="text-h6 mb-2">作者信息</div>
               <div class="d-flex align-center mb-2">
                 <v-avatar size="32" class="mr-2">
-                  <v-img :src="project.author_image || '/placeholder-avatar.jpg'"></v-img>
+                  <v-img
+                    v-if="isValidImageUrl(project.author_image)"
+                    :src="project.author_image"
+                  >
+                    <template v-slot:error>
+                      <v-icon icon="mdi-account" size="20" />
+                    </template>
+                  </v-img>
+                  <v-icon v-else icon="mdi-account" size="20" />
                 </v-avatar>
                 <div>
                   <div class="font-weight-medium">{{ project.author_name || '未知作者' }}</div>
@@ -331,6 +344,7 @@ import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useSnackbar } from '@/composables/useSnackbar'
 import axios from 'axios'
+import { isValidImageUrl } from '@/utils/imageUtils'
 
 const route = useRoute()
 const router = useRouter()
@@ -490,6 +504,8 @@ function getStatusColor(status) {
     default: return 'grey'
   }
 }
+
+
 </script>
 
 <style scoped>

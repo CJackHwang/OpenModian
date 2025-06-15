@@ -513,6 +513,21 @@ def get_database_stats():
             'message': f'获取统计信息失败: {str(e)}'
         }), 500
 
+def clean_image_urls(projects):
+    """清理项目数据中的无效图片URL"""
+    invalid_values = ['none', 'null', 'undefined', '', ' ', 'N/A', 'n/a']
+
+    for project in projects:
+        # 清理作者头像URL
+        if project.get('author_image') in invalid_values:
+            project['author_image'] = None
+
+        # 清理项目图片URL
+        if project.get('project_image') in invalid_values:
+            project['project_image'] = None
+
+    return projects
+
 @app.route('/api/database/projects')
 def get_database_projects():
     """获取数据库中的项目数据"""
@@ -529,6 +544,9 @@ def get_database_projects():
         else:
             projects = db_manager.get_projects_by_time(time_period, limit)
             print(f"📊 时间筛选 '{time_period}': 找到 {len(projects)} 个项目")
+
+        # 清理无效的图片URL
+        projects = clean_image_urls(projects)
 
         return jsonify({
             'success': True,
@@ -668,6 +686,9 @@ def search_projects():
         projects = db_manager.search_projects(conditions, limit, offset, sort_config)
         total_count = db_manager.count_projects(conditions)
 
+        # 清理无效的图片URL
+        projects = clean_image_urls(projects)
+
         return jsonify({
             'success': True,
             'projects': projects,
@@ -747,6 +768,9 @@ def get_project_detail(project_id):
                 'success': False,
                 'message': '项目不存在'
             }), 404
+
+        # 清理无效的图片URL
+        project = clean_image_urls([project])[0]
 
         # 获取项目统计数据
         stats = db_manager.get_project_statistics(project_id)
