@@ -52,34 +52,67 @@ export const useAppStore = defineStore('app', () => {
 
   const initializeSocket = () => {
     try {
-      socket.value = io({
+      // 单端口模式下直接连接当前域名
+      const socketUrl = window.location.origin
+      console.log('🔌 正在连接WebSocket:', socketUrl)
+
+      socket.value = io(socketUrl, {
         transports: ['websocket', 'polling'],
-        timeout: 5000,
+        timeout: 20000,
         reconnection: true,
         reconnectionDelay: 1000,
-        reconnectionAttempts: 5
+        reconnectionDelayMax: 5000,
+        reconnectionAttempts: 10,
+        forceNew: false,
+        autoConnect: true,
+        upgrade: true,
+        rememberUpgrade: true
       })
 
       socket.value.on('connect', () => {
         connectionStatus.value = true
-        console.log('WebSocket连接成功')
+        console.log('✅ WebSocket连接成功')
+        console.log('🔗 连接ID:', socket.value.id)
       })
 
-      socket.value.on('disconnect', () => {
+      socket.value.on('disconnect', (reason) => {
         connectionStatus.value = false
-        console.log('WebSocket连接断开')
+        console.log('❌ WebSocket连接断开:', reason)
       })
 
       socket.value.on('connect_error', (error) => {
         connectionStatus.value = false
-        console.warn('WebSocket连接失败:', error.message)
+        console.error('❌ WebSocket连接失败:', error)
+      })
+
+      socket.value.on('reconnect', (attemptNumber) => {
+        connectionStatus.value = true
+        console.log('🔄 WebSocket重连成功，尝试次数:', attemptNumber)
+      })
+
+      socket.value.on('reconnect_error', (error) => {
+        console.error('🔄 WebSocket重连失败:', error)
+      })
+
+      socket.value.on('connected', (data) => {
+        console.log('📨 收到服务器确认:', data)
       })
 
       socket.value.on('task_update', (data) => {
+        console.log('📊 收到任务更新:', data)
         handleTaskUpdate(data)
       })
+
+      // 手动触发连接（如果需要）
+      setTimeout(() => {
+        if (!socket.value.connected) {
+          console.log('🔄 手动触发WebSocket连接...')
+          socket.value.connect()
+        }
+      }, 1000)
+
     } catch (error) {
-      console.error('初始化WebSocket失败:', error)
+      console.error('❌ 初始化WebSocket失败:', error)
       connectionStatus.value = false
     }
   }
@@ -207,9 +240,10 @@ export const useAppStore = defineStore('app', () => {
     connectionStatus,
     systemStats,
     currentTask,
-    
+
     // Actions
     initialize,
+    initializeSocket,
     startCrawlTask,
     stopCrawlTask,
     refreshData,

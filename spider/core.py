@@ -1033,15 +1033,7 @@ class AdaptiveParser:
         }
 
         try:
-            # 🎯 点赞数提取 - 精确匹配HTML结构
-            # <li class="atten"><i class="iconfont icon-optimistic"></i> <span>1670</span></li>
-            self._log("debug", "开始提取点赞数...")
-
-            # 静态提取已简化，主要依赖闪电动态获取
-
-            # 🎯 支持者数量提取 - 精确匹配HTML结构
-            # <li class="dialog_user_list support_user" data-type="backer_list" data-count="268">支持者 <span backer_count="147446">268</span></li>
-            self._log("debug", "开始提取支持者数量...")
+            # 支持者数量提取 - 精确匹配HTML结构
 
             # 方法1: 从导航区域的支持者链接提取
             supporter_selectors = [
@@ -1070,7 +1062,6 @@ class AdaptiveParser:
                                 supporter_num = int(numbers[0])
                                 if 0 <= supporter_num <= 100000:  # 合理范围验证
                                     result["supporter_count"] = numbers[0]
-                                    self._log("info", f"✅ 支持者数量提取成功({selector}): {result['supporter_count']}")
                                     break
                 if result["supporter_count"] != "0":
                     break
@@ -1086,12 +1077,9 @@ class AdaptiveParser:
                             count_num = int(count_value)
                             if 0 <= count_num <= 100000:
                                 result["supporter_count"] = count_value
-                                self._log("info", f"✅ 支持者数量提取成功(data-count): {result['supporter_count']}")
                                 break
 
-            # 🎯 评论数提取 - 精确匹配HTML结构
-            # <li class="nav-comment"><a href="#comment">评论 <span comment_count="147446">1149</span></a></li>
-            self._log("debug", "开始提取评论数...")
+            # 评论数提取 - 精确匹配HTML结构
 
             # 方法1: 从导航评论链接提取（优化选择器）
             comment_selectors = [
@@ -1127,7 +1115,6 @@ class AdaptiveParser:
                             # 避免提取到项目ID（通常是6位数）
                             if 0 <= comment_num <= 50000:  # 合理的评论数范围
                                 result["comment_count"] = numbers[0]
-                                self._log("info", f"✅ 评论数提取成功({selector}): {result['comment_count']}")
                                 break
                 if result["comment_count"] != "0":
                     break
@@ -1142,7 +1129,6 @@ class AdaptiveParser:
                         comment_num = int(comment_text)
                         if 0 <= comment_num <= 50000:
                             result["comment_count"] = comment_text
-                            self._log("info", f"✅ 评论数提取成功(span文本): {result['comment_count']}")
                             break
 
         except Exception as e:

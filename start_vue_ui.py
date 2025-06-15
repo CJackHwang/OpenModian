@@ -169,7 +169,7 @@ def start_backend_dev():
         env['FLASK_ENV'] = 'development'
         env['FLASK_DEBUG'] = '1'
 
-        # 启动Flask应用
+        # 启动Flask应用（让Flask自己处理端口检测）
         subprocess.run([
             sys.executable, str(app_file)
         ], cwd=web_ui_dir, env=env)
@@ -182,6 +182,24 @@ def start_backend_dev():
 
     return True
 
+def find_backend_port():
+    """查找后端实际使用的端口"""
+    import socket
+
+    # 检查常用端口
+    for port in [8080, 8081, 8082, 8083]:
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            result = sock.connect_ex(('localhost', port))
+            sock.close()
+            if result == 0:
+                # 端口被占用，可能是我们的后端
+                return port
+        except:
+            continue
+
+    return 8080  # 默认端口
+
 def start_frontend_dev():
     """启动Vue前端开发服务器"""
     print("🚀 启动Vue前端开发服务器...")
@@ -192,11 +210,22 @@ def start_frontend_dev():
         print("✗ Vue项目目录不存在")
         return False
 
+    # 等待后端启动，然后检测端口
+    print("⏳ 等待后端启动...")
+    time.sleep(3)
+
+    backend_port = find_backend_port()
+    print(f"🔍 检测到后端端口: {backend_port}")
+
     try:
+        # 设置环境变量
+        env = os.environ.copy()
+        env['BACKEND_URL'] = f'http://localhost:{backend_port}'
+
         # 启动Vue开发服务器
         subprocess.run([
             'npm', 'run', 'dev'
-        ], cwd=vue_dir)
+        ], cwd=vue_dir, env=env)
 
     except KeyboardInterrupt:
         print("\n前端开发服务器已停止")
@@ -222,27 +251,32 @@ def open_browser_dev():
     import webbrowser
     time.sleep(5)  # 等待开发服务器启动
     try:
-        webbrowser.open('http://localhost:3000')
-        print("📱 浏览器已打开: http://localhost:3000")
+        webbrowser.open('http://localhost:3001')
+        print("📱 浏览器已打开: http://localhost:3001")
     except Exception as e:
         print(f"⚠️  无法自动打开浏览器: {e}")
-        print("请手动访问: http://localhost:3000")
+        print("请手动访问: http://localhost:3001")
 
 def main():
     """主函数"""
     import sys
 
     # 检查命令行参数
-    mode = 'dev'  # 默认开发模式
+    mode = 'prod'  # 默认生产模式（单端口）
     if len(sys.argv) > 1:
-        if sys.argv[1] in ['dev', 'build', 'prod']:
+        if sys.argv[1] in ['dev', 'build', 'prod', 'single']:
             mode = sys.argv[1]
         else:
-            print("用法: python3 start_vue_ui.py [dev|build|prod]")
-            print("  dev   - 开发模式（默认，热重载）")
-            print("  build - 仅构建前端")
-            print("  prod  - 生产模式（先构建再启动）")
+            print("用法: python3 start_vue_ui.py [dev|build|prod|single]")
+            print("  dev    - 开发模式（前后端分离，热重载）")
+            print("  build  - 仅构建前端")
+            print("  prod   - 生产模式（单端口，默认）")
+            print("  single - 单端口模式（同prod）")
             return
+
+    # single模式等同于prod模式
+    if mode == 'single':
+        mode = 'prod'
 
     print("摩点爬虫Vue UI启动器")
     print("=" * 50)
@@ -281,11 +315,12 @@ def main():
         return
 
     elif mode == 'dev':
-        # 开发模式
+        # 开发模式（前后端分离）
         print("\n" + "=" * 50)
-        print("🚀 启动开发模式...")
-        print("📱 前端开发服务器: http://localhost:3000")
+        print("🚀 启动开发模式（前后端分离）...")
+        print("📱 前端开发服务器: http://localhost:3001")
         print("🔧 后端API服务器: http://localhost:8080")
+        print("⚠️  注意：此模式仅用于前端开发调试")
         print("⏹️  按 Ctrl+C 停止所有服务")
         print("=" * 50)
 
@@ -293,10 +328,7 @@ def main():
         backend_thread = threading.Thread(target=start_backend_dev, daemon=True)
         backend_thread.start()
 
-        # 等待后端启动
-        time.sleep(2)
-
-        # 在后台打开浏览器
+        # 在后台打开浏览器（延迟启动）
         browser_thread = threading.Thread(target=lambda: open_browser_dev(), daemon=True)
         browser_thread.start()
 
@@ -307,10 +339,11 @@ def main():
             print("\n👋 开发服务器已停止")
 
     elif mode == 'prod':
-        # 生产模式
+        # 生产模式（单端口）
         print("\n" + "=" * 50)
-        print("🚀 启动生产模式...")
+        print("🚀 启动单端口模式...")
         print("📱 访问地址: http://localhost:8080")
+        print("✨ 前后端整合在同一端口")
         print("⏹️  按 Ctrl+C 停止服务")
         print("=" * 50)
 

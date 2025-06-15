@@ -1,15 +1,18 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
-import { quasar, transformAssetUrls } from '@quasar/vite-plugin'
+import vuetify from 'vite-plugin-vuetify'
 import { fileURLToPath, URL } from 'node:url'
 
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
-    vue({
-      template: { transformAssetUrls }
-    }),
-    quasar()
+    vue(),
+    vuetify({
+      autoImport: true,
+      theme: {
+        defaultTheme: 'light'
+      }
+    })
   ],
   resolve: {
     alias: {
@@ -17,16 +20,16 @@ export default defineConfig({
     }
   },
   server: {
-    port: 3000,
+    port: 3001,  // 避免与Docker等服务冲突
     host: true,
     proxy: {
       '/api': {
-        target: 'http://localhost:8080',
+        target: process.env.BACKEND_URL || 'http://localhost:8080',
         changeOrigin: true,
         secure: false
       },
       '/socket.io': {
-        target: 'http://localhost:8080',
+        target: process.env.BACKEND_URL || 'http://localhost:8080',
         changeOrigin: true,
         ws: true
       }
@@ -40,7 +43,7 @@ export default defineConfig({
       output: {
         manualChunks: {
           vendor: ['vue', 'vue-router', 'pinia'],
-          quasar: ['quasar']
+          vuetify: ['vuetify']
         }
       }
     }

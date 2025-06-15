@@ -1,205 +1,268 @@
 <template>
   <div>
     <!-- 页面标题 -->
-    <div class="q-mb-lg">
-      <h1 class="text-h4 text-weight-bold text-primary q-mb-sm">
-        <q-icon name="bug_report" class="q-mr-sm" />
-        爬虫控制
-      </h1>
-      <p class="text-subtitle1 text-grey-7">
-        配置和管理爬虫任务
-      </p>
-    </div>
-
-    <!-- 临时内容 -->
-    <q-card>
-      <q-card-section>
-        <div class="text-h6">爬虫控制面板</div>
-        <p>此页面正在开发中，请稍后...</p>
-      </q-card-section>
-    </q-card>
+    <v-row class="mb-6">
+      <v-col>
+        <h1 class="text-h4 font-weight-bold text-primary mb-2">
+          <v-icon icon="mdi-spider" class="me-3" size="large" />
+          爬虫控制
+        </h1>
+        <p class="text-h6 text-medium-emphasis">
+          配置和管理爬虫任务
+        </p>
+      </v-col>
+    </v-row>
 
     <v-row>
       <!-- 左侧配置面板 -->
       <v-col cols="12" lg="4">
-        <v-card>
+        <v-card elevation="2" class="mb-4">
           <v-card-title>
-            <v-icon class="me-2">mdi-cog</v-icon>
+            <v-icon icon="mdi-cog" class="me-3" />
             爬虫配置
           </v-card-title>
-          
+
           <v-card-text>
             <v-form ref="configForm" v-model="formValid">
               <!-- 页面范围 -->
-              <v-row>
-                <v-col cols="6">
-                  <v-text-field
-                    v-model.number="config.startPage"
-                    label="起始页"
-                    type="number"
-                    :rules="[rules.required, rules.minPage]"
-                    min="1"
-                  />
-                </v-col>
-                <v-col cols="6">
-                  <v-text-field
-                    v-model.number="config.endPage"
-                    label="结束页"
-                    type="number"
-                    :rules="[rules.required, rules.maxPage]"
-                    min="1"
-                  />
-                </v-col>
-              </v-row>
+              <div class="mb-4">
+                <v-label class="text-subtitle-2 mb-2">页面范围</v-label>
+                <v-row>
+                  <v-col cols="6">
+                    <v-text-field
+                      v-model.number="config.startPage"
+                      label="起始页"
+                      type="number"
+                      :min="1"
+                      :rules="[v => v >= 1 || '起始页必须大于0']"
+                      variant="outlined"
+                      density="compact"
+                    />
+                  </v-col>
+                  <v-col cols="6">
+                    <v-text-field
+                      v-model.number="config.endPage"
+                      label="结束页"
+                      type="number"
+                      :min="config.startPage"
+                      :rules="[v => v >= config.startPage || '结束页必须大于等于起始页']"
+                      variant="outlined"
+                      density="compact"
+                    />
+                  </v-col>
+                </v-row>
+              </div>
 
               <!-- 项目分类 -->
-              <v-select
-                v-model="config.category"
-                :items="categories"
-                item-title="label"
-                item-value="value"
-                label="项目分类"
-                :rules="[rules.required]"
-              />
+              <div class="mb-4">
+                <v-label class="text-subtitle-2 mb-2">项目分类</v-label>
+                <v-select
+                  v-model="config.category"
+                  :items="categories"
+                  item-title="label"
+                  item-value="value"
+                  label="选择分类"
+                  variant="outlined"
+                  density="compact"
+                />
+              </div>
 
               <!-- 并发设置 -->
-              <v-text-field
-                v-model.number="config.maxConcurrent"
-                label="最大并发数"
-                type="number"
-                :rules="[rules.required, rules.concurrent]"
-                min="1"
-                max="10"
-                hint="建议1-5，过高可能被封IP"
-                persistent-hint
-              />
+              <div class="mb-4">
+                <v-label class="text-subtitle-2 mb-2">并发请求数: {{ config.maxConcurrent }}</v-label>
+                <v-slider
+                  v-model="config.maxConcurrent"
+                  :min="1"
+                  :max="10"
+                  :step="1"
+                  show-ticks
+                  tick-size="4"
+                  color="primary"
+                />
+              </div>
 
               <!-- 延迟设置 -->
-              <v-row>
-                <v-col cols="6">
-                  <v-text-field
-                    v-model.number="config.delayMin"
-                    label="最小延迟(秒)"
-                    type="number"
-                    :rules="[rules.required, rules.delay]"
-                    min="0.5"
-                    step="0.1"
-                  />
-                </v-col>
-                <v-col cols="6">
-                  <v-text-field
-                    v-model.number="config.delayMax"
-                    label="最大延迟(秒)"
-                    type="number"
-                    :rules="[rules.required, rules.delayMax]"
-                    min="0.5"
-                    step="0.1"
-                  />
-                </v-col>
-              </v-row>
+              <div class="mb-4">
+                <v-label class="text-subtitle-2 mb-2">请求延迟 (秒)</v-label>
+                <v-row>
+                  <v-col cols="6">
+                    <v-text-field
+                      v-model.number="config.delayMin"
+                      label="最小延迟"
+                      type="number"
+                      :min="0"
+                      :step="0.1"
+                      variant="outlined"
+                      density="compact"
+                    />
+                  </v-col>
+                  <v-col cols="6">
+                    <v-text-field
+                      v-model.number="config.delayMax"
+                      label="最大延迟"
+                      type="number"
+                      :min="config.delayMin"
+                      :step="0.1"
+                      variant="outlined"
+                      density="compact"
+                    />
+                  </v-col>
+                </v-row>
+              </div>
 
-              <!-- 操作按钮 -->
-              <div class="d-flex flex-column ga-3 mt-4">
-                <v-btn
-                  color="success"
-                  size="large"
-                  :disabled="!formValid || isTaskRunning"
-                  :loading="appStore.loading"
-                  @click="startCrawl"
-                  prepend-icon="mdi-play"
-                >
-                  {{ isTaskRunning ? '运行中...' : '开始爬取' }}
-                </v-btn>
-                
-                <v-btn
-                  color="error"
-                  variant="outlined"
-                  :disabled="!isTaskRunning"
-                  @click="stopCrawl"
-                  prepend-icon="mdi-stop"
-                >
-                  停止爬取
-                </v-btn>
-                
-                <v-btn
-                  variant="outlined"
-                  @click="resetConfig"
-                  prepend-icon="mdi-refresh"
-                >
-                  重置配置
-                </v-btn>
+              <!-- 动态数据获取 -->
+              <div class="mb-4">
+                <v-switch
+                  v-model="config.enableDynamic"
+                  label="启用动态数据获取"
+                  color="primary"
+                  hide-details
+                />
+                <v-card-subtitle class="px-0 text-caption">
+                  启用后将获取需要JavaScript渲染的数据（如点赞数等）
+                </v-card-subtitle>
               </div>
             </v-form>
           </v-card-text>
         </v-card>
+
+        <!-- 操作按钮 -->
+        <v-card elevation="2">
+          <v-card-title>
+            <v-icon icon="mdi-play-circle" class="me-3" />
+            任务控制
+          </v-card-title>
+
+          <v-card-text>
+            <v-btn
+              v-if="!isRunning"
+              block
+              color="primary"
+              size="large"
+              prepend-icon="mdi-play"
+              @click="startCrawling"
+              :disabled="!formValid"
+              :loading="starting"
+              variant="elevated"
+              class="mb-3"
+            >
+              开始爬取
+            </v-btn>
+
+            <v-btn
+              v-else
+              block
+              color="error"
+              size="large"
+              prepend-icon="mdi-stop"
+              @click="stopCrawling"
+              :loading="stopping"
+              variant="elevated"
+              class="mb-3"
+            >
+              停止爬取
+            </v-btn>
+
+            <v-btn
+              block
+              variant="outlined"
+              prepend-icon="mdi-refresh"
+              @click="loadDefaultConfig"
+              :disabled="isRunning"
+            >
+              重置配置
+            </v-btn>
+          </v-card-text>
+        </v-card>
       </v-col>
 
-      <!-- 右侧监控面板 -->
+      <!-- 右侧状态面板 -->
       <v-col cols="12" lg="8">
         <!-- 当前任务状态 -->
-        <v-card class="mb-4" v-if="appStore.currentTask.id">
+        <v-card elevation="2" class="mb-4">
           <v-card-title class="d-flex align-center">
-            <v-icon class="me-2">mdi-monitor</v-icon>
-            当前任务
+            <v-icon icon="mdi-information" class="me-3" />
+            当前任务状态
             <v-spacer />
             <v-chip
-              :color="getTaskStatusColor(appStore.currentTask.status)"
+              v-if="currentTask"
+              :color="getTaskStatusColor(currentTask.status)"
               variant="flat"
             >
-              {{ getTaskStatusText(appStore.currentTask.status) }}
+              {{ getTaskStatusText(currentTask.status) }}
             </v-chip>
           </v-card-title>
-          
+
           <v-card-text>
-            <!-- 进度条 -->
-            <div class="mb-4">
-              <div class="d-flex justify-space-between mb-2">
-                <span class="text-subtitle-2">爬取进度</span>
-                <span class="text-subtitle-2">{{ Math.round(appStore.currentTask.progress) }}%</span>
+            <div v-if="currentTask && currentTask.id">
+              <!-- 任务信息 -->
+              <v-row class="mb-4">
+                <v-col cols="12" md="6">
+                  <div class="text-subtitle-2 mb-1">任务ID</div>
+                  <div class="text-body-2 font-mono">{{ currentTask.id }}</div>
+                </v-col>
+                <v-col cols="12" md="6">
+                  <div class="text-subtitle-2 mb-1">开始时间</div>
+                  <div class="text-body-2">{{ formatTime(currentTask.startTime) }}</div>
+                </v-col>
+              </v-row>
+
+              <!-- 进度条 -->
+              <div class="mb-4">
+                <div class="d-flex justify-space-between mb-2">
+                  <span class="text-subtitle-2">爬取进度</span>
+                  <span class="text-subtitle-2">{{ Math.round(currentTask.progress || 0) }}%</span>
+                </div>
+                <v-progress-linear
+                  :model-value="currentTask.progress || 0"
+                  height="12"
+                  rounded
+                  color="primary"
+                  striped
+                />
               </div>
-              <v-progress-linear
-                :model-value="appStore.currentTask.progress"
-                height="12"
-                rounded
-                color="primary"
-                striped
-              />
+
+              <!-- 统计信息 -->
+              <v-row class="text-center">
+                <v-col cols="6" md="3">
+                  <div class="text-h6 font-weight-bold text-primary">
+                    {{ currentTask.stats?.pagesCrawled || 0 }}
+                  </div>
+                  <div class="text-caption text-medium-emphasis">已爬页面</div>
+                </v-col>
+                <v-col cols="6" md="3">
+                  <div class="text-h6 font-weight-bold text-success">
+                    {{ currentTask.stats?.projectsFound || 0 }}
+                  </div>
+                  <div class="text-caption text-medium-emphasis">发现项目</div>
+                </v-col>
+                <v-col cols="6" md="3">
+                  <div class="text-h6 font-weight-bold text-info">
+                    {{ currentTask.stats?.projectsProcessed || 0 }}
+                  </div>
+                  <div class="text-caption text-medium-emphasis">已处理</div>
+                </v-col>
+                <v-col cols="6" md="3">
+                  <div class="text-h6 font-weight-bold text-error">
+                    {{ currentTask.stats?.errors || 0 }}
+                  </div>
+                  <div class="text-caption text-medium-emphasis">错误数</div>
+                </v-col>
+              </v-row>
             </div>
 
-            <!-- 统计信息 -->
-            <v-row class="text-center">
-              <v-col cols="3">
-                <v-card variant="tonal" color="primary" class="pa-3">
-                  <div class="text-h5 font-weight-bold">{{ appStore.currentTask.stats.pagesCrawled }}</div>
-                  <div class="text-caption">已爬页面</div>
-                </v-card>
-              </v-col>
-              <v-col cols="3">
-                <v-card variant="tonal" color="success" class="pa-3">
-                  <div class="text-h5 font-weight-bold">{{ appStore.currentTask.stats.projectsFound }}</div>
-                  <div class="text-caption">发现项目</div>
-                </v-card>
-              </v-col>
-              <v-col cols="3">
-                <v-card variant="tonal" color="info" class="pa-3">
-                  <div class="text-h5 font-weight-bold">{{ appStore.currentTask.stats.projectsProcessed }}</div>
-                  <div class="text-caption">已处理</div>
-                </v-card>
-              </v-col>
-              <v-col cols="3">
-                <v-card variant="tonal" color="error" class="pa-3">
-                  <div class="text-h5 font-weight-bold">{{ appStore.currentTask.stats.errors }}</div>
-                  <div class="text-caption">错误数</div>
-                </v-card>
-              </v-col>
-            </v-row>
+            <div v-else class="text-center py-8 text-medium-emphasis">
+              <v-icon icon="mdi-sleep" size="64" class="mb-4" />
+              <div class="text-h6">暂无活跃任务</div>
+              <div class="text-subtitle-2">配置参数后点击"开始爬取"启动任务</div>
+            </div>
           </v-card-text>
         </v-card>
 
         <!-- 实时日志 -->
-        <v-card>
+        <v-card elevation="2">
           <v-card-title class="d-flex align-center">
-            <v-icon class="me-2">mdi-console-line</v-icon>
+            <v-icon icon="mdi-console" class="me-3" />
             实时日志
             <v-spacer />
             <v-btn
@@ -207,17 +270,17 @@
               variant="text"
               size="small"
               @click="clearLogs"
+              :disabled="!logs.length"
             />
           </v-card-title>
-          
+
           <v-card-text class="pa-0">
-            <div class="log-container" ref="logContainer">
-              <div v-if="appStore.currentTask.logs.length === 0" class="text-center pa-4 text-medium-emphasis">
-                <v-icon size="48" class="mb-2">mdi-console</v-icon>
-                <div>等待任务开始...</div>
+            <div class="log-container">
+              <div v-if="logs.length === 0" class="text-center pa-4 text-medium-emphasis">
+                暂无日志信息
               </div>
               <div
-                v-for="(log, index) in appStore.currentTask.logs"
+                v-for="(log, index) in logs"
                 :key="index"
                 :class="['log-entry', `log-${log.level}`]"
               >
@@ -234,63 +297,129 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, watch, nextTick } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { useAppStore } from '@/stores/app'
+import axios from 'axios'
 
 const appStore = useAppStore()
 
 // 响应式数据
-const configForm = ref(null)
 const formValid = ref(false)
-const logContainer = ref(null)
+const starting = ref(false)
+const stopping = ref(false)
+const categories = ref([])
+const logs = ref([])
+const currentTask = ref(null)
 
+// 配置数据
 const config = reactive({
   startPage: 1,
   endPage: 10,
   category: 'all',
   maxConcurrent: 3,
-  delayMin: 1,
-  delayMax: 3
+  delayMin: 1.0,
+  delayMax: 3.0,
+  enableDynamic: true
 })
 
-const categories = [
-  { value: 'all', label: '全部分类' },
-  { value: 'games', label: '游戏' },
-  { value: 'publishing', label: '出版' },
-  { value: 'tablegames', label: '桌游' },
-  { value: 'toys', label: '潮玩模型' },
-  { value: 'cards', label: '卡牌' },
-  { value: 'technology', label: '科技' },
-  { value: 'film-video', label: '影视' },
-  { value: 'music', label: '音乐' },
-  { value: 'activities', label: '活动' },
-  { value: 'design', label: '设计' },
-  { value: 'curio', label: '文玩' },
-  { value: 'home', label: '家居' },
-  { value: 'food', label: '食品' },
-  { value: 'comics', label: '动漫' },
-  { value: 'charity', label: '爱心通道' },
-  { value: 'animals', label: '动物救助' },
-  { value: 'wishes', label: '个人愿望' },
-  { value: 'others', label: '其他' }
-]
-
-// 表单验证规则
-const rules = {
-  required: value => !!value || '此字段为必填项',
-  minPage: value => value >= 1 || '起始页必须大于等于1',
-  maxPage: value => value >= config.startPage || '结束页必须大于等于起始页',
-  concurrent: value => value >= 1 && value <= 10 || '并发数必须在1-10之间',
-  delay: value => value >= 0.5 || '延迟时间必须大于等于0.5秒',
-  delayMax: value => value >= config.delayMin || '最大延迟必须大于等于最小延迟'
-}
-
 // 计算属性
-const isTaskRunning = computed(() => {
-  return appStore.currentTask.status === 'running' || appStore.currentTask.status === 'starting'
+const isRunning = computed(() => {
+  return currentTask.value && ['starting', 'running'].includes(currentTask.value.status)
 })
 
 // 方法
+const loadDefaultConfig = async () => {
+  try {
+    const response = await axios.get('/api/config')
+    if (response.data.success) {
+      const defaultConfig = response.data.config
+      config.startPage = defaultConfig.start_page
+      config.endPage = defaultConfig.end_page
+      config.category = defaultConfig.category
+      config.maxConcurrent = defaultConfig.max_concurrent
+      config.delayMin = defaultConfig.delay_min
+      config.delayMax = defaultConfig.delay_max
+      categories.value = defaultConfig.categories
+    }
+  } catch (error) {
+    console.error('加载默认配置失败:', error)
+  }
+}
+
+const startCrawling = async () => {
+  if (!formValid.value) return
+
+  starting.value = true
+  try {
+    const response = await axios.post('/api/start_crawl', {
+      start_page: config.startPage,
+      end_page: config.endPage,
+      category: config.category,
+      max_concurrent: config.maxConcurrent,
+      delay_min: config.delayMin,
+      delay_max: config.delayMax,
+      enable_dynamic: config.enableDynamic
+    })
+
+    if (response.data.success) {
+      addLog('success', `任务已启动: ${response.data.task_id}`)
+      // 开始轮询任务状态
+      startPolling()
+    } else {
+      addLog('error', `启动失败: ${response.data.message}`)
+    }
+  } catch (error) {
+    addLog('error', `启动失败: ${error.message}`)
+  } finally {
+    starting.value = false
+  }
+}
+
+const stopCrawling = async () => {
+  if (!currentTask.value?.id) return
+
+  stopping.value = true
+  try {
+    const response = await axios.post(`/api/stop_crawl/${currentTask.value.id}`)
+
+    if (response.data.success) {
+      addLog('warning', '任务已停止')
+    } else {
+      addLog('error', `停止失败: ${response.data.message}`)
+    }
+  } catch (error) {
+    addLog('error', `停止失败: ${error.message}`)
+  } finally {
+    stopping.value = false
+  }
+}
+
+const addLog = (level, message) => {
+  const timestamp = new Date().toLocaleTimeString()
+  logs.value.push({
+    timestamp,
+    level,
+    message
+  })
+
+  // 只保留最近100条日志
+  if (logs.value.length > 100) {
+    logs.value = logs.value.slice(-100)
+  }
+
+  // 滚动到底部
+  setTimeout(() => {
+    const container = document.querySelector('.log-container')
+    if (container) {
+      container.scrollTop = container.scrollHeight
+    }
+  }, 100)
+}
+
+const clearLogs = () => {
+  logs.value = []
+}
+
 const getTaskStatusColor = (status) => {
   const colors = {
     'idle': 'grey',
@@ -315,119 +444,192 @@ const getTaskStatusText = (status) => {
   return texts[status] || '未知'
 }
 
-const startCrawl = async () => {
-  if (!formValid.value) return
-
-  const result = await appStore.startCrawlTask({
-    start_page: config.startPage,
-    end_page: config.endPage,
-    category: config.category,
-    max_concurrent: config.maxConcurrent,
-    delay_min: config.delayMin,
-    delay_max: config.delayMax
-  })
-
-  if (result.success) {
-    // 任务启动成功的处理
-  } else {
-    // 错误处理
-    console.error('启动任务失败:', result.message)
-  }
+const formatTime = (timeStr) => {
+  if (!timeStr) return '-'
+  return new Date(timeStr).toLocaleString()
 }
 
-const stopCrawl = async () => {
-  if (!appStore.currentTask.id) return
+// 轮询任务状态
+let pollingInterval = null
 
-  const result = await appStore.stopCrawlTask(appStore.currentTask.id)
-  
-  if (result.success) {
-    // 任务停止成功的处理
-  } else {
-    // 错误处理
-    console.error('停止任务失败:', result.message)
-  }
-}
+const startPolling = () => {
+  if (pollingInterval) return
 
-const resetConfig = () => {
-  config.startPage = 1
-  config.endPage = 10
-  config.category = 'all'
-  config.maxConcurrent = 3
-  config.delayMin = 1
-  config.delayMax = 3
-}
+  pollingInterval = setInterval(async () => {
+    try {
+      const response = await axios.get('/api/tasks')
+      if (response.data.success && response.data.tasks.length > 0) {
+        const task = response.data.tasks[0] // 获取最新任务
+        currentTask.value = {
+          id: task.task_id,
+          status: task.stats.status,
+          progress: task.stats.progress,
+          startTime: task.stats.start_time,
+          stats: task.stats
+        }
 
-const clearLogs = () => {
-  appStore.currentTask.logs = []
-}
-
-// 监听日志变化，自动滚动到底部
-watch(() => appStore.currentTask.logs, () => {
-  nextTick(() => {
-    if (logContainer.value) {
-      logContainer.value.scrollTop = logContainer.value.scrollHeight
+        // 如果任务完成或失败，停止轮询
+        if (['completed', 'failed', 'stopped'].includes(task.stats.status)) {
+          stopPolling()
+        }
+      }
+    } catch (error) {
+      console.error('轮询任务状态失败:', error)
     }
-  })
-}, { deep: true })
+  }, 2000) // 每2秒轮询一次
+}
+
+const stopPolling = () => {
+  if (pollingInterval) {
+    clearInterval(pollingInterval)
+    pollingInterval = null
+  }
+}
 
 // 生命周期
 onMounted(() => {
-  appStore.refreshData()
+  loadDefaultConfig()
+
+  // 监听WebSocket消息
+  const setupWebSocketListeners = () => {
+    if (appStore.socket) {
+      console.log('🔌 设置WebSocket监听器')
+
+      appStore.socket.on('task_update', (data) => {
+        console.log('📊 收到任务更新:', data)
+
+        if (data.task_id && data.stats) {
+          currentTask.value = {
+            id: data.task_id,
+            status: data.stats.status,
+            progress: data.stats.progress,
+            startTime: data.stats.start_time,
+            stats: data.stats
+          }
+
+          // 更新日志
+          if (data.stats.logs && Array.isArray(data.stats.logs)) {
+            // 替换所有日志（确保同步）
+            logs.value = [...data.stats.logs]
+            console.log(`📝 更新日志: ${logs.value.length} 条`)
+          }
+        }
+      })
+
+      appStore.socket.on('connect', () => {
+        console.log('✅ WebSocket已连接，重新设置监听器')
+      })
+    } else {
+      console.log('⚠️ WebSocket未初始化，1秒后重试')
+      setTimeout(setupWebSocketListeners, 1000)
+    }
+  }
+
+  setupWebSocketListeners()
+})
+
+onUnmounted(() => {
+  stopPolling()
 })
 </script>
 
 <style scoped>
+.font-mono {
+  font-family: 'Courier New', monospace;
+}
+
 .log-container {
-  height: 400px;
+  max-height: 400px;
   overflow-y: auto;
-  background-color: #1e1e1e;
-  color: #d4d4d4;
+  background: linear-gradient(135deg, #1e1e1e 0%, #2d2d2d 100%);
+  color: #ffffff;
   font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-  font-size: 0.875rem;
-  padding: 1rem;
+  font-size: 13px;
+  padding: 16px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .log-entry {
-  margin-bottom: 0.5rem;
-  padding: 0.25rem 0.5rem;
-  border-radius: 4px;
+  margin-bottom: 4px;
+  line-height: 1.5;
+  padding: 2px 0;
   border-left: 3px solid transparent;
-  word-wrap: break-word;
-}
+  padding-left: 8px;
+  transition: all 0.2s ease;
 
-.log-entry.log-info {
-  border-left-color: #2196f3;
-  background-color: rgba(33, 150, 243, 0.1);
-}
-
-.log-entry.log-success {
-  border-left-color: #4caf50;
-  background-color: rgba(76, 175, 80, 0.1);
-}
-
-.log-entry.log-warning {
-  border-left-color: #ffc107;
-  background-color: rgba(255, 193, 7, 0.1);
-}
-
-.log-entry.log-error {
-  border-left-color: #f44336;
-  background-color: rgba(244, 67, 54, 0.1);
+  &:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+  }
 }
 
 .log-timestamp {
-  color: #9e9e9e;
-  font-size: 0.8rem;
-  margin-right: 0.5rem;
+  color: #888;
+  margin-right: 8px;
+  font-weight: 500;
 }
 
 .log-level {
-  color: #81c784;
-  font-weight: bold;
-  margin-right: 0.5rem;
+  color: #ccc;
+  margin-right: 8px;
+  font-weight: 600;
+  min-width: 60px;
+  display: inline-block;
 }
 
 .log-message {
-  color: #e0e0e0;
+  color: #fff;
+}
+
+.log-info {
+  border-left-color: #4fc3f7;
+
+  .log-level {
+    color: #4fc3f7;
+  }
+}
+
+.log-success {
+  border-left-color: #81c784;
+
+  .log-level {
+    color: #81c784;
+  }
+}
+
+.log-warning {
+  border-left-color: #ffb74d;
+
+  .log-level {
+    color: #ffb74d;
+  }
+}
+
+.log-error {
+  border-left-color: #e57373;
+
+  .log-level {
+    color: #e57373;
+  }
+}
+
+/* 滚动条样式 */
+.log-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+.log-container::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+.log-container::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 4px;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.5);
+  }
 }
 </style>

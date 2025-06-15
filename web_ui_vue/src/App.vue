@@ -1,103 +1,102 @@
 <template>
-  <q-layout view="lHh Lpr lFf">
-    <!-- 顶部工具栏 -->
-    <q-header elevated class="bg-primary text-white">
-      <q-toolbar>
-        <q-btn
-          flat
-          dense
-          round
-          icon="menu"
-          aria-label="Menu"
-          @click="toggleLeftDrawer"
-        />
-
-        <q-toolbar-title class="app-title">
-          <q-icon name="bug_report" class="q-mr-sm" />
-          摩点爬虫管理系统
-        </q-toolbar-title>
-
-        <!-- 连接状态 -->
-        <q-chip
-          :color="connectionStatus ? 'positive' : 'negative'"
-          text-color="white"
-          :icon="connectionStatus ? 'wifi' : 'wifi_off'"
-          :label="connectionStatus ? '已连接' : '连接断开'"
-          class="q-mr-sm"
-        />
-
-        <!-- 主题切换 -->
-        <q-btn
-          flat
-          dense
-          round
-          :icon="isDark ? 'light_mode' : 'dark_mode'"
-          @click="toggleTheme"
-          class="q-mr-sm"
-        />
-
-        <!-- 刷新按钮 -->
-        <q-btn
-          flat
-          dense
-          round
-          icon="refresh"
-          @click="refreshData"
-        />
-      </q-toolbar>
-    </q-header>
-
-    <!-- 左侧抽屉 -->
-    <q-drawer
-      v-model="leftDrawerOpen"
-      show-if-above
-      bordered
-      class="bg-grey-1"
+  <v-app>
+    <!-- 顶部应用栏 -->
+    <v-app-bar
+      elevation="2"
+      color="surface"
+      class="px-4"
     >
-      <q-list>
-        <q-item-label header class="text-grey-8">
-          <q-icon name="bug_report" class="q-mr-sm" />
-          导航菜单
-        </q-item-label>
+      <v-app-bar-nav-icon
+        @click="toggleLeftDrawer"
+        color="primary"
+      />
 
-        <q-item
+      <v-toolbar-title class="app-title text-primary">
+        <v-icon icon="mdi-bug" class="me-3" size="large" />
+        <span class="text-h6 font-weight-medium">摩点爬虫管理系统</span>
+      </v-toolbar-title>
+
+      <v-spacer />
+
+      <!-- 连接状态 -->
+      <v-chip
+        :color="connectionStatus ? 'success' : 'error'"
+        :prepend-icon="connectionStatus ? 'mdi-wifi' : 'mdi-wifi-off'"
+        :text="connectionStatus ? '已连接' : '连接断开'"
+        class="me-4"
+        size="small"
+        variant="flat"
+      />
+
+      <!-- 主题切换 -->
+      <v-btn
+        :icon="isDark ? 'mdi-white-balance-sunny' : 'mdi-weather-night'"
+        @click="toggleTheme"
+        variant="text"
+        class="me-2"
+      />
+
+      <!-- 刷新按钮 -->
+      <v-btn
+        icon="mdi-refresh"
+        @click="refreshData"
+        variant="text"
+      />
+    </v-app-bar>
+
+    <!-- 左侧导航抽屉 -->
+    <v-navigation-drawer
+      v-model="leftDrawerOpen"
+      :width="280"
+      color="surface-variant"
+      class="elevation-1"
+    >
+      <!-- 抽屉头部 -->
+      <div class="pa-6 bg-primary-container text-on-primary-container">
+        <div class="d-flex align-center">
+          <v-icon icon="mdi-bug" size="x-large" class="me-4" />
+          <div>
+            <div class="text-h6 font-weight-medium">摩点爬虫</div>
+            <div class="text-caption opacity-70">管理系统</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 导航列表 -->
+      <v-list class="pa-4" nav>
+        <v-list-item
           v-for="item in menuItems"
           :key="item.title"
-          clickable
-          v-ripple
-          :active="$route.path === item.to"
-          @click="navigateTo(item.to)"
-        >
-          <q-item-section avatar>
-            <q-icon :name="item.icon" />
-          </q-item-section>
-
-          <q-item-section>
-            <q-item-label>{{ item.title }}</q-item-label>
-          </q-item-section>
-        </q-item>
-      </q-list>
-    </q-drawer>
+          :to="item.to"
+          :prepend-icon="item.icon"
+          :title="item.title"
+          class="mb-2 nav-item"
+          rounded="xl"
+          color="primary"
+        />
+      </v-list>
+    </v-navigation-drawer>
 
     <!-- 主内容区域 -->
-    <q-page-container>
-      <q-page padding>
-        <router-view />
-      </q-page>
-    </q-page-container>
-  </q-layout>
+    <v-main class="bg-background">
+      <v-container fluid class="pa-6">
+        <div class="page-content">
+          <router-view />
+        </div>
+      </v-container>
+    </v-main>
+  </v-app>
 </template>
 
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { useTheme } from 'vuetify'
 import { useAppStore } from '@/stores/app'
 
 const router = useRouter()
+const theme = useTheme()
 const appStore = useAppStore()
-
-// 计算连接状态
-const connectionStatus = computed(() => appStore.connectionStatus)
 
 // 响应式数据
 const leftDrawerOpen = ref(false)
@@ -107,30 +106,33 @@ const isDark = ref(false)
 const menuItems = [
   {
     title: '仪表板',
-    icon: 'dashboard',
+    icon: 'mdi-view-dashboard',
     to: '/'
   },
   {
     title: '爬虫控制',
-    icon: 'bug_report',
+    icon: 'mdi-spider',
     to: '/spider'
   },
   {
     title: '数据管理',
-    icon: 'storage',
+    icon: 'mdi-database',
     to: '/data'
   },
   {
     title: '任务历史',
-    icon: 'history',
+    icon: 'mdi-history',
     to: '/history'
   },
   {
     title: '系统设置',
-    icon: 'settings',
+    icon: 'mdi-cog',
     to: '/settings'
   }
 ]
+
+// 计算属性
+const connectionStatus = computed(() => appStore.connectionStatus)
 
 // 方法
 const toggleLeftDrawer = () => {
@@ -139,32 +141,34 @@ const toggleLeftDrawer = () => {
 
 const toggleTheme = () => {
   isDark.value = !isDark.value
-  // 使用Quasar的主题切换
-  import('quasar').then(({ Dark }) => {
-    Dark.set(isDark.value)
-  })
-}
-
-const navigateTo = (path) => {
-  router.push(path)
-  leftDrawerOpen.value = false
+  theme.global.name.value = isDark.value ? 'dark' : 'light'
+  // 保存主题设置到localStorage
+  localStorage.setItem('theme', theme.global.name.value)
 }
 
 const refreshData = () => {
-  // 刷新数据逻辑
-  import('quasar').then(({ Notify }) => {
-    Notify.create({
-      message: '数据已刷新',
-      color: 'positive',
-      position: 'top'
-    })
-  })
+  appStore.refreshData()
+}
+
+// 初始化主题
+const initializeTheme = () => {
+  const savedTheme = localStorage.getItem('theme')
+  if (savedTheme) {
+    theme.global.name.value = savedTheme
+    isDark.value = savedTheme === 'dark'
+  } else {
+    // 默认使用浅色主题
+    theme.global.name.value = 'light'
+    isDark.value = false
+    localStorage.setItem('theme', 'light')
+  }
 }
 
 // 生命周期
 onMounted(() => {
-  // 初始化应用
-  appStore.initialize()
+  initializeTheme()
+  appStore.initializeSocket()
+  appStore.refreshData()
 })
 </script>
 
@@ -173,5 +177,18 @@ onMounted(() => {
   display: flex;
   align-items: center;
   font-weight: 500;
+}
+
+.page-content {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.nav-item {
+  margin-bottom: 8px;
+}
+
+.opacity-70 {
+  opacity: 0.7;
 }
 </style>

@@ -38,7 +38,7 @@ else:
     app = Flask(__name__)
 
 app.config['SECRET_KEY'] = 'modian_spider_secret_key_2024'
-socketio = SocketIO(app, cors_allowed_origins="*")
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 CORS(app)  # 启用CORS支持
 
 # 全局变量
@@ -273,7 +273,7 @@ def stop_crawl(task_id):
 
 @app.route('/api/tasks')
 def get_tasks():
-    """获取所有任务状态"""
+    """获取所有任务状态（活跃任务）"""
     tasks = []
     for task_id, task_info in active_tasks.items():
         tasks.append({
@@ -281,29 +281,104 @@ def get_tasks():
             'config': task_info['config'],
             'stats': task_info['monitor'].stats
         })
-    
+
     return jsonify({
         'success': True,
         'tasks': tasks
     })
 
+@app.route('/api/tasks/history')
+def get_task_history():
+    """获取历史任务记录"""
+    try:
+        limit = int(request.args.get('limit', 100))
+        tasks = db_manager.get_all_tasks(limit)
+
+        return jsonify({
+            'success': True,
+            'tasks': tasks,
+            'count': len(tasks)
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'获取任务历史失败: {str(e)}'
+        }), 500
+
 @app.route('/api/task/<task_id>')
 def get_task(task_id):
-    """获取特定任务状态"""
+    """获取特定任务状态（活跃任务或历史任务）"""
+    # 首先检查活跃任务
     if task_id in active_tasks:
         return jsonify({
             'success': True,
             'task': {
                 'task_id': task_id,
                 'config': active_tasks[task_id]['config'],
-                'stats': active_tasks[task_id]['monitor'].stats
+                'stats': active_tasks[task_id]['monitor'].stats,
+                'is_active': True
             }
         })
-    else:
+
+    # 检查历史任务
+    try:
+        task = db_manager.get_task_by_id(task_id)
+        if task:
+            return jsonify({
+                'success': True,
+                'task': {
+                    'task_id': task['task_id'],
+                    'config': task.get('config', {}),
+                    'stats': {
+                        'status': task['status'],
+                        'start_time': task['start_time'],
+                        'end_time': task['end_time'],
+                        'projects_found': task['projects_found'],
+                        'projects_processed': task['projects_processed'],
+                        'errors_count': task['errors_count'],
+                        'duration': task.get('duration')
+                    },
+                    'is_active': False
+                }
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': '任务不存在'
+            }), 404
+    except Exception as e:
         return jsonify({
             'success': False,
-            'message': '任务不存在'
-        }), 404
+            'message': f'获取任务详情失败: {str(e)}'
+        }), 500
+
+@app.route('/api/task/<task_id>', methods=['DELETE'])
+def delete_task(task_id):
+    """删除历史任务记录"""
+    try:
+        # 不能删除活跃任务
+        if task_id in active_tasks:
+            return jsonify({
+                'success': False,
+                'message': '不能删除正在运行的任务'
+            }), 400
+
+        success = db_manager.delete_task(task_id)
+        if success:
+            return jsonify({
+                'success': True,
+                'message': '任务删除成功'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': '任务不存在或删除失败'
+            }), 404
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'删除任务失败: {str(e)}'
+        }), 500
 
 @app.route('/api/download/<task_id>')
 def download_results(task_id):

@@ -115,10 +115,11 @@
                 <v-btn
                   color="primary"
                   @click="saveSettings"
+                  :loading="showSaveSuccess"
                 >
-                  保存设置
+                  {{ showSaveSuccess ? '已保存' : '保存设置' }}
                 </v-btn>
-                
+
                 <v-btn
                   variant="outlined"
                   @click="resetSettings"
@@ -126,6 +127,17 @@
                   重置默认
                 </v-btn>
               </div>
+
+              <v-alert
+                v-if="showSaveSuccess"
+                type="success"
+                variant="tonal"
+                class="mt-4"
+                closable
+                @click:close="showSaveSuccess = false"
+              >
+                设置已保存成功！
+              </v-alert>
             </v-form>
           </v-card-text>
         </v-card>
@@ -142,6 +154,7 @@ const theme = useTheme()
 
 // 响应式数据
 const darkMode = ref(false)
+const showSaveSuccess = ref(false)
 
 const defaultSettings = reactive({
   maxConcurrent: 3,
@@ -169,7 +182,10 @@ const toggleTheme = () => {
 
 const saveSettings = () => {
   localStorage.setItem('defaultSettings', JSON.stringify(defaultSettings))
-  // 显示保存成功提示
+  showSaveSuccess.value = true
+  setTimeout(() => {
+    showSaveSuccess.value = false
+  }, 3000)
 }
 
 const resetSettings = () => {
@@ -180,11 +196,12 @@ const resetSettings = () => {
 }
 
 const loadSettings = () => {
-  // 加载主题设置
+  // 只读取主题设置，不自动应用
   const savedTheme = localStorage.getItem('theme')
   if (savedTheme) {
-    theme.global.name.value = savedTheme
     darkMode.value = savedTheme === 'dark'
+  } else {
+    darkMode.value = theme.global.name.value === 'dark'
   }
 
   // 加载默认设置

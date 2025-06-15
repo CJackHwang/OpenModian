@@ -155,7 +155,92 @@ class DatabaseManager:
                 conn.commit()
         except Exception as e:
             print(f"更新任务状态失败: {e}")
-    
+
+    def get_all_tasks(self, limit: int = 100) -> List[Dict[str, Any]]:
+        """获取所有历史任务记录"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+
+                cursor.execute('''
+                    SELECT * FROM crawl_tasks
+                    ORDER BY start_time DESC
+                    LIMIT ?
+                ''', (limit,))
+
+                tasks = []
+                for row in cursor.fetchall():
+                    task_dict = dict(row)
+                    # 解析配置数据
+                    if task_dict['config_data']:
+                        try:
+                            task_dict['config'] = json.loads(task_dict['config_data'])
+                        except:
+                            task_dict['config'] = {}
+                    else:
+                        task_dict['config'] = {}
+
+                    # 计算运行时长
+                    if task_dict['start_time'] and task_dict['end_time']:
+                        start = datetime.fromisoformat(task_dict['start_time'])
+                        end = datetime.fromisoformat(task_dict['end_time'])
+                        task_dict['duration'] = str(end - start)
+                    else:
+                        task_dict['duration'] = None
+
+                    tasks.append(task_dict)
+
+                return tasks
+
+        except Exception as e:
+            print(f"获取任务历史失败: {e}")
+            return []
+
+    def get_task_by_id(self, task_id: str) -> Optional[Dict[str, Any]]:
+        """根据ID获取特定任务"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+
+                cursor.execute('''
+                    SELECT * FROM crawl_tasks
+                    WHERE task_id = ?
+                ''', (task_id,))
+
+                row = cursor.fetchone()
+                if row:
+                    task_dict = dict(row)
+                    # 解析配置数据
+                    if task_dict['config_data']:
+                        try:
+                            task_dict['config'] = json.loads(task_dict['config_data'])
+                        except:
+                            task_dict['config'] = {}
+                    else:
+                        task_dict['config'] = {}
+
+                    return task_dict
+
+                return None
+
+        except Exception as e:
+            print(f"获取任务详情失败: {e}")
+            return None
+
+    def delete_task(self, task_id: str) -> bool:
+        """删除任务记录"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute('DELETE FROM crawl_tasks WHERE task_id = ?', (task_id,))
+                conn.commit()
+                return cursor.rowcount > 0
+        except Exception as e:
+            print(f"删除任务失败: {e}")
+            return False
+
     def save_projects(self, projects_data: List[List[Any]], task_id: str = None) -> int:
         """保存项目数据到数据库"""
         saved_count = 0

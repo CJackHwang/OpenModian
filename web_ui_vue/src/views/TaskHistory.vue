@@ -96,12 +96,23 @@
               variant="text"
               @click="downloadResults(item.task_id)"
               :disabled="item.status !== 'completed'"
+              title="下载结果"
             />
             <v-btn
               icon="mdi-information"
               size="small"
               variant="text"
               @click="showTaskDetails(item)"
+              title="查看详情"
+            />
+            <v-btn
+              icon="mdi-delete"
+              size="small"
+              variant="text"
+              color="error"
+              @click="deleteTask(item.task_id)"
+              :disabled="item.status === 'running'"
+              title="删除任务"
             />
           </div>
         </template>
@@ -151,21 +162,29 @@ const headers = [
 const loadTasks = async () => {
   try {
     loading.value = true
-    const response = await axios.get('/api/tasks')
-    
+
+    // 获取历史任务记录
+    const response = await axios.get('/api/tasks/history')
+
     if (response.data.success) {
       tasks.value = response.data.tasks.map(task => ({
         task_id: task.task_id,
-        status: task.stats.status,
-        start_page: task.config.start_page,
-        end_page: task.config.end_page,
-        category: task.config.category,
-        projects_processed: task.stats.projects_processed,
-        start_time: task.stats.start_time
+        status: task.status,
+        start_page: task.config?.start_page || task.start_page,
+        end_page: task.config?.end_page || task.end_page,
+        category: task.config?.category || task.category,
+        projects_processed: task.projects_processed || 0,
+        projects_found: task.projects_found || 0,
+        errors_count: task.errors_count || 0,
+        start_time: task.start_time,
+        end_time: task.end_time,
+        duration: task.duration
       }))
+
+      console.log('📊 加载历史任务:', tasks.value.length, '条')
     }
   } catch (error) {
-    console.error('加载任务失败:', error)
+    console.error('❌ 加载任务失败:', error)
   } finally {
     loading.value = false
   }
@@ -213,12 +232,71 @@ const formatTime = (dateStr) => {
 }
 
 const downloadResults = (taskId) => {
-  window.open(`/api/download/${taskId}`, '_blank')
+  try {
+    // 下载任务相关的数据文件
+    const url = `/api/database/export?task_id=${taskId}`
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `task_${taskId}_results.xlsx`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  } catch (error) {
+    console.error('下载失败:', error)
+  }
 }
 
-const showTaskDetails = (task) => {
-  // 显示任务详情的逻辑
-  console.log('显示任务详情:', task)
+const showTaskDetails = async (task) => {
+  try {
+    const response = await axios.get(`/api/task/${task.task_id}`)
+    if (response.data.success) {
+      const taskDetail = response.data.task
+
+      // 显示任务详情对话框
+      const details = [
+        `任务ID: ${taskDetail.task_id}`,
+        `状态: ${getStatusText(taskDetail.stats.status)}`,
+        `开始时间: ${formatDateTime(taskDetail.stats.start_time)}`,
+        `结束时间: ${formatDateTime(taskDetail.stats.end_time) || '未完成'}`,
+        `运行时长: ${taskDetail.stats.duration || '计算中...'}`,
+        `页面范围: ${taskDetail.config.start_page}-${taskDetail.config.end_page}`,
+        `分类: ${taskDetail.config.category}`,
+        `发现项目: ${taskDetail.stats.projects_found}个`,
+        `处理项目: ${taskDetail.stats.projects_processed}个`,
+        `错误数量: ${taskDetail.stats.errors_count}个`
+      ].join('\n')
+
+      alert(`任务详情:\n\n${details}`)
+    }
+  } catch (error) {
+    console.error('获取任务详情失败:', error)
+    alert('获取任务详情失败')
+  }
+}
+
+const deleteTask = async (taskId) => {
+  if (!confirm('确定要删除这个任务记录吗？此操作不可恢复。')) {
+    return
+  }
+
+  try {
+    const response = await axios.delete(`/api/task/${taskId}`)
+    if (response.data.success) {
+      // 重新加载任务列表
+      await loadTasks()
+      alert('任务删除成功')
+    } else {
+      alert(`删除失败: ${response.data.message}`)
+    }
+  } catch (error) {
+    console.error('删除任务失败:', error)
+    alert('删除任务失败')
+  }
+}
+
+const formatDateTime = (dateStr) => {
+  if (!dateStr) return ''
+  return dayjs(dateStr).format('YYYY-MM-DD HH:mm:ss')
 }
 
 // 生命周期
