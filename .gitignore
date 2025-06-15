@@ -44,8 +44,15 @@ Thumbs.db
 
 # 日志文件
 *.log
-logs/
+logs/spider/*
+logs/system/*
+logs/webui/*
+!logs/spider/.gitkeep
+!logs/system/.gitkeep
+!logs/webui/.gitkeep
 spider.log
+app.log
+system.log
 
 # 输出文件
 output/
@@ -63,10 +70,18 @@ tmp/
 test_output/
 
 # 数据文件
-data/raw/
-data/processed/
-data/cache/
-data/spider/
+data/raw/*
+data/processed/*
+data/cache/*
+data/exports/*
+data/reports/*
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+!data/cache/.gitkeep
+!data/exports/.gitkeep
+!data/reports/.gitkeep
+!data/README.md
+!data/database/db_manager.py
 
 # 报告文件
 reports/latest/
@@ -113,7 +128,84 @@ debug_*.txt
 # 性能分析文件
 *.prof
 
+# Node.js 相关 (Vue前端)
+web_ui_vue/node_modules/
+web_ui_vue/dist/
+web_ui_vue/.cache/
+web_ui_vue/npm-debug.log*
+web_ui_vue/yarn-debug.log*
+web_ui_vue/yarn-error.log*
+web_ui_vue/pnpm-debug.log*
+web_ui_vue/lerna-debug.log*
+web_ui_vue/.npm
+web_ui_vue/.pnpm-debug.log*
+web_ui_vue/dist-ssr
+web_ui_vue/*.local
+web_ui_vue/.env.local
+web_ui_vue/.env.development.local
+web_ui_vue/.env.test.local
+web_ui_vue/.env.production.local
+
+# 数据库文件
+data/database/*.db
+data/database/*.db-journal
+data/database/*.db-wal
+data/database/*.db-shm
+*.sqlite
+*.sqlite3
+
+# 测试和调试文件
+test_*.py
+debug_*.py
+test_result_*.json
+test_output_*.json
+*_test.py
+*_debug.py
+
+# 临时和本地生成文件
+*.tmp
+*.temp
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# 爬虫输出文件
+modian_projects_*.json
+modian_projects.json
+摩点众筹-主要信息_*.xls
+摩点众筹-主要信息_*.xlsx
+摩点众筹-主要信息.xls
+摩点众筹-主要信息.xlsx
+spider_stats_*.json
+spider_summary_*.txt
+*.backup_*
+*.bak_*
+
+# 系统和编辑器文件
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+
 # 其他
 *.pid
 *.seed
 *.pid.lock
+*.lock
+.sass-cache/
+connect.lock
+typings/
