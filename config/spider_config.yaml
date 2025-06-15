@@ -1,20 +1,20 @@
 database_settings:
   auto_backup: true
-  db_path: database/modian_data.db
+  db_path: data/database/modian_data.db
   enable_deduplication: true
 logging:
   backup_count: 5
-  file: logs/spider.log
+  file: logs/spider/spider.log
   level: INFO
   max_size: 10MB
 output_settings:
-  cache_dir: cache
+  cache_dir: data/cache
   excel_filename: 摩点众筹-主要信息.xls
   formats:
   - excel
   - csv
   - json
-  output_dir: output
+  output_dir: data/raw
 spider_settings:
   max_concurrent_requests: 3
   max_pages: 10

@@ -24,7 +24,7 @@ import uuid
 from spider.core import SpiderCore
 from spider.config import SpiderConfig
 # from spider.monitor import SpiderMonitor  # 暂时不使用
-from database.db_manager import DatabaseManager
+from data.database.db_manager import DatabaseManager
 
 # Vue构建文件路径
 vue_dist_path = os.path.join(project_root, "web_ui_vue", "dist")
@@ -33,15 +33,16 @@ vue_dist_path = os.path.join(project_root, "web_ui_vue", "dist")
 app = Flask(__name__, static_folder=vue_dist_path, static_url_path='')
 
 app.config['SECRET_KEY'] = 'modian_spider_secret_key_2024'
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading',
+                   logger=False, engineio_logger=False)
 CORS(app)  # 启用CORS支持
 
 # 全局变量
 spider_instances = {}
 active_tasks = {}
 
-# 创建数据库管理器，使用项目根目录下的数据库
-db_path = os.path.join(project_root, "database", "modian_data.db")
+# 创建数据库管理器，使用统一的数据库路径
+db_path = os.path.join(project_root, "data", "database", "modian_data.db")
 db_manager = DatabaseManager(db_path)
 
 class WebSpiderMonitor:
@@ -625,6 +626,149 @@ def search_projects():
             'message': f'搜索失败: {str(e)}'
         }), 500
 
+@app.route('/api/database/import_json', methods=['POST'])
+def import_json_data():
+    """从JSON文件导入数据到数据库"""
+    try:
+        import json
+        from pathlib import Path
+
+        # JSON文件路径 - 使用统一的数据目录
+        json_file = Path("data/raw/json/modian_projects.json")
+
+        if not json_file.exists():
+            return jsonify({
+                'success': False,
+                'message': f'JSON文件不存在: {json_file}'
+            }), 404
+
+        # 读取JSON数据
+        with open(json_file, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+
+        projects = data.get('projects', [])
+
+        if not projects:
+            return jsonify({
+                'success': False,
+                'message': '没有找到项目数据'
+            }), 400
+
+        # 清空现有数据（可选）
+        clear_existing = request.json.get('clear_existing', False)
+        if clear_existing:
+            import sqlite3
+            with sqlite3.connect(db_manager.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute('DELETE FROM projects')
+                conn.commit()
+
+        # 导入数据
+        saved_count = db_manager.save_projects(projects, task_id="json_import")
+
+        return jsonify({
+            'success': True,
+            'message': f'成功导入 {saved_count} 条数据',
+            'imported_count': saved_count,
+            'total_count': len(projects)
+        })
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'导入失败: {str(e)}'
+        }), 500
+
+@app.route('/api/projects/<project_id>/detail', methods=['GET'])
+def get_project_detail(project_id):
+    """获取项目详情"""
+    try:
+        # 获取最新的项目数据
+        project = db_manager.get_project_by_project_id(project_id)
+
+        if not project:
+            return jsonify({
+                'success': False,
+                'message': '项目不存在'
+            }), 404
+
+        # 获取项目统计数据
+        stats = db_manager.get_project_statistics(project_id)
+
+        return jsonify({
+            'success': True,
+            'project': project,
+            'statistics': stats
+        })
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'获取项目详情失败: {str(e)}'
+        }), 500
+
+@app.route('/api/projects/<project_id>/history', methods=['GET'])
+def get_project_history(project_id):
+    """获取项目历史数据"""
+    try:
+        limit = request.args.get('limit', 50, type=int)
+        offset = request.args.get('offset', 0, type=int)
+
+        # 获取历史记录
+        history = db_manager.get_project_history(project_id, limit + offset)
+
+        # 应用分页
+        paginated_history = history[offset:offset + limit]
+
+        return jsonify({
+            'success': True,
+            'history': paginated_history,
+            'total_count': len(history),
+            'limit': limit,
+            'offset': offset
+        })
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'获取项目历史失败: {str(e)}'
+        }), 500
+
+@app.route('/api/projects/<project_id>/export', methods=['GET'])
+def export_project_data(project_id):
+    """导出项目历史数据"""
+    try:
+        # 获取所有历史记录
+        history = db_manager.get_project_history(project_id, 1000)  # 最多1000条
+
+        if not history:
+            return jsonify({
+                'success': False,
+                'message': '没有找到项目数据'
+            }), 404
+
+        # 准备导出数据
+        export_data = {
+            'project_id': project_id,
+            'project_name': history[0]['project_name'] if history else '',
+            'export_time': datetime.now().isoformat(),
+            'total_records': len(history),
+            'history': history
+        }
+
+        # 设置响应头
+        response = jsonify(export_data)
+        response.headers['Content-Disposition'] = f'attachment; filename=project_{project_id}_history.json'
+        response.headers['Content-Type'] = 'application/json'
+
+        return response
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'导出数据失败: {str(e)}'
+        }), 500
+
 @socketio.on('connect')
 def handle_connect():
     """WebSocket连接"""
@@ -635,6 +779,17 @@ def handle_connect():
 def handle_disconnect():
     """WebSocket断开连接"""
     print(f'客户端已断开: {request.sid}')
+
+@socketio.on_error_default
+def default_error_handler(e):
+    """默认错误处理器"""
+    print(f"SocketIO错误: {e}")
+    return False
+
+@socketio.on('ping')
+def handle_ping():
+    """心跳检测"""
+    emit('pong', {'timestamp': datetime.now().isoformat()})
 
 def find_available_port(start_port=8080, max_port=8090):
     """查找可用端口"""

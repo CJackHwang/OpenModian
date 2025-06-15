@@ -143,7 +143,15 @@
         <template #item.project_name="{ item }">
           <div class="d-flex align-center">
             <div>
-              <div class="font-weight-medium">{{ item.project_name || '未知项目' }}</div>
+              <v-btn
+                variant="text"
+                color="primary"
+                class="text-left pa-0 font-weight-medium"
+                style="text-transform: none; justify-content: flex-start;"
+                @click="goToProjectDetail(item.project_id)"
+              >
+                {{ item.project_name || '未知项目' }}
+              </v-btn>
               <div class="text-caption text-medium-emphasis">
                 ID: {{ item.project_id || '-' }}
               </div>
@@ -261,7 +269,10 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import axios from 'axios'
+
+const router = useRouter()
 
 // 响应式数据
 const loading = ref(false)
@@ -492,6 +503,12 @@ const formatDateTime = (dateStr) => {
     })
   } catch {
     return dateStr
+  }
+}
+
+const goToProjectDetail = (projectId) => {
+  if (projectId) {
+    router.push(`/projects/${projectId}`)
   }
 }
 

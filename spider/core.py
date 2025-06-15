@@ -1740,8 +1740,8 @@ class SpiderCore:
             stats = self.monitor.get_current_stats()
             summary_file = self.exporter.export_summary_report(self.projects_data, stats)
 
-            # 保存统计报告
-            stats_file = f"{self.config.OUTPUT_DIR}/spider_stats_{time.strftime('%Y%m%d_%H%M%S')}.json"
+            # 保存统计报告到统一的报告目录
+            stats_file = f"data/reports/stats/spider_stats_{time.strftime('%Y%m%d_%H%M%S')}.json"
             self.monitor.save_stats(stats_file)
 
             print(f"数据导出完成:")

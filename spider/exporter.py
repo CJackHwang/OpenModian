@@ -187,12 +187,16 @@ class DataExporter:
             print(f"导出CSV文件失败: {e}")
             raise
     
-    def export_summary_report(self, projects_data: List[List[Any]], 
+    def export_summary_report(self, projects_data: List[List[Any]],
                             stats: Dict[str, Any]) -> str:
         """导出摘要报告"""
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"spider_summary_{timestamp}.txt"
-        file_path = self.output_dir / filename
+
+        # 使用统一的报告目录
+        report_dir = Path("data/reports/summary")
+        report_dir.mkdir(parents=True, exist_ok=True)
+        file_path = report_dir / filename
         
         try:
             with open(file_path, 'w', encoding='utf-8') as f:

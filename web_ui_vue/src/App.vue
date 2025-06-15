@@ -85,6 +85,26 @@
         </div>
       </v-container>
     </v-main>
+
+    <!-- 全局Snackbar -->
+    <v-snackbar
+      v-model="snackbar.show"
+      :color="snackbar.color"
+      :timeout="snackbar.timeout"
+      location="top right"
+      variant="elevated"
+    >
+      {{ snackbar.message }}
+      <template v-slot:actions>
+        <v-btn
+          color="white"
+          variant="text"
+          @click="hideSnackbar"
+        >
+          关闭
+        </v-btn>
+      </template>
+    </v-snackbar>
   </v-app>
 </template>
 
@@ -93,10 +113,12 @@ import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useTheme } from 'vuetify'
 import { useAppStore } from '@/stores/app'
+import { useSnackbar } from '@/composables/useSnackbar'
 
 const router = useRouter()
 const theme = useTheme()
 const appStore = useAppStore()
+const { snackbar, hideSnackbar } = useSnackbar()
 
 // 响应式数据
 const leftDrawerOpen = ref(false)

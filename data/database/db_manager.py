@@ -15,7 +15,7 @@ import hashlib
 class DatabaseManager:
     """数据库管理器"""
     
-    def __init__(self, db_path: str = "database/modian_data.db"):
+    def __init__(self, db_path: str = "data/database/modian_data.db"):
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self.init_database()
@@ -92,7 +92,7 @@ class DatabaseManager:
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_project_id ON projects(project_id)')
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_crawl_time ON projects(crawl_time)')
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_category ON projects(category)')
-            cursor.execute('CREATE INDEX IF NOT EXISTS idx_data_hash ON projects(data_hash)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_task_id ON crawl_tasks(task_id)')
             
             conn.commit()
     
@@ -153,22 +153,23 @@ class DatabaseManager:
                 ''', values)
                 
                 conn.commit()
+                
         except Exception as e:
             print(f"更新任务状态失败: {e}")
-
-    def get_all_tasks(self, limit: int = 100) -> List[Dict[str, Any]]:
-        """获取所有历史任务记录"""
+    
+    def get_recent_tasks(self, limit: int = 10) -> List[Dict[str, Any]]:
+        """获取最近的爬取任务"""
         try:
             with sqlite3.connect(self.db_path) as conn:
                 conn.row_factory = sqlite3.Row
                 cursor = conn.cursor()
-
+                
                 cursor.execute('''
-                    SELECT * FROM crawl_tasks
-                    ORDER BY start_time DESC
+                    SELECT * FROM crawl_tasks 
+                    ORDER BY start_time DESC 
                     LIMIT ?
                 ''', (limit,))
-
+                
                 tasks = []
                 for row in cursor.fetchall():
                     task_dict = dict(row)
@@ -180,23 +181,15 @@ class DatabaseManager:
                             task_dict['config'] = {}
                     else:
                         task_dict['config'] = {}
-
-                    # 计算运行时长
-                    if task_dict['start_time'] and task_dict['end_time']:
-                        start = datetime.fromisoformat(task_dict['start_time'])
-                        end = datetime.fromisoformat(task_dict['end_time'])
-                        task_dict['duration'] = str(end - start)
-                    else:
-                        task_dict['duration'] = None
-
+                    
                     tasks.append(task_dict)
-
+                
                 return tasks
-
+                
         except Exception as e:
-            print(f"获取任务历史失败: {e}")
+            print(f"获取任务列表失败: {e}")
             return []
-
+    
     def get_task_by_id(self, task_id: str) -> Optional[Dict[str, Any]]:
         """根据ID获取特定任务"""
         try:
@@ -228,9 +221,9 @@ class DatabaseManager:
         except Exception as e:
             print(f"获取任务详情失败: {e}")
             return None
-
+    
     def delete_task(self, task_id: str) -> bool:
-        """删除任务记录"""
+        """删除爬取任务"""
         try:
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
@@ -240,17 +233,22 @@ class DatabaseManager:
         except Exception as e:
             print(f"删除任务失败: {e}")
             return False
-
-    def get_project_by_id(self, project_id: int) -> Optional[Dict[str, Any]]:
-        """根据ID获取单个项目"""
+    
+    def get_project_by_project_id(self, project_id: str) -> Optional[Dict[str, Any]]:
+        """根据项目ID获取最新的项目数据"""
         try:
             with sqlite3.connect(self.db_path) as conn:
                 conn.row_factory = sqlite3.Row
                 cursor = conn.cursor()
 
-                cursor.execute('SELECT * FROM projects WHERE id = ?', (project_id,))
-                row = cursor.fetchone()
+                cursor.execute('''
+                    SELECT * FROM projects
+                    WHERE project_id = ?
+                    ORDER BY crawl_time DESC
+                    LIMIT 1
+                ''', (project_id,))
 
+                row = cursor.fetchone()
                 if row:
                     return dict(row)
                 return None
@@ -259,228 +257,114 @@ class DatabaseManager:
             print(f"获取项目失败: {e}")
             return None
 
-    def update_project(self, project_id: int, data: Dict[str, Any]) -> bool:
-        """更新项目信息"""
-        try:
-            with sqlite3.connect(self.db_path) as conn:
-                cursor = conn.cursor()
-
-                # 构建更新字段
-                update_fields = []
-                values = []
-
-                allowed_fields = [
-                    'project_name', 'category', 'author_name', 'raised_amount',
-                    'target_amount', 'completion_rate', 'backer_count',
-                    'update_count', 'comment_count', 'supporter_count',
-                    'collect_count', 'project_status'
-                ]
-
-                for field in allowed_fields:
-                    if field in data:
-                        update_fields.append(f"{field} = ?")
-                        values.append(data[field])
-
-                if not update_fields:
-                    return False
-
-                values.append(project_id)
-
-                cursor.execute(f'''
-                    UPDATE projects
-                    SET {', '.join(update_fields)}
-                    WHERE id = ?
-                ''', values)
-
-                conn.commit()
-                return cursor.rowcount > 0
-
-        except Exception as e:
-            print(f"更新项目失败: {e}")
-            return False
-
-    def delete_project(self, project_id: int) -> bool:
-        """删除项目"""
-        try:
-            with sqlite3.connect(self.db_path) as conn:
-                cursor = conn.cursor()
-                cursor.execute('DELETE FROM projects WHERE id = ?', (project_id,))
-                conn.commit()
-                return cursor.rowcount > 0
-        except Exception as e:
-            print(f"删除项目失败: {e}")
-            return False
-
-    def batch_delete_projects(self, project_ids: List[int]) -> int:
-        """批量删除项目"""
-        try:
-            with sqlite3.connect(self.db_path) as conn:
-                cursor = conn.cursor()
-
-                placeholders = ','.join(['?'] * len(project_ids))
-                cursor.execute(f'DELETE FROM projects WHERE id IN ({placeholders})', project_ids)
-
-                conn.commit()
-                return cursor.rowcount
-        except Exception as e:
-            print(f"批量删除项目失败: {e}")
-            return 0
-
-    def search_projects(self, conditions: Dict[str, Any], limit: int = 100, offset: int = 0, sort_config: List[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
-        """高级搜索项目"""
+    def get_project_history(self, project_id: str, limit: int = 50) -> List[Dict[str, Any]]:
+        """获取项目的历史数据记录"""
         try:
             with sqlite3.connect(self.db_path) as conn:
                 conn.row_factory = sqlite3.Row
                 cursor = conn.cursor()
 
-                where_clauses = []
-                values = []
+                cursor.execute('''
+                    SELECT * FROM projects
+                    WHERE project_id = ?
+                    ORDER BY crawl_time DESC
+                    LIMIT ?
+                ''', (project_id, limit))
 
-                # 构建WHERE条件
-                if conditions.get('project_name'):
-                    where_clauses.append('project_name LIKE ?')
-                    values.append(f"%{conditions['project_name']}%")
+                history = []
+                for row in cursor.fetchall():
+                    record = dict(row)
+                    history.append(record)
 
-                if conditions.get('category'):
-                    where_clauses.append('category = ?')
-                    values.append(conditions['category'])
-
-                if conditions.get('author_name'):
-                    where_clauses.append('author_name LIKE ?')
-                    values.append(f"%{conditions['author_name']}%")
-
-                if conditions.get('min_amount'):
-                    where_clauses.append('raised_amount >= ?')
-                    values.append(conditions['min_amount'])
-
-                if conditions.get('max_amount'):
-                    where_clauses.append('raised_amount <= ?')
-                    values.append(conditions['max_amount'])
-
-                if conditions.get('status'):
-                    where_clauses.append('project_status = ?')
-                    values.append(conditions['status'])
-
-                if conditions.get('date_from'):
-                    where_clauses.append('DATE(crawl_time) >= ?')
-                    values.append(conditions['date_from'])
-
-                if conditions.get('date_to'):
-                    where_clauses.append('DATE(crawl_time) <= ?')
-                    values.append(conditions['date_to'])
-
-                # 构建SQL查询
-                sql = 'SELECT * FROM projects'
-                if where_clauses:
-                    sql += ' WHERE ' + ' AND '.join(where_clauses)
-
-                # 添加排序
-                if sort_config and len(sort_config) > 0:
-                    order_clauses = []
-                    for sort_item in sort_config:
-                        field = sort_item.get('field', '')
-                        order = sort_item.get('order', 'desc').upper()
-                        if field and order in ['ASC', 'DESC']:
-                            order_clauses.append(f"{field} {order}")
-
-                    if order_clauses:
-                        sql += ' ORDER BY ' + ', '.join(order_clauses)
-                    else:
-                        sql += ' ORDER BY crawl_time DESC'
-                else:
-                    sql += ' ORDER BY crawl_time DESC'
-
-                sql += ' LIMIT ? OFFSET ?'
-                values.extend([limit, offset])
-
-                cursor.execute(sql, values)
-                return [dict(row) for row in cursor.fetchall()]
+                return history
 
         except Exception as e:
-            print(f"搜索项目失败: {e}")
+            print(f"获取项目历史失败: {e}")
             return []
 
-    def count_projects(self, conditions: Dict[str, Any] = None) -> int:
-        """统计符合条件的项目数量"""
+    def get_project_statistics(self, project_id: str) -> Dict[str, Any]:
+        """获取项目的统计数据和趋势分析"""
         try:
             with sqlite3.connect(self.db_path) as conn:
+                conn.row_factory = sqlite3.Row
                 cursor = conn.cursor()
 
-                if not conditions:
-                    cursor.execute('SELECT COUNT(*) FROM projects')
-                    return cursor.fetchone()[0]
+                # 获取所有历史记录
+                cursor.execute('''
+                    SELECT raised_amount, target_amount, completion_rate,
+                           backer_count, comment_count, supporter_count,
+                           collect_count, crawl_time
+                    FROM projects
+                    WHERE project_id = ?
+                    ORDER BY crawl_time ASC
+                ''', (project_id,))
 
-                where_clauses = []
-                values = []
+                records = [dict(row) for row in cursor.fetchall()]
 
-                # 构建WHERE条件（与search_projects相同）
-                if conditions.get('project_name'):
-                    where_clauses.append('project_name LIKE ?')
-                    values.append(f"%{conditions['project_name']}%")
+                if not records:
+                    return {}
 
-                if conditions.get('category'):
-                    where_clauses.append('category = ?')
-                    values.append(conditions['category'])
+                # 计算趋势数据
+                stats = {
+                    'total_records': len(records),
+                    'first_crawl': records[0]['crawl_time'],
+                    'last_crawl': records[-1]['crawl_time'],
+                    'current_data': records[-1],
+                    'trends': {}
+                }
 
-                if conditions.get('author_name'):
-                    where_clauses.append('author_name LIKE ?')
-                    values.append(f"%{conditions['author_name']}%")
+                # 计算各字段的变化趋势
+                numeric_fields = ['raised_amount', 'backer_count', 'comment_count',
+                                'supporter_count', 'collect_count', 'completion_rate']
 
-                if conditions.get('min_amount'):
-                    where_clauses.append('raised_amount >= ?')
-                    values.append(conditions['min_amount'])
+                for field in numeric_fields:
+                    values = [r[field] for r in records if r[field] is not None]
+                    if len(values) >= 2:
+                        stats['trends'][field] = {
+                            'first_value': values[0],
+                            'last_value': values[-1],
+                            'change': values[-1] - values[0],
+                            'change_rate': ((values[-1] - values[0]) / values[0] * 100) if values[0] > 0 else 0
+                        }
 
-                if conditions.get('max_amount'):
-                    where_clauses.append('raised_amount <= ?')
-                    values.append(conditions['max_amount'])
-
-                if conditions.get('status'):
-                    where_clauses.append('project_status = ?')
-                    values.append(conditions['status'])
-
-                if conditions.get('date_from'):
-                    where_clauses.append('DATE(crawl_time) >= ?')
-                    values.append(conditions['date_from'])
-
-                if conditions.get('date_to'):
-                    where_clauses.append('DATE(crawl_time) <= ?')
-                    values.append(conditions['date_to'])
-
-                sql = 'SELECT COUNT(*) FROM projects'
-                if where_clauses:
-                    sql += ' WHERE ' + ' AND '.join(where_clauses)
-
-                cursor.execute(sql, values)
-                return cursor.fetchone()[0]
+                return stats
 
         except Exception as e:
-            print(f"统计项目数量失败: {e}")
-            return 0
+            print(f"获取项目统计失败: {e}")
+            return {}
 
-    def save_projects(self, projects_data: List[List[Any]], task_id: str = None) -> int:
-        """保存项目数据到数据库"""
+    def save_projects(self, projects_data, task_id: str = None) -> int:
+        """保存项目数据到数据库 - 支持列表和字典格式"""
         saved_count = 0
         duplicate_count = 0
-        
+
         try:
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
-                
+
                 for project in projects_data:
                     try:
-                        # 解析项目数据
-                        project_data = self._parse_project_data(project)
-                        
+                        # 处理不同的数据格式
+                        if isinstance(project, dict):
+                            project_data = project
+                        elif isinstance(project, list):
+                            # 假设是按照特定顺序的列表
+                            project_data = self._convert_list_to_dict(project)
+                        else:
+                            print(f"不支持的项目数据格式: {type(project)}")
+                            continue
+
                         # 生成数据哈希用于去重
-                        data_hash = self._generate_data_hash(project_data)
+                        data_str = json.dumps(project_data, sort_keys=True, ensure_ascii=False)
+                        data_hash = hashlib.md5(data_str.encode()).hexdigest()
                         project_data['data_hash'] = data_hash
-                        
+
                         # 检查是否已存在相同数据
                         cursor.execute('SELECT id FROM projects WHERE data_hash = ?', (data_hash,))
                         if cursor.fetchone():
                             duplicate_count += 1
                             continue
-                        
+
                         # 插入数据
                         cursor.execute('''
                             INSERT INTO projects (
@@ -492,121 +376,82 @@ class DatabaseManager:
                                 rewards_data, content_images, content_videos, data_hash
                             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         ''', (
-                            project_data['project_id'],
-                            project_data['project_url'],
-                            project_data['project_name'],
-                            project_data['project_image'],
-                            project_data['category'],
-                            project_data['author_name'],
-                            project_data['author_link'],
-                            project_data['author_image'],
-                            project_data['start_time'],
-                            project_data['end_time'],
-                            project_data['raised_amount'],
-                            project_data['target_amount'],
-                            project_data['completion_rate'],
-                            project_data['backer_count'],
-                            project_data['update_count'],
-                            project_data['comment_count'],
-                            project_data['supporter_count'],
-                            project_data['collect_count'],
-                            project_data['project_status'],
-                            project_data['rewards_data'],
-                            project_data['content_images'],
-                            project_data['content_videos'],
+                            project_data.get('project_id', ''),
+                            project_data.get('project_url', ''),
+                            project_data.get('project_name', ''),
+                            project_data.get('project_image', ''),
+                            project_data.get('category', ''),
+                            project_data.get('author_name', ''),
+                            project_data.get('author_link', ''),
+                            project_data.get('author_image', ''),
+                            project_data.get('start_time', ''),
+                            project_data.get('end_time', ''),
+                            project_data.get('raised_amount', 0),
+                            project_data.get('target_amount', 0),
+                            project_data.get('completion_rate', 0),
+                            project_data.get('backer_count', 0),
+                            project_data.get('update_count', 0),
+                            project_data.get('comment_count', 0),
+                            project_data.get('supporter_count', 0),
+                            project_data.get('collect_count', 0),
+                            project_data.get('project_status', ''),
+                            project_data.get('rewards_data', ''),
+                            project_data.get('content_images', ''),
+                            project_data.get('content_videos', ''),
                             project_data['data_hash']
                         ))
-                        
+
                         saved_count += 1
-                        
+
                     except Exception as e:
                         print(f"保存单个项目失败: {e}")
                         continue
-                
+
                 conn.commit()
-                
+
         except Exception as e:
             print(f"保存项目数据失败: {e}")
-        
+
         print(f"数据库保存完成: 新增 {saved_count} 条，重复 {duplicate_count} 条")
         return saved_count
-    
-    def _parse_project_data(self, project: List[Any]) -> Dict[str, Any]:
-        """解析项目数据"""
-        # 根据爬虫输出的数据结构解析
-        return {
-            'project_id': str(project[2]) if len(project) > 2 else '',
-            'project_url': str(project[1]) if len(project) > 1 else '',
-            'project_name': str(project[3]) if len(project) > 3 else '',
-            'project_image': str(project[4]) if len(project) > 4 else '',
-            'category': str(project[7]) if len(project) > 7 else '',
-            'author_name': str(project[8]) if len(project) > 8 else '',
-            'author_link': str(project[5]) if len(project) > 5 else '',
-            'author_image': str(project[6]) if len(project) > 6 else '',
-            'start_time': str(project[13]) if len(project) > 13 else '',
-            'end_time': str(project[14]) if len(project) > 14 else '',
-            'raised_amount': self._safe_float(project[15]) if len(project) > 15 else 0.0,
-            'target_amount': self._safe_float(project[17]) if len(project) > 17 else 0.0,
-            'completion_rate': self._safe_float(project[16]) if len(project) > 16 else 0.0,
-            'backer_count': self._safe_int(project[18]) if len(project) > 18 else 0,
-            'update_count': self._safe_int(project[20]) if len(project) > 20 else 0,
-            'comment_count': self._safe_int(project[21]) if len(project) > 21 else 0,
-            'supporter_count': self._safe_int(project[22]) if len(project) > 22 else 0,
-            'collect_count': self._safe_int(project[23]) if len(project) > 23 else 0,
-            'project_status': str(project[12]) if len(project) > 12 else '',
-            'rewards_data': str(project[19]) if len(project) > 19 else '',
-            'content_images': str(project[25]) if len(project) > 25 else '',
-            'content_videos': str(project[27]) if len(project) > 27 else ''
-        }
-    
-    def _safe_float(self, value: Any) -> float:
-        """安全转换为浮点数"""
-        if value is None or value == 'none' or value == '':
-            return 0.0
-        try:
-            return float(str(value).replace(',', ''))
-        except (ValueError, TypeError):
-            return 0.0
 
-    def _safe_int(self, value: Any) -> int:
-        """安全转换为整数"""
-        if value is None or value == 'none' or value == '':
-            return 0
-        try:
-            return int(float(str(value).replace(',', '')))
-        except (ValueError, TypeError):
-            return 0
-
-    def _generate_data_hash(self, project_data: Dict[str, Any]) -> str:
-        """生成项目数据哈希用于去重"""
-        # 使用关键字段生成哈希
-        key_fields = [
-            project_data['project_id'],
-            project_data['project_name'],
-            project_data['raised_amount'],
-            project_data['backer_count']
+    def _convert_list_to_dict(self, project_list: List) -> Dict[str, Any]:
+        """将列表格式的项目数据转换为字典格式"""
+        # 定义字段映射
+        field_mapping = [
+            'project_name', 'project_url', 'project_id', 'category',
+            'raised_amount', 'target_amount', 'backer_count', 'completion_rate',
+            'author_name', 'author_link', 'author_image', 'project_image',
+            'start_time', 'end_time', 'project_status', 'update_count',
+            'comment_count', 'supporter_count', 'collect_count'
         ]
 
-        hash_string = '|'.join(str(field) for field in key_fields)
-        return hashlib.md5(hash_string.encode()).hexdigest()
-    
-    def get_projects_by_time(self, time_period: str = 'day', limit: int = 100) -> List[Dict[str, Any]]:
-        """按时间周期获取项目数据"""
+        project_dict = {}
+        for i, field in enumerate(field_mapping):
+            if i < len(project_list):
+                project_dict[field] = project_list[i]
+            else:
+                project_dict[field] = None
+
+        return project_dict
+
+    def get_projects_by_time(self, time_period: str = 'all', limit: int = 100) -> List[Dict[str, Any]]:
+        """根据时间段获取项目数据"""
         try:
             with sqlite3.connect(self.db_path) as conn:
                 conn.row_factory = sqlite3.Row
                 cursor = conn.cursor()
-                
+
                 if time_period == 'day':
                     cursor.execute('''
-                        SELECT * FROM projects_by_time 
+                        SELECT * FROM projects_by_time
                         WHERE crawl_date = DATE('now')
                         ORDER BY crawl_time DESC
                         LIMIT ?
                     ''', (limit,))
                 elif time_period == 'week':
                     cursor.execute('''
-                        SELECT * FROM projects_by_time 
+                        SELECT * FROM projects_by_time
                         WHERE crawl_week = strftime('%W', 'now')
                         AND crawl_year = strftime('%Y', 'now')
                         ORDER BY crawl_time DESC
@@ -614,69 +459,69 @@ class DatabaseManager:
                     ''', (limit,))
                 elif time_period == 'month':
                     cursor.execute('''
-                        SELECT * FROM projects_by_time 
+                        SELECT * FROM projects_by_time
                         WHERE crawl_month = strftime('%Y-%m', 'now')
                         ORDER BY crawl_time DESC
                         LIMIT ?
                     ''', (limit,))
                 else:  # all
                     cursor.execute('''
-                        SELECT * FROM projects_by_time 
+                        SELECT * FROM projects_by_time
                         ORDER BY crawl_time DESC
                         LIMIT ?
                     ''', (limit,))
-                
+
                 return [dict(row) for row in cursor.fetchall()]
-                
+
         except Exception as e:
             print(f"查询项目数据失败: {e}")
             return []
-    
+
     def get_statistics(self) -> Dict[str, Any]:
         """获取数据库统计信息"""
         try:
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
-                
+
                 # 总项目数
                 cursor.execute('SELECT COUNT(*) FROM projects')
                 total_projects = cursor.fetchone()[0]
-                
+
                 # 今日新增
                 cursor.execute('''
-                    SELECT COUNT(*) FROM projects 
+                    SELECT COUNT(*) FROM projects
                     WHERE DATE(crawl_time) = DATE('now')
                 ''')
                 today_projects = cursor.fetchone()[0]
-                
+
                 # 本周新增
                 cursor.execute('''
-                    SELECT COUNT(*) FROM projects 
+                    SELECT COUNT(*) FROM projects
                     WHERE strftime('%W', crawl_time) = strftime('%W', 'now')
                     AND strftime('%Y', crawl_time) = strftime('%Y', 'now')
                 ''')
                 week_projects = cursor.fetchone()[0]
-                
+
                 # 分类统计
                 cursor.execute('''
-                    SELECT category, COUNT(*) as count 
-                    FROM projects 
-                    GROUP BY category 
+                    SELECT category, COUNT(*) as count
+                    FROM projects
+                    GROUP BY category
                     ORDER BY count DESC
                 ''')
                 category_stats = dict(cursor.fetchall())
-                
+
                 # 任务统计
                 cursor.execute('SELECT COUNT(*) FROM crawl_tasks')
                 total_tasks = cursor.fetchone()[0]
-                
+
                 cursor.execute('''
-                    SELECT status, COUNT(*) as count 
-                    FROM crawl_tasks 
+                    SELECT status, COUNT(*) as count
+                    FROM crawl_tasks
                     GROUP BY status
                 ''')
                 task_stats = dict(cursor.fetchall())
-                
+
                 return {
                     'total_projects': total_projects,
                     'today_projects': today_projects,
@@ -685,35 +530,39 @@ class DatabaseManager:
                     'total_tasks': total_tasks,
                     'task_stats': task_stats
                 }
-                
+
         except Exception as e:
             print(f"获取统计信息失败: {e}")
             return {}
-    
+
     def export_to_excel(self, time_period: str = 'all', output_path: str = None) -> str:
         """导出数据到Excel"""
         try:
             projects = self.get_projects_by_time(time_period, limit=10000)
-            
+
             if not projects:
                 return None
-            
+
             df = pd.DataFrame(projects)
-            
+
             # 生成文件名
             if not output_path:
                 timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-                output_path = f"output/database_export_{time_period}_{timestamp}.xlsx"
-            
+                output_path = f"data/exports/database_export_{time_period}_{timestamp}.xlsx"
+
             # 确保输出目录存在
             Path(output_path).parent.mkdir(parents=True, exist_ok=True)
-            
+
             # 导出到Excel
             df.to_excel(output_path, index=False, engine='openpyxl')
-            
+
             print(f"数据已导出到: {output_path}")
             return output_path
-            
+
         except Exception as e:
             print(f"导出Excel失败: {e}")
             return None
+
+    def get_all_tasks(self, limit: int = 100) -> List[Dict[str, Any]]:
+        """获取所有任务记录"""
+        return self.get_recent_tasks(limit)

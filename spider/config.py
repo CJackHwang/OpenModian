@@ -77,14 +77,14 @@ class SpiderConfig:
     BATCH_SIZE = 10  # 批处理大小
     
     # 数据存储配置
-    OUTPUT_DIR = "data/spider"
+    OUTPUT_DIR = "data/raw"
     EXCEL_FILENAME = "摩点众筹-主要信息.xls"
     JSON_FILENAME = "modian_projects.json"
     LOG_FILENAME = "spider.log"
-    
+
     # 缓存配置
     ENABLE_CACHE = True
-    CACHE_DIR = "data/spider/cache"
+    CACHE_DIR = "data/cache/dynamic"
     CACHE_EXPIRE_HOURS = 24
     
     # 过滤配置
@@ -136,12 +136,23 @@ class SpiderConfig:
     def create_directories(cls):
         """创建必要的目录"""
         directories = [
+            # 数据目录
             cls.OUTPUT_DIR,
+            "data/processed",
+            "data/exports",
+            "data/database",
+            # 缓存目录
             cls.CACHE_DIR,
-            f"{cls.OUTPUT_DIR}/logs",
-            f"{cls.OUTPUT_DIR}/backup"
+            "data/cache",
+            # 日志目录
+            "logs/spider",
+            "logs/webui",
+            "logs/system",
+            # 报告目录
+            "data/reports/summary",
+            "data/reports/stats"
         ]
-        
+
         for directory in directories:
             os.makedirs(directory, exist_ok=True)
 

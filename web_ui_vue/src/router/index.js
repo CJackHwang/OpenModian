@@ -36,6 +36,14 @@ const router = createRouter({
       }
     },
     {
+      path: '/projects/:id',
+      name: 'project-detail',
+      component: () => import('@/views/ProjectDetail.vue'),
+      meta: {
+        title: '项目详情'
+      }
+    },
+    {
       path: '/history',
       name: 'history',
       component: () => import('@/views/TaskHistory.vue'),
