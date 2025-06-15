@@ -20,6 +20,7 @@ from flask import Flask, request, jsonify, send_file, send_from_directory
 from flask_socketio import SocketIO, emit
 from flask_cors import CORS
 import uuid
+from werkzeug.utils import secure_filename
 
 from spider.core import SpiderCore
 from spider.config import SpiderConfig
@@ -822,6 +823,192 @@ def export_project_data(project_id):
         return jsonify({
             'success': False,
             'message': f'导出数据失败: {str(e)}'
+        }), 500
+
+# ==================== 备份管理API ====================
+
+@app.route('/api/backup/create', methods=['POST'])
+def create_backup():
+    """创建数据库备份"""
+    try:
+        data = request.get_json() or {}
+        backup_format = data.get('format', 'sql')  # 默认SQL格式
+        include_metadata = data.get('include_metadata', True)
+
+        # 验证格式
+        if backup_format not in ['sql', 'json']:
+            return jsonify({
+                'success': False,
+                'message': '不支持的备份格式，仅支持 sql 或 json'
+            }), 400
+
+        # 创建备份
+        result = db_manager.create_backup(backup_format, include_metadata)
+
+        if result.get('success'):
+            return jsonify(result)
+        else:
+            return jsonify(result), 500
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'创建备份失败: {str(e)}'
+        }), 500
+
+@app.route('/api/backup/list', methods=['GET'])
+def list_backups():
+    """获取备份文件列表"""
+    try:
+        backups = db_manager.list_backups()
+
+        return jsonify({
+            'success': True,
+            'backups': backups,
+            'count': len(backups)
+        })
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'获取备份列表失败: {str(e)}'
+        }), 500
+
+@app.route('/api/backup/restore', methods=['POST'])
+def restore_backup():
+    """恢复数据库备份"""
+    try:
+        data = request.get_json() or {}
+        backup_filename = data.get('backup_filename')
+
+        if not backup_filename:
+            return jsonify({
+                'success': False,
+                'message': '请指定要恢复的备份文件名'
+            }), 400
+
+        # 构建完整路径
+        backup_path = os.path.join("backups", backup_filename)
+
+        # 恢复备份
+        result = db_manager.restore_backup(backup_path)
+
+        if result.get('success'):
+            return jsonify(result)
+        else:
+            return jsonify(result), 500
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'恢复备份失败: {str(e)}'
+        }), 500
+
+@app.route('/api/backup/upload', methods=['POST'])
+def upload_backup():
+    """上传备份文件"""
+    try:
+        if 'file' not in request.files:
+            return jsonify({
+                'success': False,
+                'message': '没有选择文件'
+            }), 400
+
+        file = request.files['file']
+
+        if file.filename == '':
+            return jsonify({
+                'success': False,
+                'message': '没有选择文件'
+            }), 400
+
+        # 验证文件扩展名
+        if not file.filename.lower().endswith(('.sql', '.json')):
+            return jsonify({
+                'success': False,
+                'message': '只支持 .sql 和 .json 格式的备份文件'
+            }), 400
+
+        # 安全的文件名
+        filename = secure_filename(file.filename)
+
+        # 确保备份目录存在
+        backup_dir = Path("backups")
+        backup_dir.mkdir(exist_ok=True)
+
+        # 保存文件
+        file_path = backup_dir / filename
+        file.save(str(file_path))
+
+        return jsonify({
+            'success': True,
+            'message': f'备份文件上传成功: {filename}',
+            'filename': filename
+        })
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'上传备份文件失败: {str(e)}'
+        }), 500
+
+@app.route('/api/backup/download/<backup_filename>', methods=['GET'])
+def download_backup(backup_filename):
+    """下载备份文件"""
+    try:
+        backup_dir = Path("backups")
+        backup_path = backup_dir / backup_filename
+
+        if not backup_path.exists():
+            return jsonify({
+                'success': False,
+                'message': f'备份文件不存在: {backup_filename}'
+            }), 404
+
+        return send_file(
+            str(backup_path),
+            as_attachment=True,
+            download_name=backup_filename
+        )
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'下载备份文件失败: {str(e)}'
+        }), 500
+
+@app.route('/api/backup/delete/<backup_filename>', methods=['DELETE'])
+def delete_backup(backup_filename):
+    """删除备份文件"""
+    try:
+        result = db_manager.delete_backup(backup_filename)
+
+        if result.get('success'):
+            return jsonify(result)
+        else:
+            return jsonify(result), 500
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'删除备份文件失败: {str(e)}'
+        }), 500
+
+@app.route('/api/backup/info/<backup_filename>', methods=['GET'])
+def get_backup_info(backup_filename):
+    """获取备份文件详细信息"""
+    try:
+        result = db_manager.get_backup_info(backup_filename)
+
+        if result.get('success'):
+            return jsonify(result)
+        else:
+            return jsonify(result), 500
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'获取备份信息失败: {str(e)}'
         }), 500
 
 @socketio.on('connect')

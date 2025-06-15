@@ -154,6 +154,14 @@ data/database/*.db-shm
 *.sqlite
 *.sqlite3
 
+# 数据库备份文件
+backups/*
+!backups/.gitkeep
+*.sql
+*.backup.json
+modian_backup_*.sql
+modian_backup_*.json
+
 # 测试和调试文件
 test_*.py
 debug_*.py

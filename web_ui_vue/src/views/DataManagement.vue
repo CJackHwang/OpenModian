@@ -66,7 +66,29 @@
       </v-col>
     </v-row>
 
-    <!-- 筛选和搜索 -->
+    <!-- 选项卡导航 -->
+    <v-card elevation="2" class="mb-6">
+      <v-tabs
+        v-model="activeTab"
+        color="primary"
+        align-tabs="start"
+      >
+        <v-tab value="data">
+          <v-icon icon="mdi-table" class="me-2" />
+          数据查看
+        </v-tab>
+        <v-tab value="backup">
+          <v-icon icon="mdi-backup-restore" class="me-2" />
+          备份管理
+        </v-tab>
+      </v-tabs>
+    </v-card>
+
+    <!-- 选项卡内容 -->
+    <v-window v-model="activeTab">
+      <!-- 数据查看选项卡 -->
+      <v-window-item value="data">
+        <!-- 筛选和搜索 -->
     <v-card elevation="2" class="mb-6">
       <v-card-title>
         <v-icon icon="mdi-filter" class="me-3" />
@@ -264,6 +286,13 @@
         </template>
       </v-data-table>
     </v-card>
+      </v-window-item>
+
+      <!-- 备份管理选项卡 -->
+      <v-window-item value="backup">
+        <BackupManager />
+      </v-window-item>
+    </v-window>
   </div>
 </template>
 
@@ -271,6 +300,7 @@
 import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
+import BackupManager from '@/components/BackupManager.vue'
 
 const router = useRouter()
 
@@ -279,6 +309,7 @@ const loading = ref(false)
 const exporting = ref(false)
 const projects = ref([])
 const itemsPerPage = ref(25)
+const activeTab = ref('data')
 
 const stats = reactive({
   total: 0,

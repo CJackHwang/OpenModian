@@ -11,6 +11,8 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
 import hashlib
+import shutil
+import os
 
 class DatabaseManager:
     """数据库管理器"""
@@ -18,6 +20,11 @@ class DatabaseManager:
     def __init__(self, db_path: str = "data/database/modian_data.db"):
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # 创建备份目录
+        self.backup_dir = Path("backups")
+        self.backup_dir.mkdir(exist_ok=True)
+
         self.init_database()
     
     def init_database(self):
@@ -1026,3 +1033,495 @@ class DatabaseManager:
         except Exception as e:
             print(f"获取项目失败: {e}")
             return None
+
+    # ==================== 备份管理功能 ====================
+
+    def create_backup(self, backup_format: str = 'sql', include_metadata: bool = True) -> Dict[str, Any]:
+        """
+        创建数据库备份
+
+        Args:
+            backup_format: 备份格式 ('sql' 或 'json')
+            include_metadata: 是否包含元数据
+
+        Returns:
+            Dict: 包含备份文件路径和相关信息的字典
+        """
+        try:
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+
+            if backup_format == 'sql':
+                return self._create_sql_backup(timestamp, include_metadata)
+            elif backup_format == 'json':
+                return self._create_json_backup(timestamp, include_metadata)
+            else:
+                raise ValueError(f"不支持的备份格式: {backup_format}")
+
+        except Exception as e:
+            print(f"创建备份失败: {e}")
+            return {
+                'success': False,
+                'message': f'创建备份失败: {str(e)}'
+            }
+
+    def _create_sql_backup(self, timestamp: str, include_metadata: bool) -> Dict[str, Any]:
+        """创建SQL格式备份"""
+        backup_filename = f"modian_backup_{timestamp}.sql"
+        backup_path = self.backup_dir / backup_filename
+
+        with sqlite3.connect(self.db_path) as conn:
+            with open(backup_path, 'w', encoding='utf-8') as f:
+                # 写入备份头信息
+                f.write(f"-- 摩点爬虫数据库备份\n")
+                f.write(f"-- 备份时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+                f.write(f"-- 数据库文件: {self.db_path}\n")
+                f.write(f"-- 备份格式: SQL\n\n")
+
+                # 导出数据库结构和数据
+                for line in conn.iterdump():
+                    f.write(f"{line}\n")
+
+        # 获取备份文件信息
+        file_size = backup_path.stat().st_size
+
+        # 统计备份的数据量
+        stats = self._get_backup_stats()
+
+        return {
+            'success': True,
+            'backup_path': str(backup_path),
+            'filename': backup_filename,
+            'format': 'sql',
+            'size': file_size,
+            'timestamp': timestamp,
+            'stats': stats,
+            'message': f'SQL备份创建成功: {backup_filename}'
+        }
+
+    def _create_json_backup(self, timestamp: str, include_metadata: bool) -> Dict[str, Any]:
+        """创建JSON格式备份"""
+        backup_filename = f"modian_backup_{timestamp}.json"
+        backup_path = self.backup_dir / backup_filename
+
+        backup_data = {
+            'metadata': {
+                'backup_time': datetime.now().isoformat(),
+                'database_path': str(self.db_path),
+                'backup_format': 'json',
+                'version': '1.0'
+            },
+            'data': {}
+        }
+
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+
+            # 导出projects表
+            cursor.execute('SELECT * FROM projects ORDER BY crawl_time DESC')
+            projects = [dict(row) for row in cursor.fetchall()]
+            backup_data['data']['projects'] = projects
+
+            # 导出crawl_tasks表
+            cursor.execute('SELECT * FROM crawl_tasks ORDER BY start_time DESC')
+            tasks = [dict(row) for row in cursor.fetchall()]
+            backup_data['data']['crawl_tasks'] = tasks
+
+            # 如果包含元数据，添加统计信息
+            if include_metadata:
+                backup_data['metadata']['stats'] = self._get_backup_stats()
+
+        # 写入JSON文件
+        with open(backup_path, 'w', encoding='utf-8') as f:
+            json.dump(backup_data, f, ensure_ascii=False, indent=2, default=str)
+
+        # 获取备份文件信息
+        file_size = backup_path.stat().st_size
+
+        return {
+            'success': True,
+            'backup_path': str(backup_path),
+            'filename': backup_filename,
+            'format': 'json',
+            'size': file_size,
+            'timestamp': timestamp,
+            'stats': backup_data['metadata'].get('stats', {}),
+            'message': f'JSON备份创建成功: {backup_filename}'
+        }
+
+    def _get_backup_stats(self) -> Dict[str, Any]:
+        """获取备份统计信息"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+
+                # 项目统计
+                cursor.execute('SELECT COUNT(*) FROM projects')
+                total_projects = cursor.fetchone()[0]
+
+                # 任务统计
+                cursor.execute('SELECT COUNT(*) FROM crawl_tasks')
+                total_tasks = cursor.fetchone()[0]
+
+                # 最新数据时间
+                cursor.execute('SELECT MAX(crawl_time) FROM projects')
+                latest_crawl = cursor.fetchone()[0]
+
+                # 最早数据时间
+                cursor.execute('SELECT MIN(crawl_time) FROM projects')
+                earliest_crawl = cursor.fetchone()[0]
+
+                return {
+                    'total_projects': total_projects,
+                    'total_tasks': total_tasks,
+                    'latest_crawl_time': latest_crawl,
+                    'earliest_crawl_time': earliest_crawl,
+                    'date_range': f"{earliest_crawl} 至 {latest_crawl}" if earliest_crawl and latest_crawl else "无数据"
+                }
+        except Exception as e:
+            print(f"获取备份统计失败: {e}")
+            return {}
+
+    def restore_backup(self, backup_file_path: str) -> Dict[str, Any]:
+        """
+        从备份文件恢复数据库
+
+        Args:
+            backup_file_path: 备份文件路径
+
+        Returns:
+            Dict: 恢复结果信息
+        """
+        try:
+            backup_path = Path(backup_file_path)
+
+            if not backup_path.exists():
+                return {
+                    'success': False,
+                    'message': f'备份文件不存在: {backup_file_path}'
+                }
+
+            # 根据文件扩展名判断备份格式
+            if backup_path.suffix.lower() == '.sql':
+                return self._restore_sql_backup(backup_path)
+            elif backup_path.suffix.lower() == '.json':
+                return self._restore_json_backup(backup_path)
+            else:
+                return {
+                    'success': False,
+                    'message': f'不支持的备份文件格式: {backup_path.suffix}'
+                }
+
+        except Exception as e:
+            print(f"恢复备份失败: {e}")
+            return {
+                'success': False,
+                'message': f'恢复备份失败: {str(e)}'
+            }
+
+    def _restore_sql_backup(self, backup_path: Path) -> Dict[str, Any]:
+        """从SQL备份恢复数据库"""
+        try:
+            # 创建当前数据库的备份
+            current_backup = self.create_backup('sql', True)
+
+            # 读取SQL备份文件
+            with open(backup_path, 'r', encoding='utf-8') as f:
+                sql_content = f.read()
+
+            # 删除现有数据库文件
+            if self.db_path.exists():
+                self.db_path.unlink()
+
+            # 创建新的数据库连接并执行SQL
+            with sqlite3.connect(self.db_path) as conn:
+                conn.executescript(sql_content)
+                conn.commit()
+
+            # 验证恢复结果
+            stats = self._get_backup_stats()
+
+            return {
+                'success': True,
+                'message': f'SQL备份恢复成功: {backup_path.name}',
+                'stats': stats,
+                'current_backup': current_backup.get('filename', '未知') if current_backup.get('success') else None
+            }
+
+        except Exception as e:
+            print(f"SQL备份恢复失败: {e}")
+            return {
+                'success': False,
+                'message': f'SQL备份恢复失败: {str(e)}'
+            }
+
+    def _restore_json_backup(self, backup_path: Path) -> Dict[str, Any]:
+        """从JSON备份恢复数据库"""
+        try:
+            # 创建当前数据库的备份
+            current_backup = self.create_backup('sql', True)
+
+            # 读取JSON备份文件
+            with open(backup_path, 'r', encoding='utf-8') as f:
+                backup_data = json.load(f)
+
+            # 验证备份文件格式
+            if 'data' not in backup_data:
+                return {
+                    'success': False,
+                    'message': '无效的JSON备份文件格式'
+                }
+
+            # 清空现有数据
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute('DELETE FROM projects')
+                cursor.execute('DELETE FROM crawl_tasks')
+                conn.commit()
+
+            # 恢复项目数据
+            projects_data = backup_data['data'].get('projects', [])
+            if projects_data:
+                self._restore_projects_from_json(projects_data)
+
+            # 恢复任务数据
+            tasks_data = backup_data['data'].get('crawl_tasks', [])
+            if tasks_data:
+                self._restore_tasks_from_json(tasks_data)
+
+            # 验证恢复结果
+            stats = self._get_backup_stats()
+
+            return {
+                'success': True,
+                'message': f'JSON备份恢复成功: {backup_path.name}',
+                'stats': stats,
+                'restored_projects': len(projects_data),
+                'restored_tasks': len(tasks_data),
+                'current_backup': current_backup.get('filename', '未知') if current_backup.get('success') else None
+            }
+
+        except Exception as e:
+            print(f"JSON备份恢复失败: {e}")
+            return {
+                'success': False,
+                'message': f'JSON备份恢复失败: {str(e)}'
+            }
+
+    def _restore_projects_from_json(self, projects_data: List[Dict]) -> None:
+        """从JSON数据恢复项目"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+
+            for project in projects_data:
+                # 构建插入SQL
+                fields = list(project.keys())
+                if 'id' in fields:
+                    fields.remove('id')  # 不恢复原始ID，让数据库自动生成
+
+                placeholders = ','.join(['?' for _ in fields])
+                sql = f"INSERT INTO projects ({','.join(fields)}) VALUES ({placeholders})"
+
+                values = [project.get(field) for field in fields]
+                cursor.execute(sql, values)
+
+            conn.commit()
+
+    def _restore_tasks_from_json(self, tasks_data: List[Dict]) -> None:
+        """从JSON数据恢复任务"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+
+            for task in tasks_data:
+                # 构建插入SQL
+                fields = list(task.keys())
+                if 'id' in fields:
+                    fields.remove('id')  # 不恢复原始ID，让数据库自动生成
+
+                placeholders = ','.join(['?' for _ in fields])
+                sql = f"INSERT INTO crawl_tasks ({','.join(fields)}) VALUES ({placeholders})"
+
+                values = [task.get(field) for field in fields]
+                cursor.execute(sql, values)
+
+            conn.commit()
+
+    def list_backups(self) -> List[Dict[str, Any]]:
+        """
+        列出所有备份文件
+
+        Returns:
+            List[Dict]: 备份文件信息列表
+        """
+        try:
+            backups = []
+
+            if not self.backup_dir.exists():
+                return backups
+
+            # 扫描备份目录
+            sql_files = list(self.backup_dir.glob("modian_backup_*.sql"))
+            json_files = list(self.backup_dir.glob("modian_backup_*.json"))
+            backup_files = sql_files + json_files
+
+            for backup_file in backup_files:
+                try:
+                    file_stat = backup_file.stat()
+
+                    # 从文件名提取时间戳
+                    filename = backup_file.name
+                    if filename.startswith('modian_backup_') and '_' in filename:
+                        timestamp_part = filename.split('_', 2)[2].split('.')[0]
+                        try:
+                            backup_time = datetime.strptime(timestamp_part, '%Y%m%d_%H%M%S')
+                            formatted_time = backup_time.strftime('%Y-%m-%d %H:%M:%S')
+                        except ValueError:
+                            formatted_time = '未知时间'
+                    else:
+                        formatted_time = '未知时间'
+
+                    backup_info = {
+                        'filename': filename,
+                        'path': str(backup_file),
+                        'size': file_stat.st_size,
+                        'size_formatted': self._format_file_size(file_stat.st_size),
+                        'created_time': formatted_time,
+                        'modified_time': datetime.fromtimestamp(file_stat.st_mtime).strftime('%Y-%m-%d %H:%M:%S'),
+                        'format': backup_file.suffix[1:].upper(),  # 去掉点号并转大写
+                        'is_valid': self._validate_backup_file(backup_file)
+                    }
+
+                    backups.append(backup_info)
+
+                except Exception as e:
+                    print(f"读取备份文件信息失败 {backup_file}: {e}")
+                    continue
+
+            # 按创建时间倒序排列
+            backups.sort(key=lambda x: x['modified_time'], reverse=True)
+
+            return backups
+
+        except Exception as e:
+            print(f"列出备份文件失败: {e}")
+            return []
+
+    def _format_file_size(self, size_bytes: int) -> str:
+        """格式化文件大小"""
+        if size_bytes == 0:
+            return "0 B"
+
+        size_names = ["B", "KB", "MB", "GB"]
+        i = 0
+        while size_bytes >= 1024 and i < len(size_names) - 1:
+            size_bytes /= 1024.0
+            i += 1
+
+        return f"{size_bytes:.1f} {size_names[i]}"
+
+    def _validate_backup_file(self, backup_path: Path) -> bool:
+        """验证备份文件是否有效"""
+        try:
+            if backup_path.suffix.lower() == '.sql':
+                # 简单验证SQL文件
+                with open(backup_path, 'r', encoding='utf-8') as f:
+                    content = f.read(1000)  # 只读前1000字符
+                    return 'CREATE TABLE' in content or 'INSERT INTO' in content
+
+            elif backup_path.suffix.lower() == '.json':
+                # 验证JSON文件
+                with open(backup_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    return 'data' in data and 'metadata' in data
+
+            return False
+
+        except Exception:
+            return False
+
+    def delete_backup(self, backup_filename: str) -> Dict[str, Any]:
+        """
+        删除指定的备份文件
+
+        Args:
+            backup_filename: 备份文件名
+
+        Returns:
+            Dict: 删除结果
+        """
+        try:
+            backup_path = self.backup_dir / backup_filename
+
+            if not backup_path.exists():
+                return {
+                    'success': False,
+                    'message': f'备份文件不存在: {backup_filename}'
+                }
+
+            # 删除文件
+            backup_path.unlink()
+
+            return {
+                'success': True,
+                'message': f'备份文件已删除: {backup_filename}'
+            }
+
+        except Exception as e:
+            print(f"删除备份文件失败: {e}")
+            return {
+                'success': False,
+                'message': f'删除备份文件失败: {str(e)}'
+            }
+
+    def get_backup_info(self, backup_filename: str) -> Dict[str, Any]:
+        """
+        获取备份文件详细信息
+
+        Args:
+            backup_filename: 备份文件名
+
+        Returns:
+            Dict: 备份文件详细信息
+        """
+        try:
+            backup_path = self.backup_dir / backup_filename
+
+            if not backup_path.exists():
+                return {
+                    'success': False,
+                    'message': f'备份文件不存在: {backup_filename}'
+                }
+
+            file_stat = backup_path.stat()
+
+            # 基本信息
+            info = {
+                'success': True,
+                'filename': backup_filename,
+                'path': str(backup_path),
+                'size': file_stat.st_size,
+                'size_formatted': self._format_file_size(file_stat.st_size),
+                'created_time': datetime.fromtimestamp(file_stat.st_ctime).strftime('%Y-%m-%d %H:%M:%S'),
+                'modified_time': datetime.fromtimestamp(file_stat.st_mtime).strftime('%Y-%m-%d %H:%M:%S'),
+                'format': backup_path.suffix[1:].upper(),
+                'is_valid': self._validate_backup_file(backup_path)
+            }
+
+            # 如果是JSON格式，尝试读取元数据
+            if backup_path.suffix.lower() == '.json':
+                try:
+                    with open(backup_path, 'r', encoding='utf-8') as f:
+                        data = json.load(f)
+                        if 'metadata' in data:
+                            info['metadata'] = data['metadata']
+                except Exception as e:
+                    info['metadata_error'] = str(e)
+
+            return info
+
+        except Exception as e:
+            print(f"获取备份信息失败: {e}")
+            return {
+                'success': False,
+                'message': f'获取备份信息失败: {str(e)}'
+            }
