@@ -22,11 +22,12 @@ from .exporter import DataExporter
 class AdaptiveParser:
     """智能适配解析器 - 能够自动适配摩点网站的各种页面结构"""
 
-    def __init__(self, config: SpiderConfig, network_utils: NetworkUtils, web_monitor=None):
+    def __init__(self, config: SpiderConfig, network_utils: NetworkUtils, web_monitor=None, stop_flag=None):
         self.config = config
         self.network_utils = network_utils
         self.data_utils = DataUtils()
         self.web_monitor = web_monitor
+        self._stop_flag = stop_flag
 
         # 多套CSS选择器策略，按优先级排序
         self.list_selectors = [
@@ -1458,7 +1459,7 @@ class AdaptiveParser:
 
             if not hasattr(self, manager_key):
                 from .lightning_fast_dynamic import LightningDataManager
-                manager = LightningDataManager(self.config, self.network_utils)
+                manager = LightningDataManager(self.config, self.network_utils, self._stop_flag)
                 setattr(self, manager_key, manager)
                 self._log("info", f"为线程 {thread_id} 创建独立的动态数据管理器")
 
@@ -1606,12 +1607,20 @@ class AdaptiveParser:
 class SpiderCore:
     """爬虫核心类"""
 
-    def __init__(self, config: SpiderConfig = None, web_monitor=None):
+    def __init__(self, config: SpiderConfig = None, web_monitor=None, db_manager=None):
         self.config = config or SpiderConfig()
         self.config.create_directories()
 
         # Web UI监控器
         self.web_monitor = web_monitor
+
+        # 数据库管理器（用于增量保存）
+        self.db_manager = db_manager
+
+        # 线程锁和停止标志（需要在初始化组件之前定义）
+        self._lock = threading.Lock()
+        self._stop_flag = threading.Event()
+        self._is_running = False
 
         # 初始化组件
         self.network_utils = NetworkUtils(self.config)
@@ -1619,21 +1628,22 @@ class SpiderCore:
         self.monitor = SpiderMonitor(self.config)
         self.validator = DataValidator(self.config)
         self.exporter = DataExporter(self.config)
-        self.parser = AdaptiveParser(self.config, self.network_utils, self.web_monitor)
+        self.parser = AdaptiveParser(self.config, self.network_utils, self.web_monitor, self._stop_flag)
 
         # 数据存储
         self.projects_data = []
         self.failed_urls = []
 
-        # 线程锁和停止标志
-        self._lock = threading.Lock()
-        self._stop_flag = threading.Event()
-        self._is_running = False
-
         # 进度回调
         self._progress_callback = None
 
+        # 增量保存配置
+        self.save_interval = getattr(self.config, 'SAVE_INTERVAL', 5)  # 每5个项目保存一次
+        self.current_task_id = None
+        self.saved_count = 0  # 已保存的项目数量
+
         self._log("info", f"爬虫初始化完成，输出目录: {self.config.OUTPUT_DIR}")
+        self._log("info", f"增量保存间隔: 每{self.save_interval}个项目")
 
     def _cleanup_lightning_managers(self):
         """清理所有动态数据管理器"""
@@ -1679,15 +1689,18 @@ class SpiderCore:
         return self._is_running
 
     def start_crawling(self, start_page: int = 1, end_page: int = 50,
-                      category: str = "all") -> bool:
+                      category: str = "all", task_id: str = None) -> bool:
         """开始爬取"""
         try:
             self._is_running = True
             self._stop_flag.clear()
+            self.current_task_id = task_id
+            self.saved_count = 0
 
             self._log("info", f"开始爬取摩点众筹数据...")
             self._log("info", f"页面范围: {start_page}-{end_page}")
             self._log("info", f"分类: {category}")
+            self._log("info", f"任务ID: {task_id}")
 
             # 启动监控
             self.monitor.start_monitoring()
@@ -1697,6 +1710,8 @@ class SpiderCore:
 
             if self.is_stopped():
                 self._log("warning", "爬取已被用户停止")
+                # 即使被停止，也要保存已获取的数据
+                self._save_remaining_data()
                 return False
 
             if not project_urls:
@@ -1715,6 +1730,9 @@ class SpiderCore:
 
             # 停止监控
             self.monitor.stop_monitoring()
+
+            # 保存剩余数据
+            self._save_remaining_data()
 
             # 数据验证和导出（如果有数据且未被停止）
             if self.projects_data and not self.is_stopped():
@@ -1946,20 +1964,38 @@ class SpiderCore:
             # 处理结果
             completed = 0
             for future in as_completed(future_to_project):
+                # 在处理每个结果前检查停止标志
+                if self.is_stopped():
+                    self._log("warning", "收到停止信号，正在保存已处理的数据...")
+                    # 取消剩余的任务
+                    for remaining_future in future_to_project:
+                        if not remaining_future.done():
+                            remaining_future.cancel()
+                    self._save_remaining_data()
+                    break
+
                 _, project_info = future_to_project[future]
 
                 try:
-                    result = future.result()
+                    result = future.result(timeout=1)  # 添加超时，避免长时间阻塞
                     if result:
                         with self._lock:
                             self.projects_data.append(result)
                         self.monitor.record_project("processed")
                         self._log("success", f"项目 {project_info[2]} 处理成功")
+
+                        # 🔧 增量保存：每处理完指定数量的项目就保存一次
+                        if len(self.projects_data) % self.save_interval == 0:
+                            self._save_incremental_data()
                     else:
                         self.monitor.record_project("failed")
                         self.failed_urls.append(project_info[0])
                         self._log("warning", f"项目 {project_info[2]} 处理失败")
 
+                except TimeoutError:
+                    self._log("warning", f"项目 {project_info[2]} 处理超时")
+                    self.monitor.record_project("failed")
+                    self.failed_urls.append(project_info[0])
                 except Exception as e:
                     self._log("error", f"处理项目失败 {project_info[2]}: {e}")
                     self.monitor.record_error("project_process_error", str(e))
@@ -1979,12 +2015,22 @@ class SpiderCore:
                     progress_percent = (completed / total_projects) * 100
                     self._log("info", f"项目详情进度: {completed}/{total_projects} ({progress_percent:.1f}%)")
 
+            # 如果被停止，强制关闭线程池
+            if self.is_stopped():
+                self._log("warning", "强制关闭线程池...")
+                executor.shutdown(wait=False)
+
         self._log("info", f"项目详情爬取完成，成功: {len(self.projects_data)}, 失败: {len(self.failed_urls)}")
         return len(self.projects_data) > 0
 
     def _crawl_single_project(self, index: int, project_info: Tuple[str, str, str, str]) -> Optional[List[Any]]:
         """爬取单个项目详情"""
         project_url, project_id, project_name, project_image = project_info
+
+        # 检查停止标志
+        if self.is_stopped():
+            self._log("warning", f"⏹️ 收到停止信号，跳过项目 {project_name}")
+            return None
 
         try:
             start_time = time.time()
@@ -2159,6 +2205,60 @@ class SpiderCore:
         """清空缓存"""
         self.cache_utils.clear_cache()
 
+    def _save_incremental_data(self):
+        """增量保存数据到数据库"""
+        if not self.db_manager or not self.projects_data:
+            return
+
+        try:
+            # 获取未保存的数据
+            unsaved_data = self.projects_data[self.saved_count:]
+
+            if unsaved_data:
+                # 保存到数据库
+                saved_count = self.db_manager.save_projects(unsaved_data, self.current_task_id)
+                self.saved_count += saved_count
+
+                self._log("success", f"增量保存: 保存了 {saved_count} 条数据到数据库 (总计: {self.saved_count})")
+
+                # 更新Web监控器统计
+                if self.web_monitor:
+                    self.web_monitor.update_stats(
+                        projects_processed=self.saved_count,
+                        projects_found=len(self.projects_data)
+                    )
+
+        except Exception as e:
+            self._log("error", f"增量保存失败: {e}")
+
+    def _save_remaining_data(self):
+        """保存剩余的未保存数据"""
+        if not self.db_manager or not self.projects_data:
+            return
+
+        try:
+            # 获取未保存的数据
+            unsaved_data = self.projects_data[self.saved_count:]
+
+            if unsaved_data:
+                # 保存到数据库
+                saved_count = self.db_manager.save_projects(unsaved_data, self.current_task_id)
+                self.saved_count += saved_count
+
+                self._log("success", f"最终保存: 保存了 {saved_count} 条数据到数据库 (总计: {self.saved_count})")
+
+                # 更新Web监控器统计
+                if self.web_monitor:
+                    self.web_monitor.update_stats(
+                        projects_processed=self.saved_count,
+                        projects_found=len(self.projects_data)
+                    )
+            else:
+                self._log("info", f"所有数据已保存，总计: {self.saved_count} 条")
+
+        except Exception as e:
+            self._log("error", f"最终保存失败: {e}")
+
     def save_progress(self):
         """保存进度"""
         if self.projects_data:
@@ -2168,6 +2268,7 @@ class SpiderCore:
             progress_data = {
                 "timestamp": timestamp,
                 "projects_count": len(self.projects_data),
+                "saved_count": self.saved_count,
                 "failed_urls": self.failed_urls,
                 "stats": self.monitor.get_current_stats()
             }

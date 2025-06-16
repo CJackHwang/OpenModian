@@ -118,9 +118,19 @@ class SpiderMonitor:
     def stop_monitoring(self):
         """停止监控"""
         self._monitoring = False
-        if self._monitor_thread:
-            self._monitor_thread.join(timeout=5)
         self.stats.end_time = datetime.now()
+
+        # 不等待线程结束，避免eventlet超时问题
+        if self._monitor_thread:
+            try:
+                # 只检查线程状态，不等待
+                if self._monitor_thread.is_alive():
+                    print("⚠️ 监控线程仍在运行，但已设置停止标志")
+                else:
+                    print("✅ 监控线程已自然结束")
+            except Exception as e:
+                print(f"⚠️ 检查监控线程状态时出现异常: {e}")
+
         print("爬虫监控已停止")
     
     def _monitor_loop(self):

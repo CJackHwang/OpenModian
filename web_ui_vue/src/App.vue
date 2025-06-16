@@ -25,9 +25,21 @@
         :color="connectionStatus ? 'success' : 'error'"
         :prepend-icon="connectionStatus ? 'mdi-wifi' : 'mdi-wifi-off'"
         :text="connectionStatus ? '已连接' : '连接断开'"
-        class="me-4 elevation-1"
+        class="me-2 elevation-1"
         size="small"
         variant="elevated"
+      />
+
+      <!-- 重连按钮 -->
+      <v-btn
+        icon="mdi-refresh"
+        @click="reconnectWebSocket"
+        :loading="reconnecting"
+        variant="text"
+        class="me-2 rounded-lg"
+        size="large"
+        :color="connectionStatus ? 'success' : 'error'"
+        :disabled="reconnecting"
       />
 
       <!-- 主题切换 -->
@@ -133,6 +145,7 @@ const { snackbar, hideSnackbar } = useSnackbar()
 // 响应式数据
 const leftDrawerOpen = ref(false)
 const isDark = ref(false)
+const reconnecting = ref(false)
 
 // 菜单项
 const menuItems = [
@@ -185,6 +198,23 @@ const toggleTheme = () => {
 
 const refreshData = () => {
   appStore.refreshData()
+}
+
+const reconnectWebSocket = async () => {
+  if (reconnecting.value) return
+
+  reconnecting.value = true
+  console.log('🔄 用户手动触发WebSocket重连')
+
+  try {
+    // 重新初始化WebSocket连接
+    await appStore.initializeSocket()
+    console.log('✅ WebSocket重连成功')
+  } catch (error) {
+    console.error('❌ WebSocket重连失败:', error)
+  } finally {
+    reconnecting.value = false
+  }
 }
 
 // 初始化主题

@@ -75,6 +75,7 @@ class SpiderConfig:
     MAX_CONCURRENT_REQUESTS = 5
     REQUEST_DELAY = (1.0, 3.0)  # 请求间隔（秒）
     BATCH_SIZE = 10  # 批处理大小
+    SAVE_INTERVAL = 3  # 增量保存间隔（每N个项目保存一次）
     
     # 数据存储配置
     OUTPUT_DIR = "data/raw"

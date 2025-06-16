@@ -12,6 +12,14 @@ import time
 from datetime import datetime
 from pathlib import Path
 
+# 导入eventlet并进行monkey patching以支持WebSocket
+try:
+    import eventlet
+    eventlet.monkey_patch()
+    print("✅ Eventlet已加载，WebSocket支持已启用")
+except ImportError:
+    print("⚠️  Eventlet未安装，将使用threading模式（无WebSocket支持）")
+
 # 添加项目根目录到路径
 project_root = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, project_root)
@@ -34,8 +42,30 @@ vue_dist_path = os.path.join(project_root, "web_ui_vue", "dist")
 app = Flask(__name__, static_folder=vue_dist_path, static_url_path='')
 
 app.config['SECRET_KEY'] = 'modian_spider_secret_key_2024'
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading',
-                   logger=False, engineio_logger=False)
+
+# 优化Socket.IO配置以提高稳定性
+# 如果eventlet可用，使用eventlet模式；否则使用threading模式
+try:
+    import eventlet
+    async_mode = 'eventlet'
+    print("🔌 使用eventlet模式，完整WebSocket支持")
+except ImportError:
+    async_mode = 'threading'
+    print("🔌 使用threading模式，仅polling传输")
+
+socketio = SocketIO(
+    app,
+    cors_allowed_origins="*",
+    async_mode=async_mode,
+    logger=False,
+    engineio_logger=False,
+    # 添加更多配置以提高稳定性
+    ping_timeout=60,
+    ping_interval=25,
+    max_http_buffer_size=1000000,
+    allow_upgrades=True,
+    transports=['websocket', 'polling'] if async_mode == 'eventlet' else ['polling']
+)
 CORS(app)  # 启用CORS支持
 
 # 全局变量
@@ -105,10 +135,14 @@ class WebSpiderMonitor:
     
     def emit_update(self):
         """发送更新到前端"""
-        socketio.emit('task_update', {
-            'task_id': self.task_id,
-            'stats': self.stats
-        })
+        try:
+            socketio.emit('task_update', {
+                'task_id': self.task_id,
+                'stats': self.stats
+            })
+        except Exception as e:
+            print(f"Socket.IO发送更新失败: {e}")
+            # 不抛出异常，避免影响爬虫主流程
 
 def cleanup_old_tasks():
     """清理旧任务状态，避免冲突"""
@@ -197,8 +231,8 @@ def start_crawl():
         # 创建监控器
         monitor = WebSpiderMonitor(task_id)
         
-        # 创建爬虫实例，传入Web监控器
-        spider = SpiderCore(config, web_monitor=monitor)
+        # 创建爬虫实例，传入Web监控器和数据库管理器
+        spider = SpiderCore(config, web_monitor=monitor, db_manager=db_manager)
         
         # 保存实例
         spider_instances[task_id] = spider
@@ -228,34 +262,46 @@ def start_crawl():
                 success = spider.start_crawling(
                     start_page=start_page,
                     end_page=end_page,
-                    category=category
+                    category=category,
+                    task_id=task_id
                 )
 
                 if success and not spider.is_stopped():
-                    # 保存爬取的数据到数据库
-                    if hasattr(spider, 'projects_data') and spider.projects_data:
-                        saved_count = db_manager.save_projects(spider.projects_data, task_id)
-                        monitor.add_log('success', f'爬取任务完成，保存了 {saved_count} 条数据到数据库')
+                    # 数据已通过增量保存机制保存，这里只需要更新最终状态
+                    total_saved = getattr(spider, 'saved_count', 0)
+                    total_found = len(spider.projects_data) if hasattr(spider, 'projects_data') else 0
 
-                        # 更新任务统计
-                        stats = {
-                            'projects_found': len(spider.projects_data),
-                            'projects_processed': saved_count
-                        }
-                        monitor.update_stats(
-                            projects_found=len(spider.projects_data),
-                            projects_processed=saved_count
-                        )
-                        db_manager.update_task_status(task_id, 'completed', stats)
-                    else:
-                        monitor.add_log('warning', '爬取任务完成，但没有获取到数据')
-                        db_manager.update_task_status(task_id, 'completed')
+                    monitor.add_log('success', f'爬取任务完成，总计保存了 {total_saved} 条数据到数据库')
 
+                    # 更新任务统计
+                    stats = {
+                        'projects_found': total_found,
+                        'projects_processed': total_saved
+                    }
+                    monitor.update_stats(
+                        projects_found=total_found,
+                        projects_processed=total_saved
+                    )
+                    db_manager.update_task_status(task_id, 'completed', stats)
                     monitor.update_stats(status='completed')
                 elif spider.is_stopped():
-                    monitor.add_log('warning', '任务被用户停止')
+                    # 任务被停止，但数据已通过增量保存机制保存
+                    total_saved = getattr(spider, 'saved_count', 0)
+                    total_found = len(spider.projects_data) if hasattr(spider, 'projects_data') else 0
+
+                    monitor.add_log('warning', f'任务被用户停止，已保存 {total_saved} 条数据到数据库')
+
+                    # 更新任务统计
+                    stats = {
+                        'projects_found': total_found,
+                        'projects_processed': total_saved
+                    }
+                    monitor.update_stats(
+                        projects_found=total_found,
+                        projects_processed=total_saved
+                    )
                     monitor.update_stats(status='stopped')
-                    db_manager.update_task_status(task_id, 'stopped')
+                    db_manager.update_task_status(task_id, 'stopped', stats)
                 else:
                     monitor.add_log('error', '爬取任务失败')
                     monitor.update_stats(status='failed')
@@ -1077,27 +1123,50 @@ def get_backup_info(backup_filename):
             'message': f'获取备份信息失败: {str(e)}'
         }), 500
 
-@socketio.on('connect')
-def handle_connect():
+@socketio.event
+def connect():
     """WebSocket连接"""
-    print(f'客户端已连接: {request.sid}')
-    emit('connected', {'message': '连接成功'})
+    try:
+        print(f'✅ 客户端已连接: {request.sid}')
+        emit('connected', {'message': '连接成功', 'sid': request.sid})
+    except Exception as e:
+        print(f"❌ 连接处理错误: {e}")
 
-@socketio.on('disconnect')
-def handle_disconnect():
+@socketio.event
+def disconnect(auth=None):
     """WebSocket断开连接"""
-    print(f'客户端已断开: {request.sid}')
+    try:
+        print(f'🔌 客户端已断开: {request.sid}')
+    except Exception as e:
+        print(f'🔌 客户端已断开 (获取SID失败: {e})')
 
 @socketio.on_error_default
 def default_error_handler(e):
     """默认错误处理器"""
-    print(f"SocketIO错误: {e}")
+    try:
+        print(f"⚠️  SocketIO错误: {e}")
+        print(f"错误类型: {type(e).__name__}")
+        import traceback
+        traceback.print_exc()
+    except Exception as handler_error:
+        print(f"❌ 错误处理器本身出错: {handler_error}")
     return False
 
 @socketio.on('ping')
 def handle_ping():
     """心跳检测"""
-    emit('pong', {'timestamp': datetime.now().isoformat()})
+    try:
+        emit('pong', {'timestamp': datetime.now().isoformat()})
+    except Exception as e:
+        print(f"❌ 心跳检测错误: {e}")
+
+@socketio.on('connect_error')
+def handle_connect_error(data):
+    """连接错误处理"""
+    try:
+        print(f"🔥 连接错误: {data}")
+    except Exception as e:
+        print(f"❌ 连接错误处理失败: {e}")
 
 def find_available_port(start_port=8080, max_port=8090):
     """查找可用端口"""

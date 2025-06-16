@@ -26,7 +26,7 @@ spider_settings:
   - 10
   - 20
   retry_delay: 2
-  save_interval: 5
+  save_interval: 3  # 每3个项目保存一次，防止数据丢失
 web_ui_settings:
   auto_open_browser: true
   debug: false

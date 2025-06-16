@@ -283,59 +283,19 @@
           </v-card-text>
         </v-card>
 
-        <!-- 实时终端 -->
-        <v-card elevation="2">
-          <v-card-title class="d-flex align-center">
-            <v-icon icon="mdi-console" class="me-3" />
-            实时终端
-            <v-spacer />
-            <v-btn
-              icon="mdi-fullscreen"
-              variant="text"
-              size="small"
-              @click="toggleTerminalFullscreen"
-              class="me-2"
-            />
-            <v-btn
-              icon="mdi-delete"
-              variant="text"
-              size="small"
-              @click="clearTerminal"
-              :disabled="!terminalLogs.length"
-            />
-          </v-card-title>
 
-          <v-card-text class="pa-0">
-            <div :class="['terminal-container', { 'terminal-fullscreen': terminalFullscreen }]">
-              <div v-if="terminalLogs.length === 0" class="text-center pa-4 text-medium-emphasis">
-                等待系统日志...
-              </div>
-              <div
-                v-for="(log, index) in terminalLogs"
-                :key="index"
-                :class="['terminal-entry', `terminal-${log.level}`]"
-              >
-                <span class="terminal-timestamp">[{{ log.timestamp }}]</span>
-                <span class="terminal-level">[{{ log.level.toUpperCase() }}]</span>
-                <span class="terminal-message">{{ log.message }}</span>
-              </div>
-            </div>
-          </v-card-text>
-        </v-card>
       </v-col>
     </v-row>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { onMounted } from 'vue'
 import { useAppStore } from '@/stores/app'
 
 const appStore = useAppStore()
 
-// 终端日志
-const terminalLogs = ref([])
-const terminalFullscreen = ref(false)
+
 
 // 方法
 const getTaskStatusColor = (status) => {
@@ -366,84 +326,9 @@ const refreshData = () => {
   appStore.refreshData()
 }
 
-const clearTerminal = () => {
-  terminalLogs.value = []
-}
-
-const toggleTerminalFullscreen = () => {
-  terminalFullscreen.value = !terminalFullscreen.value
-}
-
-const addTerminalLog = (level, message) => {
-  const timestamp = new Date().toLocaleTimeString()
-  terminalLogs.value.push({
-    timestamp,
-    level,
-    message
-  })
-
-  // 只保留最近50条日志
-  if (terminalLogs.value.length > 50) {
-    terminalLogs.value = terminalLogs.value.slice(-50)
-  }
-
-  // 滚动到底部
-  setTimeout(() => {
-    const container = document.querySelector('.terminal-container')
-    if (container) {
-      container.scrollTop = container.scrollHeight
-    }
-  }, 100)
-}
-
 // 生命周期
 onMounted(() => {
   appStore.refreshData()
-
-  // 设置WebSocket监听器
-  const setupWebSocketListeners = () => {
-    if (appStore.socket) {
-      console.log('🔌 Dashboard设置WebSocket监听器')
-
-      // 监听任务更新
-      appStore.socket.on('task_update', (data) => {
-        if (data.stats && data.stats.logs) {
-          // 添加新的日志到终端
-          data.stats.logs.forEach(log => {
-            addTerminalLog(log.level, log.message)
-          })
-        }
-      })
-
-      // 监听系统日志
-      appStore.socket.on('system_log', (data) => {
-        addTerminalLog(data.level || 'info', data.message)
-      })
-
-      appStore.socket.on('connect', () => {
-        addTerminalLog('success', 'WebSocket连接成功')
-      })
-
-      appStore.socket.on('disconnect', () => {
-        addTerminalLog('warning', 'WebSocket连接断开')
-      })
-    } else {
-      setTimeout(setupWebSocketListeners, 1000)
-    }
-  }
-
-  setupWebSocketListeners()
-
-  // 添加初始日志
-  addTerminalLog('info', '仪表板已加载')
-})
-
-onUnmounted(() => {
-  // 清理WebSocket监听器
-  if (appStore.socket) {
-    appStore.socket.off('task_update')
-    appStore.socket.off('system_log')
-  }
 })
 </script>
 
@@ -487,126 +372,7 @@ onUnmounted(() => {
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
 }
 
-/* M3 终端样式 */
-.terminal-container {
-  max-height: 400px;
-  overflow-y: auto;
-  background: linear-gradient(135deg, rgb(var(--v-theme-surface-container-highest)) 0%, rgb(var(--v-theme-surface-container-high)) 100%);
-  color: rgb(var(--v-theme-on-surface));
-  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', 'Monaco', 'Courier New', monospace;
-  font-size: 13px;
-  padding: 16px;
-  border-radius: 12px;
-  border: 1px solid rgba(var(--v-theme-outline-variant), 0.3);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  backdrop-filter: blur(8px);
-}
 
-.terminal-fullscreen {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 9999;
-  max-height: 100vh;
-  border-radius: 0;
-  margin: 0;
-  backdrop-filter: blur(20px);
-}
-
-.terminal-entry {
-  margin-bottom: 4px;
-  line-height: 1.5;
-  padding: 4px 8px;
-  border-left: 3px solid transparent;
-  border-radius: 6px;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-
-  &:hover {
-    background-color: rgba(var(--v-theme-primary), 0.08);
-    transform: translateX(2px);
-  }
-}
-
-.terminal-timestamp {
-  color: rgba(var(--v-theme-on-surface-variant), 0.8);
-  margin-right: 8px;
-  font-weight: 500;
-  font-size: 12px;
-}
-
-.terminal-level {
-  color: rgba(var(--v-theme-on-surface), 0.9);
-  margin-right: 8px;
-  font-weight: 600;
-  min-width: 60px;
-  display: inline-block;
-  font-size: 12px;
-  text-transform: uppercase;
-}
-
-.terminal-message {
-  color: rgb(var(--v-theme-on-surface));
-  font-size: 13px;
-  font-weight: 400;
-}
-
-.terminal-info {
-  border-left-color: rgb(var(--v-theme-info));
-  background-color: rgba(var(--v-theme-info), 0.05);
-
-  .terminal-level {
-    color: rgb(var(--v-theme-info));
-  }
-}
-
-.terminal-success {
-  border-left-color: rgb(var(--v-theme-success));
-  background-color: rgba(var(--v-theme-success), 0.05);
-
-  .terminal-level {
-    color: rgb(var(--v-theme-success));
-  }
-}
-
-.terminal-warning {
-  border-left-color: rgb(var(--v-theme-warning));
-  background-color: rgba(var(--v-theme-warning), 0.05);
-
-  .terminal-level {
-    color: rgb(var(--v-theme-warning));
-  }
-}
-
-.terminal-error {
-  border-left-color: rgb(var(--v-theme-error));
-  background-color: rgba(var(--v-theme-error), 0.05);
-
-  .terminal-level {
-    color: rgb(var(--v-theme-error));
-  }
-}
-
-/* M3 终端滚动条样式 */
-.terminal-container::-webkit-scrollbar {
-  width: 8px;
-}
-
-.terminal-container::-webkit-scrollbar-track {
-  background: rgba(var(--v-theme-surface-variant), 0.3);
-  border-radius: 4px;
-}
-
-.terminal-container::-webkit-scrollbar-thumb {
-  background: rgba(var(--v-theme-on-surface-variant), 0.4);
-  border-radius: 4px;
-  transition: background 0.2s ease;
-
-  &:hover {
-    background: rgba(var(--v-theme-on-surface-variant), 0.6);
-  }
-}
 
 /* M3 响应式优化 */
 /* 超大屏幕：最高信息密度 */
@@ -621,11 +387,7 @@ onUnmounted(() => {
     border-radius: 22px;
   }
 
-  .terminal-container {
-    max-height: 500px;
-    padding: 20px;
-    font-size: 14px;
-  }
+
 
   .title-icon-container {
     width: 72px;
@@ -646,11 +408,7 @@ onUnmounted(() => {
     border-radius: 21px;
   }
 
-  .terminal-container {
-    max-height: 450px;
-    padding: 18px;
-    font-size: 13px;
-  }
+
 
   .title-icon-container {
     width: 68px;
@@ -671,11 +429,7 @@ onUnmounted(() => {
     border-radius: 20px;
   }
 
-  .terminal-container {
-    max-height: 400px;
-    padding: 16px;
-    font-size: 13px;
-  }
+
 }
 
 /* 中等屏幕：适中信息密度 */
@@ -690,11 +444,7 @@ onUnmounted(() => {
     border-radius: 19px;
   }
 
-  .terminal-container {
-    max-height: 350px;
-    padding: 14px;
-    font-size: 12px;
-  }
+
 }
 
 /* 平板：舒适间距 */
@@ -709,11 +459,7 @@ onUnmounted(() => {
     border-radius: 18px;
   }
 
-  .terminal-container {
-    max-height: 300px;
-    padding: 12px;
-    font-size: 12px;
-  }
+
 }
 
 /* 手机：大间距 */
@@ -734,10 +480,6 @@ onUnmounted(() => {
     border-radius: 16px;
   }
 
-  .terminal-container {
-    max-height: 250px;
-    padding: 10px;
-    font-size: 11px;
-  }
+
 }
 </style>

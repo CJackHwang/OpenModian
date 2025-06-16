@@ -13,15 +13,20 @@ from typing import Dict, Optional
 class LightningFastExtractor:
     """闪电般快速提取器 - 修复并发问题版本"""
 
-    def __init__(self, config):
+    def __init__(self, config, stop_flag=None):
         self.config = config
         self.timeout = getattr(config, 'LIGHTNING_TIMEOUT', 10)  # 10秒超时，等待特效完成
         self._driver = None  # 每个实例独立的驱动
         self._driver_lock = threading.Lock()
+        self.stop_flag = stop_flag  # 添加停止标志
 
     def _log(self, level: str, message: str):
         """简单日志输出"""
         print(f"[{level.upper()}] {message}")
+
+    def _should_stop(self):
+        """检查是否应该停止"""
+        return self.stop_flag and self.stop_flag.is_set()
 
     def _get_driver(self):
         """获取当前实例的独立浏览器实例"""
@@ -96,6 +101,11 @@ class LightningFastExtractor:
     
     def get_lightning_data(self, project_id: str) -> Dict[str, str]:
         """闪电般获取数据 - 修复并发问题版本"""
+        # 检查停止标志
+        if self._should_stop():
+            print(f"⏹️ 收到停止信号，取消项目 {project_id} 的数据获取")
+            return {"like_count": "0", "comment_count": "0"}
+
         driver = self._get_driver()
         if not driver:
             return {"like_count": "0", "comment_count": "0"}
@@ -104,12 +114,22 @@ class LightningFastExtractor:
 
         # 🔧 修复并发问题：使用独立驱动实例，确保数据不混淆
         for attempt in range(3):
+            # 每次尝试前检查停止标志
+            if self._should_stop():
+                print(f"⏹️ 收到停止信号，中断项目 {project_id} 第{attempt+1}次尝试")
+                return {"like_count": "0", "comment_count": "0"}
+
             try:
                 start_time = time.time()
 
                 # 快速导航到项目页面
                 driver.get(project_url)
                 print(f"🌐 访问项目 {project_id} (第{attempt+1}次尝试)")
+
+                # 检查停止标志
+                if self._should_stop():
+                    print(f"⏹️ 收到停止信号，中断项目 {project_id} 页面加载后")
+                    return {"like_count": "0", "comment_count": "0"}
 
                 # 立即执行滚动脚本并等待动画完成
                 driver.execute_script("""
@@ -125,7 +145,13 @@ class LightningFastExtractor:
 
                 # 🔧 等待时间递增：第1次2秒，第2次4秒，第3次6秒
                 wait_time = 2 + (attempt * 2)
-                time.sleep(wait_time)
+
+                # 分段等待，每0.5秒检查一次停止标志
+                for i in range(int(wait_time * 2)):  # 每0.5秒检查一次
+                    if self._should_stop():
+                        print(f"⏹️ 收到停止信号，中断项目 {project_id} 等待过程")
+                        return {"like_count": "0", "comment_count": "0"}
+                    time.sleep(0.5)
 
                 # 获取数据
                 data = self._quick_extract(driver)
@@ -170,6 +196,11 @@ class LightningFastExtractor:
         stable_count = 0
 
         while time.time() - start_time < max_wait_time:
+            # 检查停止标志
+            if self._should_stop():
+                self._log("warning", "⏹️ 收到停止信号，中断数据稳定性检查")
+                return previous_values[-1] if previous_values else {"like_count": "0", "comment_count": "0"}
+
             current_data = self._quick_extract(driver)
 
             # 如果获取到数据
@@ -248,14 +279,20 @@ class LightningFastExtractor:
 class LightningDataManager:
     """闪电数据管理器 - 修复并发问题版本"""
 
-    def __init__(self, config, network_utils):
+    def __init__(self, config, network_utils, stop_flag=None):
         self.config = config
         self.network_utils = network_utils
-        self.extractor = LightningFastExtractor(config)  # 每个管理器独立的提取器
+        self.stop_flag = stop_flag
+        self.extractor = LightningFastExtractor(config, stop_flag)  # 每个管理器独立的提取器
         self._cache = {}
 
     def get_lightning_data(self, project_id: str) -> Dict[str, str]:
         """获取闪电数据 - 确保每个项目获取独有数据"""
+        # 检查停止标志
+        if self.stop_flag and self.stop_flag.is_set():
+            print(f"⏹️ 收到停止信号，取消项目 {project_id} 的闪电数据获取")
+            return {"like_count": "0", "comment_count": "0"}
+
         # 检查缓存
         if project_id in self._cache:
             cache_time, data = self._cache[project_id]
@@ -290,19 +327,25 @@ class LightningDataManager:
     def batch_lightning_data(self, project_ids: list) -> Dict[str, Dict[str, str]]:
         """批量闪电获取"""
         results = {}
-        
+
         print(f"⚡ 批量闪电获取: {len(project_ids)} 个项目")
-        
+
         total_start = time.time()
-        
-        for project_id in project_ids:
+
+        for i, project_id in enumerate(project_ids):
+            # 检查停止标志
+            if self.stop_flag and self.stop_flag.is_set():
+                print(f"⏹️ 收到停止信号，批量获取在第 {i+1}/{len(project_ids)} 个项目时中断")
+                break
+
             results[project_id] = self.get_lightning_data(project_id)
-        
+
         total_time = time.time() - total_start
-        avg_time = total_time / len(project_ids)
-        
-        print(f"📊 批量闪电完成: 总耗时{total_time:.2f}秒, 平均{avg_time:.2f}秒/项目")
-        
+        completed_count = len(results)
+        if completed_count > 0:
+            avg_time = total_time / completed_count
+            print(f"📊 批量闪电完成: {completed_count}/{len(project_ids)} 个项目，总耗时{total_time:.2f}秒, 平均{avg_time:.2f}秒/项目")
+
         return results
 
 
