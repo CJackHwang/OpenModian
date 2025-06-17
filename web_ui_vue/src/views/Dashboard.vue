@@ -18,17 +18,7 @@
         </div>
       </v-col>
       <v-col cols="auto" class="d-flex align-center">
-        <v-btn
-          color="primary"
-          prepend-icon="mdi-refresh"
-          @click="refreshData"
-          :loading="appStore.loading"
-          variant="elevated"
-          size="large"
-          class="elevation-2"
-        >
-          刷新数据
-        </v-btn>
+        <!-- 移除重复的刷新按钮，使用顶部应用栏的智能刷新按钮 -->
       </v-col>
     </v-row>
 
@@ -274,11 +264,10 @@
             <v-btn
               block
               variant="outlined"
-              prepend-icon="mdi-refresh"
-              @click="refreshData"
-              :loading="appStore.loading"
+              prepend-icon="mdi-cog"
+              @click="$router.push('/settings')"
             >
-              刷新数据
+              系统设置
             </v-btn>
           </v-card-text>
         </v-card>
@@ -322,9 +311,7 @@ const getTaskStatusText = (status) => {
   return texts[status] || '未知'
 }
 
-const refreshData = () => {
-  appStore.refreshData()
-}
+
 
 // 生命周期
 onMounted(() => {

@@ -30,35 +30,36 @@
         variant="elevated"
       />
 
-      <!-- 重连按钮 -->
-      <v-btn
-        icon="mdi-refresh"
-        @click="reconnectWebSocket"
-        :loading="reconnecting"
-        variant="text"
-        class="me-2 rounded-lg"
-        size="large"
-        :color="connectionStatus ? 'success' : 'error'"
-        :disabled="reconnecting"
-      />
-
       <!-- 主题切换 -->
       <v-btn
-        :icon="isDark ? 'mdi-white-balance-sunny' : 'mdi-weather-night'"
         @click="toggleTheme"
         variant="text"
         class="me-2 rounded-lg"
         size="large"
-      />
+        icon
+      >
+        <v-icon>{{ isDark ? 'mdi-white-balance-sunny' : 'mdi-weather-night' }}</v-icon>
+        <v-tooltip activator="parent" location="bottom">
+          {{ isDark ? '切换到浅色主题' : '切换到深色主题' }}
+        </v-tooltip>
+      </v-btn>
 
-      <!-- 刷新按钮 -->
+      <!-- 智能刷新按钮 -->
       <v-btn
-        icon="mdi-refresh"
-        @click="refreshData"
+        @click="smartRefresh"
+        :loading="refreshing"
         variant="text"
         class="rounded-lg"
         size="large"
-      />
+        :color="connectionStatus ? 'primary' : 'error'"
+        :disabled="refreshing"
+        icon
+      >
+        <v-icon>{{ connectionStatus ? 'mdi-refresh' : 'mdi-wifi-off' }}</v-icon>
+        <v-tooltip activator="parent" location="bottom">
+          {{ connectionStatus ? '刷新数据' : '重新连接并刷新' }}
+        </v-tooltip>
+      </v-btn>
     </v-app-bar>
 
     <!-- 左侧导航抽屉 - M3风格 -->
@@ -145,7 +146,7 @@ const { snackbar, hideSnackbar } = useSnackbar()
 // 响应式数据
 const leftDrawerOpen = ref(false)
 const isDark = ref(false)
-const reconnecting = ref(false)
+const refreshing = ref(false)
 
 // 菜单项
 const menuItems = [
@@ -196,24 +197,29 @@ const toggleTheme = () => {
   localStorage.setItem('theme', theme.global.name.value)
 }
 
-const refreshData = () => {
-  appStore.refreshData()
-}
+const smartRefresh = async () => {
+  if (refreshing.value) return
 
-const reconnectWebSocket = async () => {
-  if (reconnecting.value) return
-
-  reconnecting.value = true
-  console.log('🔄 用户手动触发WebSocket重连')
+  refreshing.value = true
+  console.log('🔄 智能刷新开始')
 
   try {
-    // 重新初始化WebSocket连接
-    await appStore.initializeSocket()
-    console.log('✅ WebSocket重连成功')
+    if (!connectionStatus.value) {
+      // 如果WebSocket未连接，先重连
+      console.log('🔄 WebSocket未连接，正在重连...')
+      await appStore.initializeSocket()
+      console.log('✅ WebSocket重连成功')
+    }
+
+    // 刷新数据
+    console.log('🔄 正在刷新数据...')
+    await appStore.refreshData()
+    console.log('✅ 数据刷新成功')
+
   } catch (error) {
-    console.error('❌ WebSocket重连失败:', error)
+    console.error('❌ 智能刷新失败:', error)
   } finally {
-    reconnecting.value = false
+    refreshing.value = false
   }
 }
 
