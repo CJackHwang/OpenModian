@@ -584,7 +584,10 @@ class DatabaseManager:
         except Exception as e:
             print(f"保存项目数据失败: {e}")
 
-        print(f"数据库保存完成: 新增 {saved_count} 条，重复 {duplicate_count} 条")
+        if duplicate_count > 0:
+            print(f"💾 数据库保存: 新增 {saved_count} 条，跳过重复 {duplicate_count} 条")
+        else:
+            print(f"💾 数据库保存: 新增 {saved_count} 条数据")
         return saved_count
 
     def _convert_list_to_dict(self, project_list: List) -> Dict[str, Any]:

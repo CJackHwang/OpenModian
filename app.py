@@ -271,7 +271,7 @@ def start_crawl():
                     total_saved = getattr(spider, 'saved_count', 0)
                     total_found = len(spider.projects_data) if hasattr(spider, 'projects_data') else 0
 
-                    monitor.add_log('success', f'爬取任务完成，总计保存了 {total_saved} 条数据到数据库')
+                    monitor.add_log('success', f'🎉 爬取任务完成！发现 {total_found} 个项目，成功保存 {total_saved} 条数据到数据库')
 
                     # 更新任务统计
                     stats = {
@@ -289,7 +289,7 @@ def start_crawl():
                     total_saved = getattr(spider, 'saved_count', 0)
                     total_found = len(spider.projects_data) if hasattr(spider, 'projects_data') else 0
 
-                    monitor.add_log('warning', f'任务被用户停止，已保存 {total_saved} 条数据到数据库')
+                    monitor.add_log('warning', f'⏹️ 任务被用户停止，已保存 {total_saved} 条数据到数据库（共发现 {total_found} 个项目）')
 
                     # 更新任务统计
                     stats = {
@@ -303,7 +303,7 @@ def start_crawl():
                     monitor.update_stats(status='stopped')
                     db_manager.update_task_status(task_id, 'stopped', stats)
                 else:
-                    monitor.add_log('error', '爬取任务失败')
+                    monitor.add_log('error', '❌ 爬取任务失败')
                     monitor.update_stats(status='failed')
                     db_manager.update_task_status(task_id, 'failed')
 
