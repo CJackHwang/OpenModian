@@ -645,6 +645,19 @@ class SpiderCore:
         else:
             author_name = api_data.get("author_name", "")
 
+        # 获取作者头像：如果API没有，使用默认头像或通过用户ID构建
+        author_image = api_data.get("author_image", "")
+        if not author_image:
+            # 尝试从author_link提取用户ID构建头像URL
+            author_link = api_data.get("author_link", "")
+            if author_link and "/u/" in author_link:
+                user_id = author_link.split("/u/")[-1]
+                # 使用摩点默认头像URL模式
+                author_image = f"https://s.moimg.net/new/images/headPic.png"
+            else:
+                # 使用默认头像
+                author_image = "https://s.moimg.net/new/images/headPic.png"
+
         # 按照数据库字段顺序构建数据
         project_data = [
             index,                                          # 序号
@@ -656,7 +669,7 @@ class SpiderCore:
             api_data.get("end_time", ""),                  # 结束时间
             api_data.get("project_status", ""),           # 项目结果
             api_data.get("author_link", ""),               # 用户主页(链接)
-            api_data.get("author_image", ""),              # 用户头像(图片链接)
+            author_image,                                  # 用户头像(图片链接)
             api_data.get("category", ""),                  # 分类
             author_name,                                   # 用户名（优先使用列表数据）
             "",                                            # 用户UID(data-username) - API无此字段
@@ -700,12 +713,17 @@ class SpiderCore:
         if list_data and list_data.get("list_author_name") and list_data.get("list_author_name") != "none":
             author_name = list_data.get("list_author_name", "")
 
-        # 创建基础数据，在第11位（用户名）填入作者信息
+        # 默认头像
+        default_avatar = "https://s.moimg.net/new/images/headPic.png"
+
+        # 创建基础数据，在第11位（用户名）和第9位（用户头像）填入作者信息
         basic_data = [index, project_url, project_id, project_name, project_image]
 
-        # 填充剩余字段为空值，但在用户名位置填入作者信息
+        # 填充剩余字段为空值，但在特定位置填入作者信息
         while len(basic_data) < expected_length:
-            if len(basic_data) == 11:  # 用户名字段位置
+            if len(basic_data) == 9:  # 用户头像字段位置
+                basic_data.append(default_avatar)
+            elif len(basic_data) == 11:  # 用户名字段位置
                 basic_data.append(author_name)
             else:
                 basic_data.append("")
