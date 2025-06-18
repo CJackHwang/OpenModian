@@ -29,29 +29,28 @@ class AdaptiveParser:
         self.web_monitor = web_monitor
         self._stop_flag = stop_flag
 
-        # 初始化各个提取器模块
+        # 初始化各个提取器模块（保留必要的模块）
         from .extractors.list_extractor import ListExtractor
-        from .extractors.detail_extractor import DetailExtractor
-        from .extractors.author_extractor import AuthorExtractor
-        from .extractors.funding_extractor import FundingExtractor
         from .extractors.content_extractor import ContentExtractor
 
         self.list_extractor = ListExtractor(config, web_monitor)
-        self.detail_extractor = DetailExtractor(config, web_monitor)
-        self.author_extractor = AuthorExtractor(config, network_utils, web_monitor)
-        self.funding_extractor = FundingExtractor(config, web_monitor)
         self.content_extractor = ContentExtractor(config, web_monitor, stop_flag)
 
-        # 初始化各个处理器模块
+        # 已删除的冗余提取器：
+        # - detail_extractor (依赖动态获取，已弃用)
+        # - author_extractor (API已包含作者信息)
+        # - funding_extractor (API已包含金额信息)
+
+        # 初始化各个处理器模块（简化版）
         from .processors.data_processor import DataProcessor
-        from .processors.status_processor import StatusProcessor
-        from .processors.time_processor import TimeProcessor
         from .processors.validation_processor import ValidationProcessor
 
         self.data_processor = DataProcessor(config, self.data_utils, web_monitor)
-        self.status_processor = StatusProcessor(config, web_monitor)
-        self.time_processor = TimeProcessor(config, self.data_utils, web_monitor)
         self.validation_processor = ValidationProcessor(config, web_monitor)
+
+        # 已移除的处理器（API时代不再需要）：
+        # - status_processor (API直接提供准确状态)
+        # - time_processor (API直接提供准确时间)
 
     def _log(self, level: str, message: str):
         """统一日志输出"""
@@ -90,31 +89,21 @@ class AdaptiveParser:
         return self.data_processor.extract_js_data(soup)
     
     def parse_project_status(self, soup: BeautifulSoup) -> Dict[str, Any]:
-        """解析项目状态 - 使用StatusProcessor模块"""
-        return self.status_processor.parse_project_status(soup)
+        """已弃用：项目状态解析，现在使用API获取"""
+        # API直接提供准确的项目状态，无需HTML解析
+        return {
+            "item_class": "未知情况",
+            "status": "unknown",
+            "is_crowdfunding": False,
+            "is_success": False,
+            "is_failed": False,
+            "is_finished": False
+        }
     
-    def parse_basic_info(self, soup: BeautifulSoup, project_status: Dict) -> List[Any]:
-        """解析基础信息"""
-        data = []
-
-        # 时间信息 - 使用TimeProcessor模块
-        js_data = self._extract_js_data(soup)
-        start_time, end_time = self.time_processor.parse_time_info(soup, project_status, js_data)
-        data.extend([start_time, end_time, project_status["item_class"]])
-
-        # 作者基础信息 - 使用AuthorExtractor模块 (5个字段)
-        author_info = self.author_extractor.extract_author_info(soup)
-        data.extend(author_info)
-
-        # 众筹数据 - 使用FundingExtractor模块 (4个字段)
-        funding_info = self.funding_extractor.extract_funding_info(soup, project_status)
-        data.extend(funding_info)
-
-        # 作者详细信息 (6个字段) - 使用AuthorExtractor模块
-        author_details = self.author_extractor.get_author_details(soup, author_info[0], author_info[4])
-        data.extend(author_details)
-
-        return data
+    # 基础信息解析方法已弃用 - 现在使用API获取完整数据
+    # def parse_basic_info(self, soup: BeautifulSoup, project_status: Dict) -> List[Any]:
+    #     """已弃用：基础信息解析，现在使用API获取"""
+    #     pass
 
     # 时间解析方法已移动到TimeProcessor模块
     
@@ -134,23 +123,10 @@ class AdaptiveParser:
 
     # 众筹信息解析方法已移动到FundingExtractor模块
     
-    def parse_project_content(self, soup: BeautifulSoup) -> List[Any]:
-        """解析项目内容 - 使用ContentExtractor模块"""
-        data = []
-
-        # 回报信息 - 使用DetailExtractor
-        rewards_info = self.detail_extractor._parse_rewards(soup)
-        data.extend(rewards_info)
-
-        # 导航信息 - 使用ContentExtractor
-        nav_info = self.content_extractor.extract_nav_info(soup)
-        data.extend(nav_info)
-
-        # 项目详情 - 使用DetailExtractor
-        content_info = self.detail_extractor._parse_content_media(soup)
-        data.extend(content_info)
-
-        return data
+    # 项目内容解析方法已弃用 - 现在使用API获取完整数据
+    # def parse_project_content(self, soup: BeautifulSoup) -> List[Any]:
+    #     """已弃用：项目内容解析，现在使用API获取"""
+    #     pass
     
     # 回报信息解析方法已移动到DetailExtractor模块
     
@@ -170,10 +146,7 @@ class AdaptiveParser:
 
 
 
-    # 动态数据获取方法已移动到ContentExtractor模块
-
-    # 以下方法已移动到相应的提取器模块：
-    # - _cleanup_lightning_managers -> ContentExtractor
+    # 数据提取方法已移动到相应的提取器模块：
     # - _extract_update_count_only -> ContentExtractor
     # - _validate_nav_data -> ContentExtractor
     # - _parse_content_media -> DetailExtractor
@@ -205,6 +178,10 @@ class SpiderCore:
         self.exporter = DataExporter(self.config)
         self.parser = AdaptiveParser(self.config, self.network_utils, self.web_monitor, self._stop_flag)
 
+        # 初始化API获取器（新的互补架构）
+        from spider.api_data_fetcher import ModianAPIFetcher
+        self.api_fetcher = ModianAPIFetcher(self.config)
+
         # 数据存储
         self.projects_data = []
         self.failed_urls = []
@@ -220,24 +197,7 @@ class SpiderCore:
         self._log("info", f"爬虫初始化完成，输出目录: {self.config.OUTPUT_DIR}")
         self._log("info", f"增量保存间隔: 每{self.save_interval}个项目")
 
-    def _cleanup_lightning_managers(self):
-        """清理所有动态数据管理器"""
-        try:
-            # 清理解析器中的管理器
-            if hasattr(self.parser, '_cleanup_lightning_managers'):
-                self.parser._cleanup_lightning_managers()
-
-            # 清理自身的管理器（如果有的话）
-            for attr_name in list(vars(self).keys()):
-                if attr_name.startswith('_lightning_manager_'):
-                    manager = getattr(self, attr_name)
-                    if hasattr(manager, 'cleanup'):
-                        manager.cleanup()
-                    delattr(self, attr_name)
-
-            self._log("info", "动态数据管理器清理完成")
-        except Exception as e:
-            self._log("warning", f"清理动态数据管理器失败: {e}")
+    # 清理方法已移除 - 现在使用轻量级API获取，无需复杂的资源管理
 
     def _log(self, level: str, message: str):
         """统一日志输出"""
@@ -331,8 +291,7 @@ class SpiderCore:
             return False
         finally:
             self._is_running = False
-            # 清理动态数据管理器
-            self._cleanup_lightning_managers()
+            # 动态数据管理器已弃用，无需清理
 
     def _crawl_project_lists(self, start_page: int, end_page: int,
                            category: str) -> List[Tuple[str, str, str, str]]:
@@ -377,7 +336,7 @@ class SpiderCore:
 
         return project_urls
 
-    def _parse_project_list_page(self, url: str, page: int) -> List[Tuple[str, str, str, str]]:
+    def _parse_project_list_page(self, url: str, page: int) -> List[Tuple[str, str, str, str, Dict[str, str]]]:
         """解析项目列表页面"""
         start_time = time.time()
 
@@ -406,7 +365,7 @@ class SpiderCore:
 
         return projects
 
-    def _extract_projects_from_list(self, html: str) -> List[Tuple[str, str, str, str]]:
+    def _extract_projects_from_list(self, html: str) -> List[Tuple[str, str, str, str, Dict[str, str]]]:
         """从列表页面提取项目信息 - 使用智能适配解析"""
         try:
             # 使用智能适配解析器
@@ -428,13 +387,14 @@ class SpiderCore:
                         self.monitor.record_project("skipped")
                         continue
 
-                    # 只返回基本的4个字段，保持兼容性
-                    filtered_projects.append((project_url, project_id, project_name, project_image))
+                    # 返回完整的5个字段，包含列表数据（特别是作者信息）
+                    filtered_projects.append((project_url, project_id, project_name, project_image, list_data))
                     self.monitor.record_project("found")
 
                     # 记录列表数据用于调试
                     if list_data and any(v != "0" and v != "none" for v in list_data.values()):
-                        print(f"📊 列表数据: {project_name[:20]}... -> 支持者{list_data.get('list_backer_count', '0')}人")
+                        author_name = list_data.get('list_author_name', 'none')
+                        print(f"📊 列表数据: {project_name[:20]}... -> 作者:{author_name}, 支持者{list_data.get('list_backer_count', '0')}人")
 
                 except Exception as e:
                     print(f"验证项目失败: {e}")
@@ -449,7 +409,7 @@ class SpiderCore:
             self.monitor.record_error("adaptive_parse_error", str(e))
             return self._fallback_extract_projects(html)
 
-    def _fallback_extract_projects(self, html: str) -> List[Tuple[str, str, str, str]]:
+    def _fallback_extract_projects(self, html: str) -> List[Tuple[str, str, str, str, Dict[str, str]]]:
         """传统解析方法作为回退"""
         projects = []
 
@@ -496,7 +456,14 @@ class SpiderCore:
                     project_image = ParserUtils.safe_get_attr(img_tag, 'src') if img_tag else "none"
                     project_image = self.data_utils.validate_url(project_image)
 
-                    projects.append((project_url, project_id, project_name, project_image))
+                    # 创建空的列表数据（fallback方法没有额外数据）
+                    list_data = {
+                        "list_backer_money": "0",
+                        "list_rate": "0",
+                        "list_backer_count": "0",
+                        "list_author_name": "none"
+                    }
+                    projects.append((project_url, project_id, project_name, project_image, list_data))
                     self.monitor.record_project("found")
 
                 except Exception as e:
@@ -520,7 +487,7 @@ class SpiderCore:
 
         return False
 
-    def _crawl_project_details(self, project_urls: List[Tuple[str, str, str, str]]) -> bool:
+    def _crawl_project_details(self, project_urls: List[Tuple[str, str, str, str, Dict[str, str]]]) -> bool:
         """爬取项目详情（增强进度显示版本）"""
         if not project_urls:
             return False
@@ -598,9 +565,14 @@ class SpiderCore:
         self._log("info", f"项目详情爬取完成，成功: {len(self.projects_data)}, 失败: {len(self.failed_urls)}")
         return len(self.projects_data) > 0
 
-    def _crawl_single_project(self, index: int, project_info: Tuple[str, str, str, str]) -> Optional[List[Any]]:
+    def _crawl_single_project(self, index: int, project_info: Tuple[str, str, str, str, Dict[str, str]]) -> Optional[List[Any]]:
         """爬取单个项目详情"""
-        project_url, project_id, project_name, project_image = project_info
+        # 解包项目信息（支持5个字段）
+        if len(project_info) == 5:
+            project_url, project_id, project_name, project_image, list_data = project_info
+        else:
+            project_url, project_id, project_name, project_image = project_info
+            list_data = {}
 
         # 检查停止标志
         if self.is_stopped():
@@ -627,11 +599,11 @@ class SpiderCore:
                     self.monitor.record_request(False, request_time)
                     return None
 
-            # 解析项目详情
-            parse_start = time.time()
-            project_data = self._parse_project_detail(html, index + 1, project_url, project_id, project_name, project_image)
-            parse_time = time.time() - parse_start
-            self.monitor.record_parse(parse_time)
+            # 通过API获取项目完整数据（新的互补架构）
+            api_start = time.time()
+            project_data = self._get_project_data_via_api(index + 1, project_url, project_id, project_name, project_image, list_data)
+            api_time = time.time() - api_start
+            self.monitor.record_parse(api_time)
 
             return project_data
 
@@ -640,36 +612,105 @@ class SpiderCore:
             self.monitor.record_error("project_detail_error", str(e))
             return None
 
-    def _parse_project_detail(self, html: str, index: int, project_url: str,
-                            project_id: str, project_name: str, project_image: str) -> List[Any]:
-        """解析项目详情页面"""
-        soup = BeautifulSoup(html, "html.parser")
+    def _get_project_data_via_api(self, index: int, project_url: str,
+                                 project_id: str, project_name: str, project_image: str, list_data: Dict[str, str] = None) -> List[Any]:
+        """通过API获取项目完整数据 - 新的互补架构"""
+        try:
+            # 使用API获取完整项目数据
+            api_data = self.api_fetcher.get_project_data(project_id)
 
-        # 基础信息
-        project_data = [index, project_url, project_id, project_name, project_image]
+            if not api_data or api_data.get("like_count", "0") == "0":
+                self._log("warning", f"项目 {project_id} API获取失败，使用基础数据")
+                # 返回基础数据
+                return self._create_basic_project_data(index, project_url, project_id, project_name, project_image, list_data)
 
-        # 解析项目状态
-        project_status = self.parser.parse_project_status(soup)
+            # 转换API数据为数据库格式，使用列表数据补充作者信息
+            project_data = self._convert_api_to_db_format(api_data, index, project_url, project_id, project_name, project_image, list_data)
 
-        # 解析基础信息
-        basic_info = self.parser.parse_basic_info(soup, project_status)
-        project_data.extend(basic_info)
+            self._log("info", f"✅ 项目 {project_id} API数据获取成功")
+            return project_data
 
-        # 解析项目内容
-        content_info = self.parser.parse_project_content(soup)
-        project_data.extend(content_info)
+        except Exception as e:
+            self._log("error", f"项目 {project_id} API获取异常: {e}")
+            return self._create_basic_project_data(index, project_url, project_id, project_name, project_image, list_data)
 
-        # 🔧 使用ValidationProcessor修复字段问题
+    def _convert_api_to_db_format(self, api_data: dict, index: int, project_url: str,
+                                 project_id: str, project_name: str, project_image: str, list_data: Dict[str, str] = None) -> List[Any]:
+        """将API数据转换为数据库格式，使用列表数据补充作者信息"""
+        from spider.config import FieldMapping
+
+        # 获取作者信息：优先使用列表数据，API数据作为备选
+        if list_data and list_data.get("list_author_name") and list_data.get("list_author_name") != "none":
+            author_name = list_data.get("list_author_name", "")
+        else:
+            author_name = api_data.get("author_name", "")
+
+        # 按照数据库字段顺序构建数据
+        project_data = [
+            index,                                          # 序号
+            project_url,                                    # 项目link
+            project_id,                                     # 项目6位id
+            project_name,                                   # 项目名称
+            project_image,                                  # 项目图
+            api_data.get("start_time", ""),                # 开始时间
+            api_data.get("end_time", ""),                  # 结束时间
+            api_data.get("project_status", ""),           # 项目结果
+            api_data.get("author_link", ""),               # 用户主页(链接)
+            api_data.get("author_image", ""),              # 用户头像(图片链接)
+            api_data.get("category", ""),                  # 分类
+            author_name,                                   # 用户名（优先使用列表数据）
+            "",                                            # 用户UID(data-username) - API无此字段
+            api_data.get("raised_amount", 0),              # 已筹金额
+            api_data.get("completion_rate", 0),            # 百分比
+            api_data.get("target_amount", 0),              # 目标金额
+            api_data.get("backer_count", 0),               # 支持者(数量)
+            "",                                            # 真实用户ID(链接提取) - 可从author_link提取
+            "",                                            # 作者页-粉丝数 - API无此字段
+            "",                                            # 作者页-关注数 - API无此字段
+            "",                                            # 作者页-获赞数 - API无此字段
+            "",                                            # 作者页-详情 - API无此字段
+            "",                                            # 作者页-其他信息 - API无此字段
+            "",                                            # 作者页-主页确认 - API无此字段
+            str(api_data.get("rewards_data", [])),         # 回报列表信息(字符串)
+            len(api_data.get("rewards_data", [])),         # 回报列表项目数
+            api_data.get("update_count", 0),               # 项目更新数
+            api_data.get("comment_count", 0),              # 评论数
+            api_data.get("like_count", 0),                 # 看好数
+            0,                                             # 项目详情-图片数量 - API无此字段
+            "[]",                                          # 项目详情-图片(列表字符串) - API无此字段
+            0,                                             # 项目详情-视频数量 - API无此字段
+            "[]",                                          # 项目详情-视频(列表字符串) - API无此字段
+        ]
+
+        # 确保字段数量正确
+        expected_length = len(FieldMapping.EXCEL_COLUMNS)
+        while len(project_data) < expected_length:
+            project_data.append("")
+
+        return project_data[:expected_length]
+
+    def _create_basic_project_data(self, index: int, project_url: str,
+                                  project_id: str, project_name: str, project_image: str, list_data: Dict[str, str] = None) -> List[Any]:
+        """创建基础项目数据（API获取失败时的后备方案），使用列表数据补充"""
         from spider.config import FieldMapping
         expected_length = len(FieldMapping.EXCEL_COLUMNS)
 
-        # 修复字段数量
-        project_data = self.parser.validation_processor.fix_field_count(project_data, expected_length)
+        # 获取作者信息
+        author_name = ""
+        if list_data and list_data.get("list_author_name") and list_data.get("list_author_name") != "none":
+            author_name = list_data.get("list_author_name", "")
 
-        # 修复导航字段映射
-        project_data = self.parser.validation_processor.fix_navigation_fields(project_data)
+        # 创建基础数据，在第11位（用户名）填入作者信息
+        basic_data = [index, project_url, project_id, project_name, project_image]
 
-        return project_data
+        # 填充剩余字段为空值，但在用户名位置填入作者信息
+        while len(basic_data) < expected_length:
+            if len(basic_data) == 11:  # 用户名字段位置
+                basic_data.append(author_name)
+            else:
+                basic_data.append("")
+
+        return basic_data
 
     def _validate_and_export_data(self):
         """验证和导出数据"""

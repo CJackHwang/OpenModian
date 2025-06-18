@@ -40,7 +40,7 @@ class ContentExtractor:
         # 策略0: 关键数据专门提取（最高优先级）
         critical_data = self._extract_critical_nav_data(soup)
         if critical_data and any(v != "0" for v in critical_data.values()):
-            # 修复字段映射：正确分配动态获取的数据
+            # 修复字段映射：正确分配API获取的数据
             comment_count = critical_data.get("comment_count", "0")  # 评论数
             like_count = critical_data.get("like_count", "0")        # 看好数
 
@@ -121,40 +121,44 @@ class ContentExtractor:
         except Exception as e:
             self._log("warning", f"关键导航数据提取失败: {e}")
 
-        # 使用API获取作为主要方法，动态获取作为后备
-        if self.config.ENABLE_DYNAMIC_DATA:
-            self._log("info", "使用API获取数据（快速模式）+ 动态获取（后备模式）")
-            try:
-                # 首先尝试API获取
-                api_data = self._get_api_data(soup)
-                if api_data and (api_data.get("like_count", "0") != "0" or api_data.get("comment_count", "0") != "0"):
-                    # API获取成功
-                    result["like_count"] = api_data["like_count"]
-                    result["comment_count"] = api_data["comment_count"]
+        # 完全使用API获取，高性能数据获取
+        self._log("info", "使用API获取完整数据（高性能模式）")
+        try:
+            # 使用API获取完整数据
+            api_data = self._get_api_data(soup)
+            if api_data and (api_data.get("like_count", "0") != "0" or api_data.get("comment_count", "0") != "0"):
+                # API获取成功 - 处理完整的API数据
+                result.update({
+                    "like_count": api_data.get("like_count", "0"),
+                    "comment_count": api_data.get("comment_count", "0"),
+                    "supporter_count": api_data.get("supporter_count", "0"),
+                    "project_status": api_data.get("project_status", ""),
+                    "start_time": api_data.get("start_time", ""),
+                    "end_time": api_data.get("end_time", ""),
+                    "raised_amount": api_data.get("raised_amount", 0),
+                    "target_amount": api_data.get("target_amount", 0),
+                    "completion_rate": api_data.get("completion_rate", 0),
+                    "backer_count": api_data.get("backer_count", 0),
+                    "update_count": api_data.get("update_count", 0),
+                    "category": api_data.get("category", ""),
+                    "author_name": api_data.get("author_name", ""),
+                    "author_link": api_data.get("author_link", ""),
+                    "project_name": api_data.get("project_name", ""),
+                    "project_url": api_data.get("project_url", ""),
+                    "project_image": api_data.get("project_image", ""),
+                })
 
-                    # 处理回报数据
-                    rewards_data = api_data.get("rewards_data", [])
-                    if rewards_data:
-                        result["rewards_data"] = str(rewards_data)  # 转换为字符串存储
-                        self._log("info", f"✅ API数据获取成功: 看好数={result['like_count']}, 评论数={result['comment_count']}, 回报数={len(rewards_data)}个")
-                    else:
-                        self._log("info", f"✅ API数据获取成功: 看好数={result['like_count']}, 评论数={result['comment_count']}")
-                else:
-                    # API获取失败，使用动态获取作为后备
-                    self._log("warning", "API获取失败或无数据，使用动态获取作为后备")
-                    dynamic_data = self._get_complete_dynamic_data(soup)
-                    if dynamic_data:
-                        if dynamic_data.get("like_count", "0") != "0":
-                            result["like_count"] = dynamic_data["like_count"]
-                        if dynamic_data.get("comment_count", "0") != "0":
-                            result["comment_count"] = dynamic_data["comment_count"]
-                        self._log("info", f"✅ 动态数据获取完成（后备）: 看好数={result['like_count']}, 评论数={result['comment_count']}")
-                    else:
-                        self._log("warning", "动态数据获取也失败，使用默认值")
-            except Exception as e:
-                self._log("warning", f"数据获取失败: {e}")
-        else:
-            self._log("warning", "数据获取已禁用，无法获取看好数和评论数")
+                # 处理回报数据
+                rewards_data = api_data.get("rewards_data", [])
+                if rewards_data:
+                    result["rewards_data"] = str(rewards_data)  # 转换为字符串存储
+
+                self._log("info", f"✅ API完整数据获取成功: 看好数={result['like_count']}, 评论数={result['comment_count']}, 回报数={len(rewards_data)}个, 状态={result['project_status']}")
+            else:
+                # API获取失败，记录警告
+                self._log("warning", "API获取失败或无数据，使用默认值")
+        except Exception as e:
+            self._log("warning", f"API数据获取失败: {e}，使用默认值")
 
         # 最终验证和日志
         extracted_count = sum(1 for v in result.values() if v != "0")
@@ -193,35 +197,7 @@ class ContentExtractor:
             self._log("warning", f"项目API数据获取失败: {e}")
             return {"like_count": "0", "comment_count": "0"}
 
-    def _get_complete_dynamic_data(self, soup: BeautifulSoup) -> Dict[str, str]:
-        """获取完整的动态数据（修复并发问题版本）"""
-        try:
-            # 从页面中提取项目ID
-            project_id = self._extract_project_id_from_page(soup)
-            if not project_id:
-                self._log("warning", "无法提取项目ID")
-                return {"like_count": "0", "comment_count": "0"}
-
-            # 修复并发问题：为每个线程创建独立的动态数据管理器
-            # 使用线程本地存储确保每个并发任务都有独立的管理器实例
-            thread_id = threading.current_thread().ident
-            manager_key = f'_lightning_manager_{thread_id}'
-
-            if not hasattr(self, manager_key):
-                from ..lightning_fast_dynamic import LightningDataManager
-                manager = LightningDataManager(self.config, None, self._stop_flag)
-                setattr(self, manager_key, manager)
-                self._log("info", f"为线程 {thread_id} 创建独立的动态数据管理器")
-
-            manager = getattr(self, manager_key)
-            result = manager.get_lightning_data(project_id)
-
-            self._log("info", f"项目 {project_id} 动态数据获取结果: 看好数={result.get('like_count', '0')}, 评论数={result.get('comment_count', '0')}")
-            return result
-
-        except Exception as e:
-            self._log("warning", f"项目动态数据获取失败: {e}")
-            return {"like_count": "0", "comment_count": "0"}
+    # 已移除复杂的浏览器数据获取方法，现在完全使用轻量级API获取
 
     def _extract_project_id_from_page(self, soup: BeautifulSoup) -> str:
         """从页面中提取项目ID"""

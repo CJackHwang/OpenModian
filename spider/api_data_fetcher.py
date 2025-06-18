@@ -2,7 +2,7 @@
 """
 API数据获取器
 基于参考项目的快速API调用方式，直接获取摩点项目数据
-作为动态获取的主要方法，速度更快，资源消耗更少
+高性能API获取，速度快，资源消耗少，数据完整
 """
 
 import json
@@ -138,7 +138,7 @@ class ModianAPIFetcher:
                 response = self.session.get(
                     auth_info['requestUrl'],
                     headers=headers,
-                    timeout=self.config.LIGHTNING_TIMEOUT
+                    timeout=self.config.API_TIMEOUT
                 )
             else:
                 response = self.session.request(
@@ -146,7 +146,7 @@ class ModianAPIFetcher:
                     auth_info['requestUrl'],
                     headers=headers,
                     json=auth_info['data'],
-                    timeout=self.config.LIGHTNING_TIMEOUT
+                    timeout=self.config.API_TIMEOUT
                 )
             
             response.raise_for_status()
@@ -171,7 +171,7 @@ class ModianAPIFetcher:
             response = self.session.get(
                 url,
                 headers=headers,
-                timeout=self.config.LIGHTNING_TIMEOUT,
+                timeout=self.config.API_TIMEOUT,
                 **{k: v for k, v in kwargs.items() if k != 'headers'}
             )
             
@@ -184,104 +184,317 @@ class ModianAPIFetcher:
             print(f"简单请求失败: {e}")
             return None
     
-    def get_project_data(self, project_id: str) -> Dict[str, str]:
+    def get_project_data(self, project_id: str) -> Dict[str, Any]:
         """
-        获取项目数据
-        使用参考项目的API调用方式
+        获取项目完整数据 - 完全按照参考项目实现
+        返回与爬虫兼容的完整数据结构
         """
         try:
-            # 1. 获取项目限制状态（可选，用于验证项目存在）
+            # 1. 获取项目限制状态（验证项目存在）
             limit_url = f"{self.base_url}/p/get_project_limit_status?pro_id={project_id}"
             limit_response = self.make_simple_request(limit_url)
-            
+
             if not limit_response:
                 print(f"项目 {project_id} 限制状态获取失败")
-                return {"like_count": "0", "comment_count": "0"}
-            
+                return self._get_empty_result()
+
             # 2. 获取项目详细信息
             timestamp = int(time.time() * 1000)
             detail_url = (
                 f"{self.base_url}/realtime/get_simple_product"
                 f"?jsonpcallback=jQuery{timestamp}&ids={project_id}&if_all=1&_={timestamp + 1}"
             )
-            
+
             detail_response = self.make_simple_request(detail_url)
-            
+
             if not detail_response:
                 print(f"项目 {project_id} 详情获取失败")
-                return {"like_count": "0", "comment_count": "0"}
-            
+                return self._get_empty_result()
+
             # 3. 解析JSONP响应
             detail_text = detail_response.text
-            
+
             # 支持两种JSONP格式
             jsonp_match = re.search(r'jQuery\d+\((.+)\);?$', detail_text)
             if not jsonp_match:
                 jsonp_match = re.search(r'window\[decodeURIComponent\(\'jQuery\d+\'\)\]\((.+)\);?$', detail_text)
-            
+
             if not jsonp_match:
                 print(f"项目 {project_id} JSONP解析失败")
-                return {"like_count": "0", "comment_count": "0"}
-            
+                return self._get_empty_result()
+
             # 4. 解析JSON数据
             projects_data = json.loads(jsonp_match.group(1))
             if not projects_data or len(projects_data) == 0:
                 print(f"项目 {project_id} 数据为空")
-                return {"like_count": "0", "comment_count": "0"}
-            
-            project_data = projects_data[0]
-            
-            # 5. 提取关键数据
-            like_count = str(project_data.get('bull_count', 0))
-            comment_count = str(project_data.get('comment_count', 0))
+                return self._get_empty_result()
 
-            # 6. 提取回报数据
-            rewards_data = self._extract_rewards_data(project_data)
+            raw_project_data = projects_data[0]
 
-            print(f"✅ API获取项目 {project_id} 成功: 看好数={like_count}, 评论数={comment_count}, 回报数={len(rewards_data)}个")
+            # 5. 按照参考项目逻辑转换数据
+            transformed_data = self._transform_raw_to_clean(raw_project_data)
 
-            return {
-                "like_count": like_count,
-                "comment_count": comment_count,
-                "rewards_data": rewards_data
-            }
-            
+            print(f"✅ API获取项目 {project_id} 成功: 状态={transformed_data.get('project_status')}, 回报数={len(transformed_data.get('rewards_data', []))}个")
+
+            return transformed_data
+
         except Exception as e:
             print(f"项目 {project_id} API获取失败: {e}")
-            return {"like_count": "0", "comment_count": "0", "rewards_data": []}
+            return self._get_empty_result()
+
+    def _get_empty_result(self) -> Dict[str, Any]:
+        """返回空结果"""
+        return {
+            "like_count": "0",
+            "comment_count": "0",
+            "supporter_count": "0",
+            "project_status": "未知情况",
+            "rewards_data": [],
+            "start_time": "none",
+            "end_time": "none",
+            "raised_amount": 0,
+            "target_amount": 0,
+            "completion_rate": 0,
+            "backer_count": 0,
+            "category": "none",
+            "author_name": "none",
+            "project_name": "none"
+        }
+
+    def _transform_raw_to_clean(self, raw_data: Dict[str, Any]) -> Dict[str, Any]:
+        """将原始API数据转换为爬虫兼容的数据格式 - 完全按照参考项目逻辑"""
+        try:
+            # 解析金额字符串为数字
+            def parse_amount(amount_str: str) -> float:
+                if not amount_str:
+                    return 0
+                import re
+                cleaned = re.sub(r'[^\d.]', '', str(amount_str))
+                return float(cleaned) if cleaned else 0
+
+            # 计算完成率
+            goal_amount = parse_amount(raw_data.get('goal', '1000'))
+            raised_amount = parse_amount(raw_data.get('backer_money', '0'))
+            completion_rate = (raised_amount / goal_amount) * 100 if goal_amount > 0 else 0
+
+            # 确定项目状态
+            project_status = self._determine_status(
+                raw_data.get('status', ''),
+                raw_data.get('end_time', ''),
+                completion_rate
+            )
+
+            # 处理回报档位数据
+            rewards_data = self._extract_rewards_data(raw_data)
+
+            # 返回与爬虫兼容的数据格式
+            return {
+                # 基础数据（爬虫需要的格式）
+                "like_count": str(raw_data.get('bull_count', 0)),
+                "comment_count": str(raw_data.get('comment_count', 0)),
+                "supporter_count": str(raw_data.get('backer_count', 0)),
+
+                # 项目信息
+                "project_id": str(raw_data.get('id', '')),
+                "project_name": raw_data.get('name', ''),
+                "project_status": project_status,
+                "category": raw_data.get('category', ''),
+
+                # 作者信息
+                "author_name": raw_data.get('user_info', {}).get('nickname', '') if raw_data.get('user_info') else '',
+                "author_link": f"/u/{raw_data.get('user_id', '')}" if raw_data.get('user_id') else '',
+                "author_image": "",  # API中没有直接的作者头像
+
+                # 时间信息
+                "start_time": raw_data.get('start_time', ''),
+                "end_time": raw_data.get('end_time', ''),
+
+                # 金额信息
+                "raised_amount": raised_amount,
+                "target_amount": goal_amount,
+                "completion_rate": round(completion_rate, 2),
+                "backer_count": raw_data.get('backer_count', 0),
+                "update_count": raw_data.get('update_count', 0),
+
+                # 回报数据
+                "rewards_data": rewards_data,
+
+                # 媒体内容
+                "content_images": "[]",  # API中没有直接的图片列表
+                "content_videos": "[]",  # API中没有直接的视频列表
+
+                # 项目链接和图片
+                "project_url": f"https://zhongchou.modian.com/item/{raw_data.get('id', '')}.html",
+                "project_image": raw_data.get('logo2') or raw_data.get('logo', ''),
+            }
+
+        except Exception as e:
+            print(f"⚠️ 数据转换失败: {e}")
+            return self._get_empty_result()
+
+    def _determine_status(self, status_str: str, end_time: str, completion_rate: float) -> str:
+        """确定项目状态 - 完全按照参考项目逻辑"""
+        # 如果服务器明确返回成功或失败状态，优先使用
+        if status_str == '成功':
+            return '众筹成功'
+        if status_str == '失败':
+            return '众筹失败'
+        if status_str == '准备中':
+            return '预热'
+
+        # 对于"众筹中"状态，需要根据结束时间和完成率进行二次判断
+        # 因为服务端返回的状态可能不准确，已结束的项目仍可能显示为"众筹中"
+        if status_str == '众筹中' or not status_str:
+            # 检查项目是否已经结束
+            if end_time:
+                end_date = self._parse_end_time(end_time)
+                if end_date:
+                    from datetime import datetime
+                    now = datetime.now()
+
+                    if end_date < now:
+                        # 项目已结束，根据完成率判断最终状态
+                        final_status = '众筹成功' if completion_rate >= 100 else '众筹失败'
+                        print(f"项目已结束，服务器状态: {status_str}, 实际状态: {final_status}, 完成率: {completion_rate:.2f}%")
+                        return final_status
+
+            # 项目还在进行中
+            return '众筹中'
+
+        # 对于其他未知状态，默认为众筹中
+        print(f"未知的项目状态: {status_str}，默认为众筹中")
+        return '众筹中'
+
+    def _extract_project_status(self, project_data: Dict[str, Any]) -> str:
+        """从API数据中提取项目状态 - 完全按照参考项目逻辑"""
+        try:
+            # 按照参考项目的逻辑进行状态判断
+            status_str = project_data.get('status', '')
+            end_time = project_data.get('end_time', '')
+            backer_money = project_data.get('backer_money', '0')
+            goal = project_data.get('goal', '1000')
+
+            # 解析金额 - 按照参考项目方式
+            def parse_amount(amount_str: str) -> float:
+                if not amount_str:
+                    return 0
+                # 移除逗号和其他非数字字符，保留小数点
+                import re
+                cleaned = re.sub(r'[^\d.]', '', str(amount_str))
+                return float(cleaned) if cleaned else 0
+
+            goal_amount = parse_amount(goal)
+            raised_amount = parse_amount(backer_money)
+            completion_rate = (raised_amount / goal_amount) * 100 if goal_amount > 0 else 0
+
+            # 按照参考项目的状态判断逻辑
+            # 如果服务器明确返回成功或失败状态，优先使用
+            if status_str == '成功':
+                return '众筹成功'
+            if status_str == '失败':
+                return '众筹失败'
+            if status_str == '准备中':
+                return '预热'
+
+            # 对于"众筹中"状态，需要根据结束时间和完成率进行二次判断
+            # 因为服务端返回的状态可能不准确，已结束的项目仍可能显示为"众筹中"
+            if status_str == '众筹中' or not status_str:
+                # 检查项目是否已经结束
+                if end_time:
+                    end_date = self._parse_end_time(end_time)
+                    if end_date:
+                        from datetime import datetime
+                        now = datetime.now()
+
+                        if end_date < now:
+                            # 项目已结束，根据完成率判断最终状态
+                            final_status = '众筹成功' if completion_rate >= 100 else '众筹失败'
+                            print(f"项目 {project_data.get('id', 'unknown')} 已结束，服务器状态: {status_str}, 实际状态: {final_status}, 完成率: {completion_rate:.2f}%")
+                            return final_status
+
+                # 项目还在进行中
+                return '众筹中'
+
+            # 对于其他未知状态，默认为众筹中
+            print(f"未知的项目状态: {status_str}，默认为众筹中")
+            return '众筹中'
+
+        except Exception as e:
+            print(f"⚠️ API状态提取失败: {e}")
+            return '未知情况'
+
+    def _parse_end_time(self, end_time_str: str):
+        """解析结束时间 - 按照参考项目逻辑"""
+        if not end_time_str:
+            return None
+
+        try:
+            from datetime import datetime
+            # 处理多种可能的时间格式
+            time_str = end_time_str.strip()
+
+            # 如果时间格式是 "YYYY-MM-DD HH:mm:ss"，转换为 ISO 格式
+            if time_str.find(' ') != -1 and len(time_str) == 19:
+                time_str = time_str.replace(' ', 'T')
+
+            # 如果没有时区信息，添加本地时区（中国时区）
+            if 'T' not in time_str:
+                time_str = time_str + 'T00:00:00'
+            if '+' not in time_str and 'Z' not in time_str:
+                time_str = time_str + '+08:00'
+
+            date = datetime.fromisoformat(time_str.replace('+08:00', ''))
+            return date
+        except Exception as e:
+            print(f"解析结束时间失败: {end_time_str}, {e}")
+            return None
 
     def _extract_rewards_data(self, project_data: Dict[str, Any]) -> list:
-        """从API数据中提取回报信息"""
+        """从API数据中提取回报信息 - 完全按照参考项目逻辑"""
         try:
-            rewards_list = []
-
-            # 获取回报列表
+            # 按照参考项目的transformRewardTiers逻辑
             reward_list = project_data.get('reward_list', [])
 
             if not reward_list:
                 return []
 
+            # 按照参考项目的逻辑处理回报数据
+            def parse_price(price_str: str) -> float:
+                if not price_str:
+                    return 0
+                import re
+                cleaned = re.sub(r'[^\d.]', '', str(price_str))
+                return float(cleaned) if cleaned else 0
+
+            rewards_list = []
+
             for reward in reward_list:
-                # 提取回报信息，格式与爬虫保持一致：[title, sign_logo, back_money, backers, time_info, detail]
-                title = reward.get('title', '未命名档位')
-                money = str(reward.get('money', '0'))
-                back_count = str(reward.get('back_count', '0'))
-                content = reward.get('content', '无详细描述')
+                # 只保留显示的档位
+                if_show = reward.get('if_show', 1)
+                if if_show != 1:
+                    continue
+
+                # 按照参考项目的数据结构提取
+                price = parse_price(reward.get('money') or reward.get('app_money', '0'))
+                max_total = reward.get('max_total', 0)
+                backer_count = reward.get('back_count', 0)
+                remaining_count = max(0, max_total - backer_count) if max_total > 0 else 0
+
+                # 转换为我们的格式：[title, sign_logo, back_money, backers, time_info, detail]
+                title = reward.get('title') or reward.get('name', '未命名档位')
+                money = str(int(price)) if price.is_integer() else str(price)
+                back_count = str(backer_count)
+                content = self._clean_html_tags(reward.get('content', ''))
 
                 # 处理限量信息
-                max_total = reward.get('max_total', 0)
-                is_limited = max_total > 0 and max_total < 999
-                sign_logo = '限量' if is_limited else '普通'
+                is_limited = max_total > 0
+                sign_logo = f"限量{max_total}" if is_limited else "普通"
 
                 # 处理时间信息
                 reward_day = reward.get('reward_day', '')
-                online_time = reward.get('online_time', '')
-                time_info = f"{reward_day} {online_time}".strip() if reward_day != '1970年01月内' else online_time
+                time_info = reward_day if reward_day and reward_day != '1970年01月内' else ''
 
-                # 清理HTML标签
-                content_clean = self._clean_html_tags(content)
-
-                reward_item = [title, sign_logo, money, back_count, time_info, content_clean]
+                reward_item = [title, sign_logo, money, back_count, time_info, content]
                 rewards_list.append(reward_item)
 
             print(f"📦 API提取到 {len(rewards_list)} 个回报档位")

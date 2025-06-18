@@ -85,7 +85,7 @@ class SpiderConfig:
 
     # 缓存配置
     ENABLE_CACHE = True
-    CACHE_DIR = "data/cache/dynamic"
+    CACHE_DIR = "data/cache"
     CACHE_EXPIRE_HOURS = 24
     
     # 过滤配置
@@ -115,11 +115,10 @@ class SpiderConfig:
         "已筹金额", "目标金额", "支持者(数量)"
     ]
 
-    # 闪电般快速动态数据获取配置（默认启用，等待特效完成）
-    ENABLE_DYNAMIC_DATA = True   # 默认启用闪电动态数据获取
-    LIGHTNING_TIMEOUT = 10       # 闪电超时：10秒（等待数字特效完成）
-    LIGHTNING_CACHE_MINUTES = 30 # 闪电缓存：30分钟
-    LIGHTNING_RETRY_COUNT = 3    # 闪电重试：3次
+    # API数据获取配置
+    API_TIMEOUT = 10        # API请求超时时间（秒）
+    API_RETRY_COUNT = 3     # API请求重试次数
+    API_CACHE_MINUTES = 30  # API数据缓存时间（分钟）
     
     @classmethod
     def get_full_url(cls, category: str, page: int = 1) -> str:

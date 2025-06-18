@@ -143,6 +143,12 @@
 import { ref, onMounted } from 'vue'
 import axios from 'axios'
 import dayjs from 'dayjs'
+import utc from 'dayjs/plugin/utc'
+import timezone from 'dayjs/plugin/timezone'
+
+// 扩展dayjs插件
+dayjs.extend(utc)
+dayjs.extend(timezone)
 
 // 响应式数据
 const loading = ref(false)
@@ -225,14 +231,14 @@ const getStatusText = (status) => {
 
 const formatDate = (dateStr) => {
   if (!dateStr) return ''
-  // 确保正确处理时区
-  return dayjs(dateStr).format('YYYY-MM-DD')
+  // 确保正确处理时区，显示北京时间
+  return dayjs(dateStr).tz('Asia/Shanghai').format('YYYY-MM-DD')
 }
 
 const formatTime = (dateStr) => {
   if (!dateStr) return ''
-  // 确保正确处理时区
-  return dayjs(dateStr).format('HH:mm:ss')
+  // 确保正确处理时区，显示北京时间
+  return dayjs(dateStr).tz('Asia/Shanghai').format('HH:mm:ss')
 }
 
 const downloadResults = (taskId) => {
@@ -300,8 +306,8 @@ const deleteTask = async (taskId) => {
 
 const formatDateTime = (dateStr) => {
   if (!dateStr) return ''
-  // 确保正确处理时区，显示本地时间
-  return dayjs(dateStr).format('YYYY-MM-DD HH:mm:ss')
+  // 确保正确处理时区，显示北京时间
+  return dayjs(dateStr).tz('Asia/Shanghai').format('YYYY-MM-DD HH:mm:ss')
 }
 
 // 生命周期
