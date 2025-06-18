@@ -42,6 +42,17 @@ class AdaptiveParser:
         self.funding_extractor = FundingExtractor(config, web_monitor)
         self.content_extractor = ContentExtractor(config, web_monitor, stop_flag)
 
+        # 初始化各个处理器模块
+        from .processors.data_processor import DataProcessor
+        from .processors.status_processor import StatusProcessor
+        from .processors.time_processor import TimeProcessor
+        from .processors.validation_processor import ValidationProcessor
+
+        self.data_processor = DataProcessor(config, self.data_utils, web_monitor)
+        self.status_processor = StatusProcessor(config, web_monitor)
+        self.time_processor = TimeProcessor(config, self.data_utils, web_monitor)
+        self.validation_processor = ValidationProcessor(config, web_monitor)
+
     def _log(self, level: str, message: str):
         """统一日志输出"""
         print(message)
@@ -75,60 +86,20 @@ class AdaptiveParser:
     # 这些方法已经移动到ListExtractor模块中，不再需要
 
     def _extract_js_data(self, soup: BeautifulSoup) -> Dict[str, Any]:
-        """从JavaScript代码中提取项目数据"""
-        js_data = {
-            "category": "none",
-            "start_time": "none",
-            "end_time": "none",
-            "project_info": {}
-        }
-
-        try:
-            # 查找包含PROJECT_INFO的script标签
-            scripts = soup.find_all('script')
-            for script in scripts:
-                script_text = script.get_text()
-
-                # 提取PROJECT_INFO数据
-                if 'PROJECT_INFO.push(JSON.parse(' in script_text:
-                    # 使用正则表达式提取JSON字符串
-                    pattern = r'PROJECT_INFO\.push\(JSON\.parse\(\'([^\']+)\'\)\);'
-                    match = re.search(pattern, script_text)
-                    if match:
-                        json_str = match.group(1)
-                        # 解码Unicode字符
-                        json_str = json_str.encode().decode('unicode_escape')
-                        try:
-                            project_data = json.loads(json_str)
-                            js_data["project_info"] = project_data
-                            js_data["category"] = project_data.get("category", "none")
-                        except json.JSONDecodeError:
-                            pass
-
-                # 提取时间信息
-                if 'realtime_sync.pro_time(' in script_text:
-                    # 提取开始和结束时间
-                    time_pattern = r'realtime_sync\.pro_time\([\'"]([^\'\"]+)[\'"],\s*[\'"]([^\'\"]+)[\'"]'
-                    time_match = re.search(time_pattern, script_text)
-                    if time_match:
-                        js_data["start_time"] = time_match.group(1)
-                        js_data["end_time"] = time_match.group(2)
-
-        except Exception as e:
-            print(f"解析JavaScript数据失败: {e}")
-
-        return js_data
+        """从JavaScript代码中提取项目数据 - 使用DataProcessor模块"""
+        return self.data_processor.extract_js_data(soup)
     
     def parse_project_status(self, soup: BeautifulSoup) -> Dict[str, Any]:
-        """解析项目状态 - 使用DetailExtractor模块"""
-        return self.detail_extractor.extract_project_status(soup)
+        """解析项目状态 - 使用StatusProcessor模块"""
+        return self.status_processor.parse_project_status(soup)
     
     def parse_basic_info(self, soup: BeautifulSoup, project_status: Dict) -> List[Any]:
         """解析基础信息"""
         data = []
 
-        # 时间信息
-        start_time, end_time = self._parse_time_info(soup, project_status)
+        # 时间信息 - 使用TimeProcessor模块
+        js_data = self._extract_js_data(soup)
+        start_time, end_time = self.time_processor.parse_time_info(soup, project_status, js_data)
         data.extend([start_time, end_time, project_status["item_class"]])
 
         # 作者基础信息 - 使用AuthorExtractor模块 (5个字段)
@@ -145,62 +116,7 @@ class AdaptiveParser:
 
         return data
 
-    # 作者详细信息获取方法已移动到AuthorExtractor模块
-    
-    def _parse_time_info(self, soup: BeautifulSoup, project_status: Dict) -> Tuple[str, str]:
-        """解析时间信息 - 基于参考项目A的方法优化"""
-        start_time = "none"
-        end_time = "none"
-
-        if project_status["is_preheat"]:
-            time_div = ParserUtils.safe_find(soup, 'div', {'class': 'col2 start-time'})
-            if time_div:
-                h3_tags = ParserUtils.safe_find_all(time_div, 'h3')
-                if h3_tags:
-                    start_text = ParserUtils.safe_get_text(h3_tags[0])
-                    if "开始" in start_text:
-                        start_time = start_text.replace("开始", "").strip()
-
-                    if len(h3_tags) > 1:
-                        end_text = ParserUtils.safe_get_text(h3_tags[1])
-                        if "结束" in end_text:
-                            end_time = end_text.replace("结束", "").strip()
-                        else:
-                            end_time = "预热中"
-                    else:
-                        end_time = "预热中"
-
-        elif project_status["is_idea"]:
-            start_time = "创意中"
-            end_time = "创意中"
-
-        else:
-            # 🔧 基于参考项目A的时间提取方法
-            # 参考项目A: masthead.getElementsByAttributeValue("class","col2 remain-time").select("h3").attr("start_time")
-            time_div = ParserUtils.safe_find(soup, 'div', {'class': 'col2 remain-time'})
-            if time_div:
-                h3_tags = ParserUtils.safe_find_all(time_div, 'h3')
-                for h3 in h3_tags:
-                    start_attr = ParserUtils.safe_get_attr(h3, 'start_time')
-                    end_attr = ParserUtils.safe_get_attr(h3, 'end_time')
-                    if start_attr:
-                        start_time = start_attr
-                        self._log("info", f"✅ 找到开始时间: {start_time}")
-                    if end_attr:
-                        end_time = end_attr
-                        self._log("info", f"✅ 找到结束时间: {end_time}")
-
-            # 如果HTML属性提取失败，尝试从JavaScript数据中提取时间
-            if start_time == "none" or end_time == "none":
-                js_data = self._extract_js_data(soup)
-                if js_data["start_time"] != "none":
-                    start_time = js_data["start_time"]
-                    self._log("info", f"✅ JS提取开始时间: {start_time}")
-                if js_data["end_time"] != "none":
-                    end_time = js_data["end_time"]
-                    self._log("info", f"✅ JS提取结束时间: {end_time}")
-
-        return self.data_utils.parse_time(start_time), self.data_utils.parse_time(end_time)
+    # 时间解析方法已移动到TimeProcessor模块
     
     # 作者信息解析方法已移动到AuthorExtractor模块
 
@@ -213,57 +129,8 @@ class AdaptiveParser:
     # 众筹信息解析方法已移动到FundingExtractor模块
 
     def _validate_extracted_data(self, money: str, percent: str, goal_money: str, sponsor_num: str):
-        """验证提取的数据合理性（不进行反推计算）"""
-        try:
-            # 验证金额数据
-            if money != "0":
-                money_val = float(money)
-                if money_val < 0:
-                    self._log("warning", f"已筹金额异常: {money}")
-                elif money_val > 10000000:  # 1000万
-                    self._log("warning", f"已筹金额过大: {money}")
-
-            if goal_money != "0":
-                goal_val = float(goal_money)
-                if goal_val < 0:
-                    self._log("warning", f"目标金额异常: {goal_money}")
-                elif goal_val > 50000000:  # 5000万
-                    self._log("warning", f"目标金额过大: {goal_money}")
-
-            # 验证百分比数据
-            if percent != "0":
-                percent_val = float(percent)
-                if percent_val < 0:
-                    self._log("warning", f"完成百分比异常: {percent}%")
-                elif percent_val > 10000:  # 100倍
-                    self._log("warning", f"完成百分比过大: {percent}%")
-                else:
-                    self._log("info", f"百分比数据正常: {percent}%")
-
-            # 验证支持者数量
-            if sponsor_num != "0":
-                supporter_val = int(sponsor_num)
-                if supporter_val < 0:
-                    self._log("warning", f"支持者数量异常: {supporter_val}")
-                elif supporter_val > 100000:
-                    self._log("warning", f"支持者数量过大: {supporter_val}")
-                else:
-                    self._log("info", f"支持者数量正常: {supporter_val}")
-
-            # 逻辑一致性检查（不修改数据）
-            if money != "0" and goal_money != "0" and percent != "0":
-                money_val = float(money)
-                goal_val = float(goal_money)
-                percent_val = float(percent)
-
-                theoretical_percent = (money_val / goal_val) * 100
-                if abs(theoretical_percent - percent_val) > 50:  # 允许较大误差
-                    self._log("info", f"数据一致性提示: 显示{percent_val}%, 理论{theoretical_percent:.1f}%")
-                else:
-                    self._log("info", f"数据一致性良好")
-
-        except (ValueError, ZeroDivisionError) as e:
-            self._log("debug", f"数据验证跳过: {e}")
+        """验证提取的数据合理性 - 使用DataProcessor模块"""
+        self.data_processor.validate_extracted_data(money, percent, goal_money, sponsor_num)
 
     # 众筹信息解析方法已移动到FundingExtractor模块
     
@@ -792,46 +659,15 @@ class SpiderCore:
         content_info = self.parser.parse_project_content(soup)
         project_data.extend(content_info)
 
-        # 🔧 修复字段数量不匹配问题
-        # Excel表头有33个字段，但数据数组只有32个字段
-        # 需要确保数据数组长度与Excel表头一致
+        # 🔧 使用ValidationProcessor修复字段问题
         from spider.config import FieldMapping
         expected_length = len(FieldMapping.EXCEL_COLUMNS)
-        current_length = len(project_data)
 
-        if current_length < expected_length:
-            # 添加缺失的字段，用空值填充
-            missing_count = expected_length - current_length
-            project_data.extend([""] * missing_count)
-            print(f"🔧 修复字段数量: 添加了 {missing_count} 个缺失字段")
+        # 修复字段数量
+        project_data = self.parser.validation_processor.fix_field_count(project_data, expected_length)
 
-        # 🔧 修复导航字段映射错误
-        # 根据Excel表头顺序：["项目更新数", "评论数", "看好数"] 对应位置 [26, 27, 28]
-        # 从测试结果看，数据错位：项目更新数=8905, 评论数=1642, 看好数=0
-        # 正确应该是：项目更新数=1, 评论数=8905, 看好数=1642
-        if len(project_data) >= 29:
-            # 直接修正已知的错位问题
-            # 位置26: 项目更新数 (当前是8905，应该是1)
-            # 位置27: 评论数 (当前是1642，应该是8905)
-            # 位置28: 看好数 (当前是0，应该是1642)
-
-            current_26 = project_data[26]  # 当前项目更新数位置的值
-            current_27 = project_data[27]  # 当前评论数位置的值
-            current_28 = project_data[28]  # 当前看好数位置的值
-
-            # 检查是否需要修正（看好数为0且其他字段有值）
-            if str(current_28) == "0" and (str(current_26) != "0" or str(current_27) != "0"):
-                # 根据观察到的模式修正：
-                # current_26 (8905) 应该是评论数
-                # current_27 (1642) 应该是看好数
-                # 更新数应该是1
-                project_data[26] = "1"          # 项目更新数
-                project_data[27] = current_26   # 评论数 = 8905
-                project_data[28] = current_27   # 看好数 = 1642
-
-                print(f"🔧 修复导航字段映射: 更新数=1, 评论数={current_26}, 看好数={current_27}")
-            else:
-                print(f"🔧 导航字段检查: 更新数={current_26}, 评论数={current_27}, 看好数={current_28} (无需修正)")
+        # 修复导航字段映射
+        project_data = self.parser.validation_processor.fix_navigation_fields(project_data)
 
         return project_data
 

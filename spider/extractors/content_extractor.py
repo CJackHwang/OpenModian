@@ -121,30 +121,70 @@ class ContentExtractor:
         except Exception as e:
             self._log("warning", f"关键导航数据提取失败: {e}")
 
-        # 完全移除静态解析，仅使用动态数据获取
+        # 使用API获取作为主要方法，动态获取作为后备
         if self.config.ENABLE_DYNAMIC_DATA:
-            self._log("info", "使用动态数据获取（已移除静态解析功能）")
+            self._log("info", "使用API获取数据（快速模式）+ 动态获取（后备模式）")
             try:
-                dynamic_data = self._get_complete_dynamic_data(soup)
-                if dynamic_data:
-                    # 使用动态数据
-                    if dynamic_data.get("like_count", "0") != "0":
-                        result["like_count"] = dynamic_data["like_count"]
-                    if dynamic_data.get("comment_count", "0") != "0":
-                        result["comment_count"] = dynamic_data["comment_count"]
-                    self._log("info", f"✅ 动态数据获取完成: 看好数={result['like_count']}, 评论数={result['comment_count']}")
+                # 首先尝试API获取
+                api_data = self._get_api_data(soup)
+                if api_data and (api_data.get("like_count", "0") != "0" or api_data.get("comment_count", "0") != "0"):
+                    # API获取成功
+                    result["like_count"] = api_data["like_count"]
+                    result["comment_count"] = api_data["comment_count"]
+                    self._log("info", f"✅ API数据获取成功: 看好数={result['like_count']}, 评论数={result['comment_count']}")
                 else:
-                    self._log("warning", "动态数据获取返回空结果")
+                    # API获取失败，使用动态获取作为后备
+                    self._log("warning", "API获取失败或无数据，使用动态获取作为后备")
+                    dynamic_data = self._get_complete_dynamic_data(soup)
+                    if dynamic_data:
+                        if dynamic_data.get("like_count", "0") != "0":
+                            result["like_count"] = dynamic_data["like_count"]
+                        if dynamic_data.get("comment_count", "0") != "0":
+                            result["comment_count"] = dynamic_data["comment_count"]
+                        self._log("info", f"✅ 动态数据获取完成（后备）: 看好数={result['like_count']}, 评论数={result['comment_count']}")
+                    else:
+                        self._log("warning", "动态数据获取也失败，使用默认值")
             except Exception as e:
-                self._log("warning", f"动态数据获取失败: {e}")
+                self._log("warning", f"数据获取失败: {e}")
         else:
-            self._log("warning", "动态数据获取已禁用，无法获取看好数和评论数")
+            self._log("warning", "数据获取已禁用，无法获取看好数和评论数")
 
         # 最终验证和日志
         extracted_count = sum(1 for v in result.values() if v != "0")
         self._log("info", f"📊 导航数据提取完成: {extracted_count}/2 个字段成功（看好数、评论数）")
 
         return result
+
+    def _get_api_data(self, soup: BeautifulSoup) -> Dict[str, str]:
+        """使用API获取数据（主要方法）"""
+        try:
+            # 从页面中提取项目ID
+            project_id = self._extract_project_id_from_page(soup)
+            if not project_id:
+                self._log("warning", "无法提取项目ID")
+                return {"like_count": "0", "comment_count": "0"}
+
+            # 使用API获取器获取数据
+            from ..api_data_fetcher import ModianAPIFetcher
+
+            # 为每个线程创建独立的API获取器实例
+            thread_id = threading.current_thread().ident
+            fetcher_key = f'_api_fetcher_{thread_id}'
+
+            if not hasattr(self, fetcher_key):
+                fetcher = ModianAPIFetcher(self.config)
+                setattr(self, fetcher_key, fetcher)
+                self._log("info", f"为线程 {thread_id} 创建独立的API获取器")
+
+            fetcher = getattr(self, fetcher_key)
+            result = fetcher.get_project_data(project_id)
+
+            self._log("info", f"项目 {project_id} API数据获取结果: 看好数={result.get('like_count', '0')}, 评论数={result.get('comment_count', '0')}")
+            return result
+
+        except Exception as e:
+            self._log("warning", f"项目API数据获取失败: {e}")
+            return {"like_count": "0", "comment_count": "0"}
 
     def _get_complete_dynamic_data(self, soup: BeautifulSoup) -> Dict[str, str]:
         """获取完整的动态数据（修复并发问题版本）"""
