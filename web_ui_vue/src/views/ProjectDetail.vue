@@ -207,6 +207,51 @@
         </v-col>
       </v-row>
 
+      <!-- 回报列表 -->
+      <v-row v-if="rewards && rewards.length > 0" class="mb-6">
+        <v-col cols="12">
+          <v-card>
+            <v-card-title class="d-flex align-center">
+              <v-icon class="mr-2">mdi-gift</v-icon>
+              回报列表
+              <v-chip class="ml-2" size="small" color="primary">{{ rewards.length }}个档位</v-chip>
+            </v-card-title>
+            <v-card-text>
+              <v-row>
+                <v-col v-for="(reward, index) in rewards" :key="index" cols="12" md="6" lg="4">
+                  <v-card variant="outlined" class="h-100">
+                    <v-card-title class="d-flex justify-space-between align-center">
+                      <div>¥{{ formatNumber(reward.price || 0) }}</div>
+                      <v-chip
+                        size="small"
+                        :color="reward.is_sold_out ? 'error' : 'success'"
+                        variant="tonal"
+                      >
+                        {{ reward.is_sold_out ? '已售罄' : '可支持' }}
+                      </v-chip>
+                    </v-card-title>
+                    <v-card-text>
+                      <div class="font-weight-medium mb-2">{{ reward.title || '未命名档位' }}</div>
+                      <div class="text-caption text-medium-emphasis mb-2">{{ reward.content || '无详细描述' }}</div>
+                      <div class="d-flex justify-space-between text-caption">
+                        <span>
+                          <v-icon size="small" color="primary">mdi-account-multiple</v-icon>
+                          {{ reward.backer_count || 0 }}人支持
+                        </span>
+                        <span v-if="reward.is_limited">
+                          <v-icon size="small" color="warning">mdi-timer-sand</v-icon>
+                          剩余{{ reward.remaining_count || 0 }}个
+                        </span>
+                      </div>
+                    </v-card-text>
+                  </v-card>
+                </v-col>
+              </v-row>
+            </v-card-text>
+          </v-card>
+        </v-col>
+      </v-row>
+
       <!-- 历史数据追踪 -->
       <v-row>
         <v-col cols="12">
@@ -358,6 +403,7 @@ const error = ref('')
 const project = ref(null)
 const statistics = ref(null)
 const history = ref([])
+const rewards = ref([])
 const totalHistoryCount = ref(0)
 const historyOffset = ref(0)
 const historyLimit = ref(10)
@@ -381,6 +427,9 @@ async function loadProjectDetail() {
     if (response.data.success) {
       project.value = response.data.project
       statistics.value = response.data.statistics
+
+      // 解析回报数据
+      parseRewardsData(response.data.project.rewards_data)
 
       // 加载历史数据
       await loadProjectHistory()
@@ -454,6 +503,105 @@ async function exportProjectData() {
     showSnackbar('导出数据失败', 'error')
   } finally {
     exporting.value = false
+  }
+}
+
+function parseRewardsData(rewardsDataStr) {
+  try {
+    rewards.value = []
+
+    if (!rewardsDataStr || rewardsDataStr === 'none' || rewardsDataStr === '[]' || rewardsDataStr === '') {
+      return
+    }
+
+    // 根据爬虫代码分析，rewards_data实际存储的是回报数量，不是具体的回报数据
+    // 爬虫存储格式：[str(rewards_list), len(rewards_list)]
+    // 其中rewards_list包含的是字符串化的回报数据
+
+    // 如果只是数字，说明这是回报数量，而不是具体的回报数据
+    if (/^\d+$/.test(rewardsDataStr.toString().trim())) {
+      const rewardCount = parseInt(rewardsDataStr)
+      if (rewardCount > 0) {
+        // 创建占位符回报数据
+        rewards.value = Array.from({ length: Math.min(rewardCount, 10) }, (_, index) => ({
+          id: index,
+          price: 0,
+          backer_count: 0,
+          title: `回报档位 ${index + 1}`,
+          content: '回报详情需要重新爬取获取',
+          time_info: '',
+          is_limited: false,
+          remaining_count: 0,
+          is_sold_out: false
+        }))
+        console.log(`发现 ${rewardCount} 个回报档位，但详细数据需要重新爬取`)
+        return
+      }
+    }
+
+    // 尝试解析复杂的回报数据格式
+    let rewardsData
+
+    if (typeof rewardsDataStr === 'string') {
+      // 处理字符串化的数组格式
+      if (rewardsDataStr.startsWith('[') && rewardsDataStr.endsWith(']')) {
+        try {
+          rewardsData = JSON.parse(rewardsDataStr)
+        } catch {
+          // 如果JSON解析失败，尝试其他方式
+          const matches = rewardsDataStr.match(/\[([^\]]+)\]/g)
+          if (matches) {
+            rewardsData = matches.map(match => {
+              try {
+                return JSON.parse(match)
+              } catch {
+                return match.slice(1, -1).split(',').map(s => s.trim().replace(/['"]/g, ''))
+              }
+            })
+          }
+        }
+      }
+    } else if (Array.isArray(rewardsDataStr)) {
+      rewardsData = rewardsDataStr
+    }
+
+    if (rewardsData && Array.isArray(rewardsData)) {
+      rewards.value = rewardsData.map((reward, index) => {
+        if (Array.isArray(reward) && reward.length >= 6) {
+          // 处理爬虫格式：[title, sign_logo, back_money, backers, time_info, detail]
+          const [title, sign_logo, back_money, backers, time_info, detail] = reward
+          return {
+            id: index,
+            title: title !== 'none' ? title : `回报档位 ${index + 1}`,
+            price: parseFloat(back_money) || 0,
+            backer_count: backers === '已满' ? '已满' : (parseInt(backers) || 0),
+            content: detail !== 'none' ? detail : '无详细描述',
+            time_info: time_info !== 'none' ? time_info : '',
+            is_limited: sign_logo.includes('限量'),
+            remaining_count: 0,
+            is_sold_out: backers === '已满'
+          }
+        } else if (typeof reward === 'object') {
+          // 处理对象格式的回报数据
+          return {
+            id: reward.id || index,
+            price: parseFloat(reward.price || reward.money || 0),
+            backer_count: parseInt(reward.backer_count || reward.back_count || 0),
+            title: reward.title || reward.name || `回报档位 ${index + 1}`,
+            content: reward.content || reward.description || '无详细描述',
+            is_limited: reward.max_total > 0,
+            remaining_count: Math.max(0, (reward.max_total || 0) - (reward.backer_count || 0)),
+            is_sold_out: reward.status === 'sold_out' || reward.backer_count >= reward.max_total
+          }
+        }
+        return null
+      }).filter(Boolean)
+    }
+
+    console.log('解析回报数据:', rewards.value)
+  } catch (error) {
+    console.warn('解析回报数据失败:', error, rewardsDataStr)
+    rewards.value = []
   }
 }
 

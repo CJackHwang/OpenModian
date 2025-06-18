@@ -234,18 +234,78 @@ class ModianAPIFetcher:
             # 5. 提取关键数据
             like_count = str(project_data.get('bull_count', 0))
             comment_count = str(project_data.get('comment_count', 0))
-            
-            print(f"✅ API获取项目 {project_id} 成功: 看好数={like_count}, 评论数={comment_count}")
-            
+
+            # 6. 提取回报数据
+            rewards_data = self._extract_rewards_data(project_data)
+
+            print(f"✅ API获取项目 {project_id} 成功: 看好数={like_count}, 评论数={comment_count}, 回报数={len(rewards_data)}个")
+
             return {
                 "like_count": like_count,
-                "comment_count": comment_count
+                "comment_count": comment_count,
+                "rewards_data": rewards_data
             }
             
         except Exception as e:
             print(f"项目 {project_id} API获取失败: {e}")
-            return {"like_count": "0", "comment_count": "0"}
-    
+            return {"like_count": "0", "comment_count": "0", "rewards_data": []}
+
+    def _extract_rewards_data(self, project_data: Dict[str, Any]) -> list:
+        """从API数据中提取回报信息"""
+        try:
+            rewards_list = []
+
+            # 获取回报列表
+            reward_list = project_data.get('reward_list', [])
+
+            if not reward_list:
+                return []
+
+            for reward in reward_list:
+                # 提取回报信息，格式与爬虫保持一致：[title, sign_logo, back_money, backers, time_info, detail]
+                title = reward.get('title', '未命名档位')
+                money = str(reward.get('money', '0'))
+                back_count = str(reward.get('back_count', '0'))
+                content = reward.get('content', '无详细描述')
+
+                # 处理限量信息
+                max_total = reward.get('max_total', 0)
+                is_limited = max_total > 0 and max_total < 999
+                sign_logo = '限量' if is_limited else '普通'
+
+                # 处理时间信息
+                reward_day = reward.get('reward_day', '')
+                online_time = reward.get('online_time', '')
+                time_info = f"{reward_day} {online_time}".strip() if reward_day != '1970年01月内' else online_time
+
+                # 清理HTML标签
+                content_clean = self._clean_html_tags(content)
+
+                reward_item = [title, sign_logo, money, back_count, time_info, content_clean]
+                rewards_list.append(reward_item)
+
+            print(f"📦 API提取到 {len(rewards_list)} 个回报档位")
+            return rewards_list
+
+        except Exception as e:
+            print(f"⚠️ API回报数据提取失败: {e}")
+            return []
+
+    def _clean_html_tags(self, text: str) -> str:
+        """清理HTML标签"""
+        if not text:
+            return '无详细描述'
+
+        import re
+        # 移除HTML标签
+        clean_text = re.sub(r'<[^>]+>', '', text)
+        # 移除多余的空白字符
+        clean_text = re.sub(r'\s+', ' ', clean_text).strip()
+        # 替换HTML实体
+        clean_text = clean_text.replace('&nbsp;', ' ').replace('&lt;', '<').replace('&gt;', '>')
+
+        return clean_text if clean_text else '无详细描述'
+
     def get_stats(self) -> Dict[str, int]:
         """获取统计信息"""
         return {

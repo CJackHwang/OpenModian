@@ -58,7 +58,7 @@ class DatabaseManager:
                     rewards_data TEXT,
                     content_images TEXT,
                     content_videos TEXT,
-                    crawl_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    crawl_time TIMESTAMP DEFAULT (datetime('now', 'localtime')),
                     data_hash TEXT UNIQUE,
                     UNIQUE(project_id, crawl_time)
                 )

@@ -224,10 +224,14 @@ const getStatusText = (status) => {
 }
 
 const formatDate = (dateStr) => {
+  if (!dateStr) return ''
+  // 确保正确处理时区
   return dayjs(dateStr).format('YYYY-MM-DD')
 }
 
 const formatTime = (dateStr) => {
+  if (!dateStr) return ''
+  // 确保正确处理时区
   return dayjs(dateStr).format('HH:mm:ss')
 }
 
@@ -296,6 +300,7 @@ const deleteTask = async (taskId) => {
 
 const formatDateTime = (dateStr) => {
   if (!dateStr) return ''
+  // 确保正确处理时区，显示本地时间
   return dayjs(dateStr).format('YYYY-MM-DD HH:mm:ss')
 }
 

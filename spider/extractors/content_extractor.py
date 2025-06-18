@@ -131,7 +131,14 @@ class ContentExtractor:
                     # API获取成功
                     result["like_count"] = api_data["like_count"]
                     result["comment_count"] = api_data["comment_count"]
-                    self._log("info", f"✅ API数据获取成功: 看好数={result['like_count']}, 评论数={result['comment_count']}")
+
+                    # 处理回报数据
+                    rewards_data = api_data.get("rewards_data", [])
+                    if rewards_data:
+                        result["rewards_data"] = str(rewards_data)  # 转换为字符串存储
+                        self._log("info", f"✅ API数据获取成功: 看好数={result['like_count']}, 评论数={result['comment_count']}, 回报数={len(rewards_data)}个")
+                    else:
+                        self._log("info", f"✅ API数据获取成功: 看好数={result['like_count']}, 评论数={result['comment_count']}")
                 else:
                     # API获取失败，使用动态获取作为后备
                     self._log("warning", "API获取失败或无数据，使用动态获取作为后备")

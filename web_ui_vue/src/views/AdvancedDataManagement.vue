@@ -358,7 +358,15 @@
               size="small"
               variant="text"
               @click="viewProject(item)"
-              title="查看详情"
+              title="快速查看"
+            />
+            <v-btn
+              icon="mdi-open-in-new"
+              size="small"
+              variant="text"
+              color="info"
+              @click="goToProjectDetail(item.project_id)"
+              title="详情页面"
             />
             <v-btn
               icon="mdi-pencil"
@@ -689,10 +697,13 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import axios from 'axios'
 import FilterBuilder from '@/components/FilterBuilder.vue'
 import FilterHistory from '@/components/FilterHistory.vue'
 import { isValidImageUrl } from '@/utils/imageUtils'
+
+const router = useRouter()
 
 // 响应式数据
 const loading = ref(false)
@@ -1025,6 +1036,12 @@ const onApplyHistoryFilter = (historyItem) => {
 const viewProject = (project) => {
   selectedProject.value = project
   showDetailDialog.value = true
+}
+
+const goToProjectDetail = (projectId) => {
+  if (projectId) {
+    router.push(`/projects/${projectId}`)
+  }
 }
 
 const editProject = (project) => {
