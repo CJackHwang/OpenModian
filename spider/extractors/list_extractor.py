@@ -196,13 +196,12 @@ class ListExtractor:
                             list_data["list_backer_count"] = match.group(1)
                             break
 
-            # 显示详细的解析状态
+            # 显示简洁的解析状态
             avatar_status = "有头像" if list_data.get("list_author_avatar", "none") != "none" else "无头像"
-            money_status = "API" if list_data["list_backer_money"] == "api" else "✅" if list_data["list_backer_money"] != "0" else "❌"
-            rate_status = "API" if list_data["list_rate"] == "api" else "✅" if list_data["list_rate"] != "0" else "❌"
-            count_status = "✅" if list_data["list_backer_count"] != "0" else "❌"
+            author_name = list_data.get('list_author_name', 'none')
+            supporter_count = list_data['list_backer_count']
 
-            self._log("debug", f"列表数据提取: 项目{project_id} -> 已筹¥{list_data['list_backer_money']}{money_status}, 完成率{list_data['list_rate']}%{rate_status}, 支持者{list_data['list_backer_count']}人{count_status}, 作者:{list_data.get('list_author_name', 'none')}({avatar_status})")
+            self._log("debug", f"列表数据提取: 项目{project_id} -> 支持者{supporter_count}人, 作者:{author_name}({avatar_status})")
 
         except Exception as e:
             self._log("warning", f"列表数据提取失败: {e}")

@@ -31,10 +31,9 @@ class AdaptiveParser:
 
         # 初始化各个提取器模块（保留必要的模块）
         from .extractors.list_extractor import ListExtractor
-        from .extractors.content_extractor import ContentExtractor
 
         self.list_extractor = ListExtractor(config, web_monitor)
-        self.content_extractor = ContentExtractor(config, web_monitor, stop_flag)
+        # ContentExtractor已移除 - 功能完全被API替代
 
         # 已删除的冗余提取器：
         # - detail_extractor (依赖动态获取，已弃用)
@@ -269,9 +268,9 @@ class SpiderCore:
             # 保存剩余数据
             self._save_remaining_data()
 
-            # 数据验证和导出（如果有数据且未被停止）
+            # 数据导出（如果有数据且未被停止）
             if self.projects_data and not self.is_stopped():
-                self._validate_and_export_data()
+                self._export_data()
 
             # 打印统计信息
             self.monitor.print_stats()
@@ -732,21 +731,8 @@ class SpiderCore:
 
         return basic_data
 
-    def _validate_and_export_data(self):
-        """验证和导出数据"""
-        print("开始数据验证...")
-
-        # 批量验证
-        validation_results = self.validator.validate_batch(self.projects_data)
-
-        # 记录验证结果
-        for result in validation_results['results']:
-            self.monitor.record_validation(result['is_valid'])
-
-        # 打印验证摘要
-        print(self.validator.get_validation_summary(validation_results))
-
-        # 导出数据
+    def _export_data(self):
+        """导出数据（移除验证步骤，API数据无需验证）"""
         print("开始导出数据...")
 
         try:

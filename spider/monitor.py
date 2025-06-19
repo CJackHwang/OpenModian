@@ -44,9 +44,7 @@ class SpiderStats:
     error_counts: Dict[str, int] = field(default_factory=dict)
     consecutive_errors: int = 0
     
-    # 数据质量统计
-    data_validation_passed: int = 0
-    data_validation_failed: int = 0
+    # 数据质量统计已移除 - API数据无需验证
     
     def get_success_rate(self) -> float:
         """获取成功率"""
@@ -88,8 +86,7 @@ class SpiderStats:
             "requests_per_minute": round(self.requests_per_minute, 2),
             "error_counts": self.error_counts,
             "consecutive_errors": self.consecutive_errors,
-            "data_validation_passed": self.data_validation_passed,
-            "data_validation_failed": self.data_validation_failed
+            # 数据验证字段已移除
         }
 
 
@@ -223,13 +220,7 @@ class SpiderMonitor:
             }
             self.error_history.append(error_info)
     
-    def record_validation(self, passed: bool):
-        """记录数据验证结果"""
-        with self._lock:
-            if passed:
-                self.stats.data_validation_passed += 1
-            else:
-                self.stats.data_validation_failed += 1
+    # record_validation方法已移除 - API数据无需验证
     
     def get_current_stats(self) -> Dict[str, Any]:
         """获取当前统计信息"""
@@ -271,7 +262,7 @@ class SpiderMonitor:
         print(f"平均解析时间: {stats['avg_parse_time']:.3f}s")
         print(f"请求频率: {stats['requests_per_minute']:.1f}/分钟")
         print(f"")
-        print(f"数据验证: {stats['data_validation_passed']} 通过, {stats['data_validation_failed']} 失败")
+        # 数据验证统计已移除 - API数据无需验证
         
         if stats['error_counts']:
             print(f"\n错误类型统计:")
