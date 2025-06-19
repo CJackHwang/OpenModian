@@ -117,46 +117,42 @@ class ListExtractor:
     def _extract_list_page_data(self, item_element, project_id: str) -> Dict[str, str]:
         """从首页列表项中提取额外数据"""
         list_data = {
-            "list_backer_money": "0",      # 已筹金额
-            "list_rate": "0",              # 完成率
-            "list_backer_count": "0",      # 支持者数量
-            "list_author_name": "none"     # 作者名称
+            "list_backer_money": "api",    # 已筹金额 - 使用API数据
+            "list_rate": "api",            # 完成率 - 使用API数据
+            "list_backer_count": "0",      # 支持者数量 - 继续尝试列表解析
+            "list_author_name": "none",    # 作者名称
+            "list_author_avatar": "none"   # 作者头像
         }
 
         try:
-            # 1. 提取已筹金额 - 从backer_money属性
-            backer_money_spans = item_element.select('span[backer_money]')
-            for span in backer_money_spans:
-                span_text = ParserUtils.safe_get_text(span).strip()
-                if span_text and span_text.replace(',', '').replace('.', '').isdigit():
-                    list_data["list_backer_money"] = span_text.replace(',', '')
-                    break
+            # 1. 已筹金额 - 使用API数据 (列表解析不可靠)
+            # 注释：由于HTML结构变化，列表解析金额字段不可靠，改为完全依赖API数据
+            pass  # list_data["list_backer_money"] 保持为 "api" 标记
 
-            # 2. 提取完成率 - 从rate属性
-            rate_spans = item_element.select('span[rate]')
-            for span in rate_spans:
-                span_text = ParserUtils.safe_get_text(span).strip()
-                if span_text and '%' in span_text:
-                    list_data["list_rate"] = span_text.replace('%', '')
-                    break
-                elif span_text and span_text.replace('.', '').isdigit():
-                    try:
-                        rate_val = float(span_text)
-                        if rate_val > 10:  # 如果大于10，可能是百分比形式
-                            list_data["list_rate"] = str(rate_val)
-                        else:  # 如果小于等于10，可能是小数形式，需要乘100
-                            list_data["list_rate"] = str(rate_val * 100)
-                        break
-                    except ValueError:
-                        continue
+            # 2. 完成率 - 使用API数据 (列表解析不可靠)
+            # 注释：由于HTML结构变化，列表解析进度字段不可靠，改为完全依赖API数据
+            pass  # list_data["list_rate"] 保持为 "api" 标记
 
-            # 3. 提取支持者数量 - 从backer_count属性
+            # 3. 提取支持者数量 - 多种策略
+            # 策略1: 直接查找backer_count属性
             backer_count_spans = item_element.select('span[backer_count]')
+            if not backer_count_spans:
+                # 策略2: 在gray_ex区域查找span
+                gray_ex = item_element.select_one('.gray_ex')
+                if gray_ex:
+                    backer_count_spans = gray_ex.select('span')
+
             for span in backer_count_spans:
                 span_text = ParserUtils.safe_get_text(span).strip()
-                if span_text and span_text.isdigit():
-                    list_data["list_backer_count"] = span_text
-                    break
+                if span_text:
+                    try:
+                        # 尝试转换为整数验证
+                        int(span_text)  # 只验证，不存储
+                        list_data["list_backer_count"] = span_text
+                        break
+                    except ValueError:
+                        # 如果转换失败，继续尝试下一个
+                        continue
 
             # 4. 提取作者名称 - 从作者区域
             author_elements = item_element.select('.author p, .author a')
@@ -165,6 +161,20 @@ class ListExtractor:
                 if author_text and len(author_text) > 0 and len(author_text) < 50:
                     list_data["list_author_name"] = author_text
                     break
+
+            # 5. 提取作者头像 - 从.author .au_logo的style属性
+            author_avatar_elements = item_element.select('.author .au_logo')
+            for elem in author_avatar_elements:
+                style_attr = ParserUtils.safe_get_attr(elem, 'style')
+                if style_attr:
+                    # 从style属性中提取background url
+                    import re
+                    url_match = re.search(r'background:\s*url\(([^)]+)\)', style_attr)
+                    if url_match:
+                        avatar_url = url_match.group(1).strip('\'"')
+                        if avatar_url and avatar_url.startswith('http'):
+                            list_data["list_author_avatar"] = avatar_url
+                            break
 
             # 回退到文本解析（如果HTML属性提取失败）
             if list_data["list_backer_count"] == "0":
@@ -186,7 +196,13 @@ class ListExtractor:
                             list_data["list_backer_count"] = match.group(1)
                             break
 
-            self._log("debug", f"列表数据提取: 项目{project_id} -> 已筹¥{list_data['list_backer_money']}, 完成率{list_data['list_rate']}%, 支持者{list_data['list_backer_count']}人")
+            # 显示详细的解析状态
+            avatar_status = "有头像" if list_data.get("list_author_avatar", "none") != "none" else "无头像"
+            money_status = "API" if list_data["list_backer_money"] == "api" else "✅" if list_data["list_backer_money"] != "0" else "❌"
+            rate_status = "API" if list_data["list_rate"] == "api" else "✅" if list_data["list_rate"] != "0" else "❌"
+            count_status = "✅" if list_data["list_backer_count"] != "0" else "❌"
+
+            self._log("debug", f"列表数据提取: 项目{project_id} -> 已筹¥{list_data['list_backer_money']}{money_status}, 完成率{list_data['list_rate']}%{rate_status}, 支持者{list_data['list_backer_count']}人{count_status}, 作者:{list_data.get('list_author_name', 'none')}({avatar_status})")
 
         except Exception as e:
             self._log("warning", f"列表数据提取失败: {e}")
@@ -227,10 +243,11 @@ class ListExtractor:
                     list_data = self._extract_list_page_data(parent_li, project_id)
                 else:
                     list_data = {
-                        "list_backer_money": "0",
-                        "list_rate": "0",
+                        "list_backer_money": "api",  # 使用API数据
+                        "list_rate": "api",          # 使用API数据
                         "list_backer_count": "0",
-                        "list_author_name": "none"
+                        "list_author_name": "none",
+                        "list_author_avatar": "none"
                     }
 
                 projects.append((project_url, project_id, project_name, project_image, list_data))

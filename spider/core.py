@@ -645,18 +645,16 @@ class SpiderCore:
         else:
             author_name = api_data.get("author_name", "")
 
-        # 获取作者头像：如果API没有，使用默认头像或通过用户ID构建
-        author_image = api_data.get("author_image", "")
+        # 获取作者头像：优先使用列表数据，然后API数据，最后默认头像
+        author_image = ""
+        if list_data and list_data.get("list_author_avatar") and list_data.get("list_author_avatar") != "none":
+            author_image = list_data.get("list_author_avatar", "")
+        else:
+            author_image = api_data.get("author_image", "")
+
+        # 如果仍然没有头像，使用默认头像
         if not author_image:
-            # 尝试从author_link提取用户ID构建头像URL
-            author_link = api_data.get("author_link", "")
-            if author_link and "/u/" in author_link:
-                user_id = author_link.split("/u/")[-1]
-                # 使用摩点默认头像URL模式
-                author_image = f"https://s.moimg.net/new/images/headPic.png"
-            else:
-                # 使用默认头像
-                author_image = "https://s.moimg.net/new/images/headPic.png"
+            author_image = "https://s.moimg.net/new/images/headPic.png"
 
         # 按照数据库字段顺序构建数据
         project_data = [
@@ -713,8 +711,12 @@ class SpiderCore:
         if list_data and list_data.get("list_author_name") and list_data.get("list_author_name") != "none":
             author_name = list_data.get("list_author_name", "")
 
-        # 默认头像
-        default_avatar = "https://s.moimg.net/new/images/headPic.png"
+        # 获取作者头像：优先使用列表数据，否则使用默认头像
+        author_avatar = ""
+        if list_data and list_data.get("list_author_avatar") and list_data.get("list_author_avatar") != "none":
+            author_avatar = list_data.get("list_author_avatar", "")
+        else:
+            author_avatar = "https://s.moimg.net/new/images/headPic.png"
 
         # 创建基础数据，在第11位（用户名）和第9位（用户头像）填入作者信息
         basic_data = [index, project_url, project_id, project_name, project_image]
@@ -722,7 +724,7 @@ class SpiderCore:
         # 填充剩余字段为空值，但在特定位置填入作者信息
         while len(basic_data) < expected_length:
             if len(basic_data) == 9:  # 用户头像字段位置
-                basic_data.append(default_avatar)
+                basic_data.append(author_avatar)
             elif len(basic_data) == 11:  # 用户名字段位置
                 basic_data.append(author_name)
             else:
