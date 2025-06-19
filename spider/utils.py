@@ -141,12 +141,15 @@ class NetworkUtils:
         return None
     
     def make_api_request(self, endpoint: str, params: Dict = None) -> Optional[Dict]:
-        """发送API请求"""
+        """发送API请求 - 🔧 修复：确保API请求也遵循延迟控制"""
+        # 🔧 关键修复：API请求也要遵循速率限制
+        self._rate_limit()
+
         url = self.config.get_api_url(endpoint)
-        
+
         try:
             response = self.session.get(
-                url, 
+                url,
                 params=params or {},
                 headers=self.get_headers("mobile"),
                 timeout=random.randint(*self.config.TIMEOUT_RANGE)

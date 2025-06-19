@@ -44,6 +44,14 @@ const router = createRouter({
       }
     },
     {
+      path: '/tasks',
+      name: 'tasks',
+      component: () => import('@/views/TaskManagement.vue'),
+      meta: {
+        title: '任务管理'
+      }
+    },
+    {
       path: '/history',
       name: 'history',
       component: () => import('@/views/TaskHistory.vue'),

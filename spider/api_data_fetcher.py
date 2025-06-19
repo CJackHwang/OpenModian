@@ -333,37 +333,13 @@ class ModianAPIFetcher:
             return self._get_empty_result()
 
     def _determine_status(self, status_str: str, end_time: str, completion_rate: float) -> str:
-        """确定项目状态 - 完全按照参考项目逻辑"""
-        # 如果服务器明确返回成功或失败状态，优先使用
-        if status_str == '成功':
-            return '众筹成功'
-        if status_str == '失败':
-            return '众筹失败'
-        if status_str == '准备中':
-            return '预热'
+        """直接返回API原始状态，不进行任何映射或转换"""
+        if not status_str:
+            return '未知情况'
 
-        # 对于"众筹中"状态，需要根据结束时间和完成率进行二次判断
-        # 因为服务端返回的状态可能不准确，已结束的项目仍可能显示为"众筹中"
-        if status_str == '众筹中' or not status_str:
-            # 检查项目是否已经结束
-            if end_time:
-                end_date = self._parse_end_time(end_time)
-                if end_date:
-                    from datetime import datetime
-                    now = datetime.now()
-
-                    if end_date < now:
-                        # 项目已结束，根据完成率判断最终状态
-                        final_status = '众筹成功' if completion_rate >= 100 else '众筹失败'
-                        print(f"项目已结束，服务器状态: {status_str}, 实际状态: {final_status}, 完成率: {completion_rate:.2f}%")
-                        return final_status
-
-            # 项目还在进行中
-            return '众筹中'
-
-        # 对于其他未知状态，默认为众筹中
-        print(f"未知的项目状态: {status_str}，默认为众筹中")
-        return '众筹中'
+        # 直接返回API原始状态，记录日志
+        print(f"📝 API原始状态: {status_str}")
+        return status_str
 
     def _extract_project_status(self, project_data: Dict[str, Any]) -> str:
         """从API数据中提取项目状态 - 完全按照参考项目逻辑"""
@@ -387,37 +363,8 @@ class ModianAPIFetcher:
             raised_amount = parse_amount(backer_money)
             completion_rate = (raised_amount / goal_amount) * 100 if goal_amount > 0 else 0
 
-            # 按照参考项目的状态判断逻辑
-            # 如果服务器明确返回成功或失败状态，优先使用
-            if status_str == '成功':
-                return '众筹成功'
-            if status_str == '失败':
-                return '众筹失败'
-            if status_str == '准备中':
-                return '预热'
-
-            # 对于"众筹中"状态，需要根据结束时间和完成率进行二次判断
-            # 因为服务端返回的状态可能不准确，已结束的项目仍可能显示为"众筹中"
-            if status_str == '众筹中' or not status_str:
-                # 检查项目是否已经结束
-                if end_time:
-                    end_date = self._parse_end_time(end_time)
-                    if end_date:
-                        from datetime import datetime
-                        now = datetime.now()
-
-                        if end_date < now:
-                            # 项目已结束，根据完成率判断最终状态
-                            final_status = '众筹成功' if completion_rate >= 100 else '众筹失败'
-                            print(f"项目 {project_data.get('id', 'unknown')} 已结束，服务器状态: {status_str}, 实际状态: {final_status}, 完成率: {completion_rate:.2f}%")
-                            return final_status
-
-                # 项目还在进行中
-                return '众筹中'
-
-            # 对于其他未知状态，默认为众筹中
-            print(f"未知的项目状态: {status_str}，默认为众筹中")
-            return '众筹中'
+            # 直接使用_determine_status方法，避免重复代码
+            return self._determine_status(status_str, end_time, completion_rate)
 
         except Exception as e:
             print(f"⚠️ API状态提取失败: {e}")

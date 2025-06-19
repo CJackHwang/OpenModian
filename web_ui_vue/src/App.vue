@@ -171,6 +171,11 @@ const menuItems = [
     to: '/data/advanced'
   },
   {
+    title: '任务管理',
+    icon: 'mdi-format-list-bulleted',
+    to: '/tasks'
+  },
+  {
     title: '任务历史',
     icon: 'mdi-history',
     to: '/history'

@@ -720,11 +720,8 @@ class DatabaseManager:
                         english_project[english_key] = 0
 
                 elif english_key == 'project_status':
-                    # 项目状态标准化
-                    if value == '未知情况':
-                        english_project[english_key] = 'ongoing'
-                    else:
-                        english_project[english_key] = str(value) if value else 'unknown'
+                    # 直接使用API返回的原始状态，不进行转换
+                    english_project[english_key] = str(value) if value else '未知情况'
 
                 else:
                     # 其他字段直接转换为字符串
@@ -1690,3 +1687,26 @@ class DatabaseManager:
                 'success': False,
                 'message': f'获取备份信息失败: {str(e)}'
             }
+
+    # ==================== 动态筛选选项功能 ====================
+
+    def get_distinct_values(self, field: str, limit: int = None) -> List[str]:
+        """获取指定字段的所有不同值"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+
+                # 构建SQL查询
+                sql = f"SELECT DISTINCT {field} FROM projects WHERE {field} IS NOT NULL AND {field} != '' ORDER BY {field}"
+
+                if limit:
+                    sql += f" LIMIT {limit}"
+
+                cursor.execute(sql)
+                results = cursor.fetchall()
+
+                return [row[0] for row in results]
+
+        except Exception as e:
+            print(f"获取字段 {field} 的不同值失败: {e}")
+            return []

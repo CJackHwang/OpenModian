@@ -76,6 +76,88 @@ active_tasks = {}
 db_path = os.path.join(project_root, "data", "database", "modian_data.db")
 db_manager = DatabaseManager(db_path)
 
+# 🔧 新增：创建定时任务调度器
+from spider.scheduler import TaskScheduler
+
+def create_spider_instance():
+    """爬虫实例工厂函数 - 🔧 修复：为定时任务创建带监控的爬虫实例"""
+    from spider.core import SpiderCore
+    from spider.config import SpiderConfig
+
+    config = SpiderConfig.load_from_yaml()
+
+    # 🔧 修复：为定时任务创建功能完整的监控器
+    class ScheduledTaskMonitor:
+        def __init__(self):
+            self.stats = {
+                'projects_processed': 0,
+                'total_projects': 0,
+                'errors_count': 0,
+                'failed_count': 0,
+                'status': 'running',
+                'pages_crawled': 0,
+                'projects_found': 0,
+                'current_page': 0,
+                'total_pages': 0,
+                'progress': 0
+            }
+            self.saved_count = 0  # 🔧 添加保存计数器
+
+        def update_progress(self, current_page=0, total_pages=0, total_projects=0, completed_projects=0, project_progress=0, **kwargs):
+            """更新进度信息 - 🔧 修复：完整的进度更新"""
+            self.stats.update({
+                'current_page': current_page,
+                'total_pages': total_pages,
+                'total_projects': total_projects,
+                'projects_processed': completed_projects,
+                'projects_found': total_projects,
+                'progress': project_progress
+            })
+            self.stats.update(kwargs)
+
+            # 🔧 修复：同步保存计数
+            if completed_projects > 0:
+                self.saved_count = completed_projects
+                self.stats['projects_processed'] = completed_projects
+
+            print(f"📊 定时任务进度更新: 页面{current_page}/{total_pages}, 项目{completed_projects}/{total_projects}")
+
+        def add_log(self, level, message):
+            print(f"[{level.upper()}] {message}")
+
+        def update_stats(self, **kwargs):
+            """更新统计信息 - 🔧 修复：同步更新保存计数"""
+            self.stats.update(kwargs)
+
+            # 🔧 修复：确保保存计数同步
+            if 'projects_processed' in kwargs:
+                self.saved_count = kwargs['projects_processed']
+            elif 'total_projects' in kwargs:
+                self.stats['projects_found'] = kwargs['total_projects']
+
+        def increment_saved_count(self, count=1):
+            """增加保存计数 - 🔧 修复：提供增量更新方法"""
+            self.saved_count += count
+            self.stats['projects_processed'] = self.saved_count
+            print(f"📊 定时任务保存计数更新: {self.saved_count}")
+
+        def set_final_stats(self, projects_found=0, projects_saved=0):
+            """设置最终统计 - 🔧 修复：提供最终统计设置方法"""
+            self.stats.update({
+                'projects_found': projects_found,
+                'projects_processed': projects_saved,
+                'total_projects': projects_found
+            })
+            self.saved_count = projects_saved
+            print(f"📊 定时任务最终统计: 发现{projects_found}个，保存{projects_saved}个")
+
+    monitor = ScheduledTaskMonitor()
+    return SpiderCore(config, web_monitor=monitor, db_manager=db_manager)
+
+# 初始化定时任务调度器
+task_scheduler = TaskScheduler(db_manager=db_manager, spider_factory=create_spider_instance)
+task_scheduler.start_scheduler()
+
 class WebSpiderMonitor:
     """Web界面专用的爬虫监控器"""
     
@@ -212,7 +294,33 @@ def start_crawl():
         # 🔧 清理旧任务状态，避免冲突
         cleanup_old_tasks()
 
-        # 生成任务ID
+        # 🔧 检查是否为后台定时任务
+        is_scheduled = data.get('is_scheduled', False)
+        schedule_interval = data.get('schedule_interval', 3600)  # 默认1小时
+
+        if is_scheduled:
+            # 创建定时任务
+            try:
+                task_name = f"定时爬取_{data.get('category', 'all')}_{data.get('start_page', 1)}-{data.get('end_page', 10)}"
+                task_id = task_scheduler.add_scheduled_task(
+                    name=task_name,
+                    config=data,
+                    interval_seconds=max(5, schedule_interval)  # 最小5秒间隔
+                )
+
+                return jsonify({
+                    'success': True,
+                    'task_id': task_id,
+                    'message': f'定时任务已创建，执行间隔: {schedule_interval}秒',
+                    'is_scheduled': True
+                })
+            except Exception as e:
+                return jsonify({
+                    'success': False,
+                    'message': f'创建定时任务失败: {str(e)}'
+                }), 500
+
+        # 生成普通任务ID
         task_id = str(uuid.uuid4())
         
         # 创建爬虫配置
@@ -368,18 +476,53 @@ def stop_crawl(task_id):
 
 @app.route('/api/tasks')
 def get_tasks():
-    """获取所有任务状态（活跃任务）"""
+    """获取所有任务状态（活跃任务 + 定时任务）"""
     tasks = []
+
+    # 添加活跃的普通任务
     for task_id, task_info in active_tasks.items():
         tasks.append({
             'task_id': task_id,
+            'task_type': 'normal',
             'config': task_info['config'],
-            'stats': task_info['monitor'].stats
+            'stats': task_info['monitor'].stats,
+            'is_scheduled': False
         })
+
+    # 添加定时任务
+    try:
+        scheduled_tasks = task_scheduler.get_scheduled_tasks()
+        for scheduled_task in scheduled_tasks:
+            tasks.append({
+                'task_id': scheduled_task['task_id'],
+                'task_type': 'scheduled',
+                'config': scheduled_task['config'],
+                'stats': {
+                    'status': 'scheduled' if scheduled_task['is_active'] else 'paused',
+                    'next_run_time': scheduled_task['next_run_time'],
+                    'last_run_time': scheduled_task['last_run_time'],
+                    'run_count': scheduled_task['run_count'],
+                    'last_status': scheduled_task['last_status'],
+                    'interval_seconds': scheduled_task['interval_seconds']
+                },
+                'is_scheduled': True,
+                'is_active': scheduled_task['is_active'],
+                'is_running': scheduled_task['is_running'],
+                'schedule_info': {
+                    'interval_seconds': scheduled_task['interval_seconds'],
+                    'next_run_time': scheduled_task['next_run_time'],
+                    'last_run_time': scheduled_task['last_run_time'],
+                    'run_count': scheduled_task['run_count']
+                }
+            })
+    except Exception as e:
+        print(f"获取定时任务失败: {e}")
 
     return jsonify({
         'success': True,
-        'tasks': tasks
+        'tasks': tasks,
+        'normal_tasks': len([t for t in tasks if t['task_type'] == 'normal']),
+        'scheduled_tasks': len([t for t in tasks if t['task_type'] == 'scheduled'])
     })
 
 @app.route('/api/tasks/history')
@@ -935,6 +1078,212 @@ def export_project_data(project_id):
         return jsonify({
             'success': False,
             'message': f'导出数据失败: {str(e)}'
+        }), 500
+
+# ==================== 动态筛选选项API ====================
+
+@app.route('/api/database/filter_options')
+def get_filter_options():
+    """获取基于数据库实际数据的动态筛选选项"""
+    try:
+        # 获取所有可用的分类
+        categories = db_manager.get_distinct_values('category')
+
+        # 获取所有可用的项目状态
+        statuses = db_manager.get_distinct_values('project_status')
+
+        # 获取作者列表（限制前100个）
+        authors = db_manager.get_distinct_values('author_name', limit=100)
+
+        # 获取数据统计信息
+        stats = db_manager.get_statistics()
+
+        # 构建筛选选项
+        filter_options = {
+            'categories': [
+                {'value': 'all', 'label': '全部分类', 'count': stats.get('total_projects', 0)}
+            ] + [
+                {'value': cat, 'label': cat, 'count': 0} for cat in categories if cat
+            ],
+            'statuses': [
+                {'value': 'all', 'label': '全部状态', 'count': stats.get('total_projects', 0)}
+            ] + [
+                {'value': status, 'label': status, 'count': 0} for status in statuses if status
+            ],
+            'authors': [
+                {'value': 'all', 'label': '全部作者', 'count': stats.get('total_projects', 0)}
+            ] + [
+                {'value': author, 'label': author, 'count': 0} for author in authors if author
+            ],
+            'date_ranges': [
+                {'value': 'all', 'label': '全部时间'},
+                {'value': 'day', 'label': '今天'},
+                {'value': 'week', 'label': '本周'},
+                {'value': 'month', 'label': '本月'}
+            ],
+            'amount_ranges': [
+                {'value': 'all', 'label': '全部金额'},
+                {'value': '0-1000', 'label': '0-1000元'},
+                {'value': '1000-10000', 'label': '1000-10000元'},
+                {'value': '10000-100000', 'label': '1万-10万元'},
+                {'value': '100000+', 'label': '10万元以上'}
+            ]
+        }
+
+        # 🔧 获取每个分类和状态的实际项目数量
+        for category_option in filter_options['categories'][1:]:  # 跳过"全部"选项
+            count = db_manager.count_projects({'category': category_option['value']})
+            category_option['count'] = count
+
+        for status_option in filter_options['statuses'][1:]:  # 跳过"全部"选项
+            count = db_manager.count_projects({'status': status_option['value']})
+            status_option['count'] = count
+
+        return jsonify({
+            'success': True,
+            'filter_options': filter_options,
+            'statistics': stats
+        })
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'获取筛选选项失败: {str(e)}'
+        }), 500
+
+# ==================== 定时任务管理API ====================
+
+@app.route('/api/scheduled_tasks')
+def get_scheduled_tasks():
+    """获取所有定时任务"""
+    try:
+        tasks = task_scheduler.get_scheduled_tasks()
+        return jsonify({
+            'success': True,
+            'tasks': tasks,
+            'count': len(tasks)
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'获取定时任务失败: {str(e)}'
+        }), 500
+
+@app.route('/api/scheduled_tasks/<task_id>', methods=['DELETE'])
+def delete_scheduled_task(task_id):
+    """删除定时任务"""
+    try:
+        success = task_scheduler.remove_scheduled_task(task_id)
+        if success:
+            return jsonify({
+                'success': True,
+                'message': '定时任务删除成功'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': '定时任务不存在或正在运行'
+            }), 400
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'删除定时任务失败: {str(e)}'
+        }), 500
+
+@app.route('/api/scheduled_tasks/<task_id>/toggle', methods=['POST'])
+def toggle_scheduled_task(task_id):
+    """切换定时任务状态"""
+    try:
+        success = task_scheduler.toggle_task_status(task_id)
+        if success:
+            return jsonify({
+                'success': True,
+                'message': '任务状态切换成功'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': '定时任务不存在'
+            }), 404
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'切换任务状态失败: {str(e)}'
+        }), 500
+
+@app.route('/api/scheduled_tasks/<task_id>/run_now', methods=['POST'])
+def run_scheduled_task_now(task_id):
+    """立即执行定时任务"""
+    try:
+        # 这里需要实现立即执行逻辑
+        # 暂时返回成功，实际实现需要在TaskScheduler中添加方法
+        success = task_scheduler.run_task_immediately(task_id)
+        if success:
+            return jsonify({
+                'success': True,
+                'message': '任务已开始执行'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': '任务不存在或无法执行'
+            }), 404
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'立即执行任务失败: {str(e)}'
+        }), 500
+
+@app.route('/api/scheduled_tasks/<task_id>/history')
+def get_scheduled_task_history(task_id):
+    """获取定时任务执行历史"""
+    try:
+        limit = int(request.args.get('limit', 20))
+        history = task_scheduler.get_task_execution_history(task_id, limit)
+
+        return jsonify({
+            'success': True,
+            'history': history,
+            'count': len(history)
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'获取任务执行历史失败: {str(e)}'
+        }), 500
+
+@app.route('/api/scheduler/status')
+def get_scheduler_status():
+    """获取调度器状态 - 🔧 修复：监控调度器健康状态"""
+    try:
+        status = task_scheduler.get_scheduler_status()
+        return jsonify({
+            'success': True,
+            'scheduler_status': status
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'获取调度器状态失败: {str(e)}'
+        }), 500
+
+@app.route('/api/scheduler/restart', methods=['POST'])
+def restart_scheduler():
+    """重启调度器 - 🔧 修复：提供调度器重启功能"""
+    try:
+        print("🔄 重启调度器...")
+        task_scheduler.stop_scheduler()
+        time.sleep(2)  # 等待调度器完全停止
+        task_scheduler.start_scheduler()
+
+        return jsonify({
+            'success': True,
+            'message': '调度器重启成功'
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'重启调度器失败: {str(e)}'
         }), 500
 
 # ==================== 备份管理API ====================

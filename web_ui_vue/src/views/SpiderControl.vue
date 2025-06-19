@@ -110,6 +110,29 @@
                 </v-row>
               </div>
 
+              <!-- 🔧 新增：后台定时任务配置 -->
+              <div class="mb-4">
+                <v-label class="text-subtitle-2 mb-2">任务类型</v-label>
+                <v-switch
+                  v-model="config.isScheduled"
+                  label="后台定时任务"
+                  color="primary"
+                  inset
+                  hide-details
+                />
+                <div v-if="config.isScheduled" class="mt-3">
+                  <v-text-field
+                    v-model.number="config.scheduleInterval"
+                    label="执行间隔 (秒)"
+                    type="number"
+                    :min="5"
+                    hint="最小间隔5秒，默认3600秒(1小时)"
+                    variant="outlined"
+                    density="compact"
+                  />
+                </div>
+              </div>
+
               <!-- API数据获取说明 -->
               <div class="mb-4">
                 <v-alert
@@ -318,6 +341,8 @@
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { useAppStore } from '@/stores/app'
 import axios from 'axios'
+import pageCache from '@/utils/pageCache'
+import socketManager from '@/utils/socketManager'
 
 const appStore = useAppStore()
 
@@ -336,7 +361,9 @@ const config = reactive({
   category: 'all',
   maxConcurrent: 3,
   delayMin: 1.0,
-  delayMax: 3.0
+  delayMax: 3.0,
+  isScheduled: false,
+  scheduleInterval: 3600
 })
 
 // 计算属性
@@ -368,19 +395,28 @@ const startCrawling = async () => {
 
   starting.value = true
   try {
-    const response = await axios.post('/api/start_crawl', {
+    const requestData = {
       start_page: config.startPage,
       end_page: config.endPage,
       category: config.category,
       max_concurrent: config.maxConcurrent,
       delay_min: config.delayMin,
-      delay_max: config.delayMax
-    })
+      delay_max: config.delayMax,
+      is_scheduled: config.isScheduled,
+      schedule_interval: config.scheduleInterval
+    }
+
+    const response = await axios.post('/api/start_crawl', requestData)
 
     if (response.data.success) {
-      addLog('success', `任务已启动: ${response.data.task_id}`)
-      // 开始轮询任务状态
-      startPolling()
+      if (config.isScheduled) {
+        addLog('success', `定时任务已创建: ${response.data.task_id}`)
+        addLog('info', `执行间隔: ${config.scheduleInterval}秒`)
+      } else {
+        addLog('success', `任务已启动: ${response.data.task_id}`)
+        // 开始轮询任务状态
+        startPolling()
+      }
     } else {
       addLog('error', `启动失败: ${response.data.message}`)
     }

@@ -271,6 +271,7 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
+import axios from 'axios'
 
 // Props
 const props = defineProps({
@@ -391,9 +392,31 @@ const getOperatorOptions = (field) => {
   return []
 }
 
-const getSelectOptions = (field) => {
-  if (field === 'category') {
-    return [
+// 🔧 动态筛选选项
+const dynamicFilterOptions = ref({
+  categories: [],
+  statuses: []
+})
+
+// 加载动态筛选选项
+const loadDynamicFilterOptions = async () => {
+  try {
+    const response = await axios.get('/api/database/filter_options')
+    if (response.data.success) {
+      const options = response.data.filter_options
+
+      dynamicFilterOptions.value.categories = options.categories
+        .filter(cat => cat.value !== 'all')
+        .map(cat => ({ value: cat.value, title: cat.label }))
+
+      dynamicFilterOptions.value.statuses = options.statuses
+        .filter(status => status.value !== 'all')
+        .map(status => ({ value: status.value, title: status.label }))
+    }
+  } catch (error) {
+    console.error('❌ 加载动态筛选选项失败:', error)
+    // 使用默认选项
+    dynamicFilterOptions.value.categories = [
       { value: 'games', title: '游戏' },
       { value: 'publishing', title: '出版' },
       { value: 'tablegames', title: '桌游' },
@@ -402,13 +425,25 @@ const getSelectOptions = (field) => {
       { value: 'technology', title: '科技' },
       { value: 'others', title: '其他' }
     ]
-  } else if (field === 'project_status') {
-    return [
-      { value: 'active', title: '进行中' },
-      { value: 'completed', title: '已完成' },
-      { value: 'failed', title: '失败' },
-      { value: 'cancelled', title: '已取消' }
+
+    dynamicFilterOptions.value.statuses = [
+      { value: '创意', title: '创意' },
+      { value: '预热', title: '预热' },
+      { value: '众筹中', title: '众筹中' },
+      { value: '众筹成功', title: '众筹成功' },
+      { value: '项目终止', title: '项目终止' },
+      { value: '众筹失败', title: '众筹失败' },
+      { value: '众筹取消', title: '众筹取消' },
+      { value: '发起者众筹取消', title: '发起者众筹取消' }
     ]
+  }
+}
+
+const getSelectOptions = (field) => {
+  if (field === 'category') {
+    return dynamicFilterOptions.value.categories
+  } else if (field === 'project_status') {
+    return dynamicFilterOptions.value.statuses
   }
   return []
 }
@@ -573,8 +608,9 @@ const loadSavedConfigs = () => {
 }
 
 // 生命周期
-onMounted(() => {
+onMounted(async () => {
   loadSavedConfigs()
+  await loadDynamicFilterOptions()
 })
 </script>
 

@@ -76,6 +76,12 @@ class SpiderConfig:
     REQUEST_DELAY = (1.0, 3.0)  # 请求间隔（秒）
     BATCH_SIZE = 10  # 批处理大小
     SAVE_INTERVAL = 3  # 增量保存间隔（每N个项目保存一次）
+
+    # 后台定时任务配置
+    ENABLE_SCHEDULED_TASKS = True
+    MIN_SCHEDULE_INTERVAL = 5  # 最小调度间隔（秒）
+    DEFAULT_SCHEDULE_INTERVAL = 3600  # 默认调度间隔（1小时）
+    MAX_CONCURRENT_SCHEDULED_TASKS = 3  # 最大并发定时任务数
     
     # 数据存储配置
     OUTPUT_DIR = "data/raw"
@@ -130,7 +136,62 @@ class SpiderConfig:
     @classmethod
     def get_api_url(cls, endpoint: str) -> str:
         """获取API URL"""
+        # 确保endpoint以/开头
+        if not endpoint.startswith('/'):
+            endpoint = '/' + endpoint
         return f"{cls.API_BASE_URL}{endpoint}"
+
+    @classmethod
+    def load_from_yaml(cls, yaml_path: str = "config/spider_config.yaml"):
+        """从YAML配置文件加载配置，覆盖默认值"""
+        try:
+            import yaml
+            import os
+
+            if not os.path.exists(yaml_path):
+                print(f"⚠️ 配置文件不存在: {yaml_path}，使用默认配置")
+                return cls()
+
+            with open(yaml_path, 'r', encoding='utf-8') as f:
+                config_data = yaml.safe_load(f)
+
+            # 创建配置实例
+            instance = cls()
+
+            # 更新爬虫设置
+            spider_settings = config_data.get('spider_settings', {})
+            if 'max_concurrent_requests' in spider_settings:
+                instance.MAX_CONCURRENT_REQUESTS = spider_settings['max_concurrent_requests']
+            if 'request_delay' in spider_settings:
+                instance.REQUEST_DELAY = tuple(spider_settings['request_delay'])
+            if 'save_interval' in spider_settings:
+                instance.SAVE_INTERVAL = spider_settings['save_interval']
+            if 'max_retries' in spider_settings:
+                instance.MAX_RETRIES = spider_settings['max_retries']
+            if 'request_timeout' in spider_settings:
+                instance.TIMEOUT_RANGE = tuple(spider_settings['request_timeout'])
+            if 'retry_delay' in spider_settings:
+                instance.RETRY_DELAY = (spider_settings['retry_delay'], spider_settings['retry_delay'] * 2)
+
+            # 更新输出设置
+            output_settings = config_data.get('output_settings', {})
+            if 'output_dir' in output_settings:
+                instance.OUTPUT_DIR = output_settings['output_dir']
+            if 'cache_dir' in output_settings:
+                instance.CACHE_DIR = output_settings['cache_dir']
+            if 'excel_filename' in output_settings:
+                instance.EXCEL_FILENAME = output_settings['excel_filename']
+
+            print(f"✅ 已从 {yaml_path} 加载配置")
+            print(f"   - 并发数: {instance.MAX_CONCURRENT_REQUESTS}")
+            print(f"   - 请求延迟: {instance.REQUEST_DELAY}")
+            print(f"   - 保存间隔: {instance.SAVE_INTERVAL}")
+
+            return instance
+
+        except Exception as e:
+            print(f"❌ 加载YAML配置失败: {e}，使用默认配置")
+            return cls()
     
     @classmethod
     def create_directories(cls):

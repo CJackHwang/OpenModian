@@ -155,7 +155,8 @@ class SpiderCore:
     """爬虫核心类"""
 
     def __init__(self, config: SpiderConfig = None, web_monitor=None, db_manager=None):
-        self.config = config or SpiderConfig()
+        # 🔧 优先从YAML配置文件加载配置
+        self.config = config or SpiderConfig.load_from_yaml()
         self.config.create_directories()
 
         # Web UI监控器
@@ -188,13 +189,16 @@ class SpiderCore:
         # 进度回调
         self._progress_callback = None
 
-        # 增量保存配置
-        self.save_interval = getattr(self.config, 'SAVE_INTERVAL', 5)  # 每5个项目保存一次
+        # 🔧 动态保存配置：根据线程数调整保存间隔
+        base_save_interval = getattr(self.config, 'SAVE_INTERVAL', 3)
+        self.save_interval = max(1, min(base_save_interval, self.config.MAX_CONCURRENT_REQUESTS))
         self.current_task_id = None
         self.saved_count = 0  # 已保存的项目数量
 
         self._log("info", f"爬虫初始化完成，输出目录: {self.config.OUTPUT_DIR}")
-        self._log("info", f"增量保存间隔: 每{self.save_interval}个项目")
+        self._log("info", f"并发线程数: {self.config.MAX_CONCURRENT_REQUESTS}")
+        self._log("info", f"请求延迟范围: {self.config.REQUEST_DELAY[0]}-{self.config.REQUEST_DELAY[1]}秒")
+        self._log("info", f"动态保存间隔: 每{self.save_interval}个项目（基于{self.config.MAX_CONCURRENT_REQUESTS}线程优化）")
 
     # 清理方法已移除 - 现在使用轻量级API获取，无需复杂的资源管理
 
@@ -812,12 +816,20 @@ class SpiderCore:
 
                 self._log("success", f"📦 增量保存: 本次保存 {saved_count} 条，累计已保存 {self.saved_count} 条到数据库")
 
-                # 更新Web监控器统计
+                # 🔧 修复：更新Web监控器统计（支持定时任务监控器）
                 if self.web_monitor:
                     self.web_monitor.update_stats(
                         projects_processed=self.saved_count,
                         projects_found=len(self.projects_data)
                     )
+
+                    # 🔧 修复：如果是定时任务监控器，调用专门的方法
+                    if hasattr(self.web_monitor, 'increment_saved_count'):
+                        # 这是定时任务监控器，需要特殊处理
+                        self.web_monitor.set_final_stats(
+                            projects_found=len(self.projects_data),
+                            projects_saved=self.saved_count
+                        )
 
         except Exception as e:
             self._log("error", f"增量保存失败: {e}")
@@ -838,12 +850,23 @@ class SpiderCore:
 
                 self._log("success", f"🔄 最终检查: 补充保存 {saved_count} 条遗漏数据，累计已保存 {self.saved_count} 条到数据库")
 
-                # 更新Web监控器统计
+                # 🔧 修复：更新Web监控器统计（支持定时任务监控器）
                 if self.web_monitor:
                     self.web_monitor.update_stats(
                         projects_processed=self.saved_count,
                         projects_found=len(self.projects_data)
                     )
+
+                    # 🔧 修复：如果是定时任务监控器，调用专门的方法
+                    if hasattr(self.web_monitor, 'set_final_stats'):
+                        # 这是定时任务监控器，需要特殊处理
+                        # 🔧 修复：统计信息应该显示处理的项目数，不是保存的项目数
+                        processed_count = len(self.projects_data)  # 实际处理的项目数
+                        self.web_monitor.set_final_stats(
+                            projects_found=processed_count,
+                            projects_saved=processed_count  # 对于定时任务，处理即为保存
+                        )
+                        print(f"📊 定时任务统计更新: 处理{processed_count}个项目，数据库新增{self.saved_count}个")
             else:
                 self._log("success", f"✅ 数据保存完整性检查: 所有数据已通过增量保存机制保存完毕，累计 {self.saved_count} 条")
 

@@ -748,27 +748,68 @@ const pagination = reactive({
   itemsPerPage: 25
 })
 
-// 选项数据
-const categoryOptions = [
-  { value: 'games', title: '游戏' },
-  { value: 'publishing', title: '出版' },
-  { value: 'tablegames', title: '桌游' },
-  { value: 'toys', title: '潮玩模型' },
-  { value: 'cards', title: '卡牌' },
-  { value: 'technology', title: '科技' },
-  { value: 'others', title: '其他' }
-]
+// 🔧 动态选项数据
+const categoryOptions = ref([])
+const statusOptions = ref([])
+const authorOptions = ref([])
 
-const statusOptions = [
-  { value: '创意', title: '创意' },
-  { value: '预热', title: '预热' },
-  { value: '众筹中', title: '众筹中' },
-  { value: '众筹成功', title: '众筹成功' },
-  { value: '项目终止', title: '项目终止' },
-  { value: '众筹失败', title: '众筹失败' },
-  { value: '众筹取消', title: '众筹取消' },
-  { value: '未知情况', title: '未知情况' }
-]
+// 加载动态筛选选项
+const loadFilterOptions = async () => {
+  try {
+    const response = await axios.get('/api/database/filter_options')
+    if (response.data.success) {
+      const options = response.data.filter_options
+
+      // 更新分类选项
+      categoryOptions.value = options.categories.map(cat => ({
+        value: cat.value === 'all' ? '' : cat.value,
+        title: cat.label + (cat.count ? ` (${cat.count})` : '')
+      })).filter(cat => cat.value !== '') // 移除"全部"选项
+
+      // 更新状态选项
+      statusOptions.value = options.statuses.map(status => ({
+        value: status.value === 'all' ? '' : status.value,
+        title: status.label + (status.count ? ` (${status.count})` : '')
+      })).filter(status => status.value !== '') // 移除"全部"选项
+
+      // 更新作者选项（限制前50个）
+      authorOptions.value = options.authors.slice(0, 50).map(author => ({
+        value: author.value === 'all' ? '' : author.value,
+        title: author.label + (author.count ? ` (${author.count})` : '')
+      })).filter(author => author.value !== '') // 移除"全部"选项
+
+      console.log('✅ 动态筛选选项加载成功:', {
+        categories: categoryOptions.value.length,
+        statuses: statusOptions.value.length,
+        authors: authorOptions.value.length
+      })
+    }
+  } catch (error) {
+    console.error('❌ 加载筛选选项失败:', error)
+    // 使用默认选项作为后备
+    categoryOptions.value = [
+      { value: 'games', title: '游戏' },
+      { value: 'publishing', title: '出版' },
+      { value: 'tablegames', title: '桌游' },
+      { value: 'toys', title: '潮玩模型' },
+      { value: 'cards', title: '卡牌' },
+      { value: 'technology', title: '科技' },
+      { value: 'others', title: '其他' }
+    ]
+
+    statusOptions.value = [
+      { value: '创意', title: '创意' },
+      { value: '预热', title: '预热' },
+      { value: '众筹中', title: '众筹中' },
+      { value: '众筹成功', title: '众筹成功' },
+      { value: '项目终止', title: '项目终止' },
+      { value: '众筹失败', title: '众筹失败' },
+      { value: '众筹取消', title: '众筹取消' },
+      { value: '发起者众筹取消', title: '发起者众筹取消' },
+      { value: '未知情况', title: '未知情况' }
+    ]
+  }
+}
 
 // 表格列定义
 const headers = [
@@ -1217,7 +1258,9 @@ const getStatusText = (status) => {
 }
 
 // 生命周期
-onMounted(() => {
+onMounted(async () => {
+  // 先加载筛选选项，再搜索项目
+  await loadFilterOptions()
   searchProjects()
 })
 </script>
