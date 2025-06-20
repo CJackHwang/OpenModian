@@ -26,7 +26,7 @@ spider_settings:
   - 10
   - 20
   retry_delay: 2
-  save_interval: 3  # 每3个项目保存一次，防止数据丢失
+  save_interval: 6  # 每6个项目保存一次，防止数据丢失
 
 # 🔧 新增：并发控制配置
 concurrency_settings:
