@@ -13,25 +13,41 @@ from typing import List, Dict, Any, Optional
 from pathlib import Path
 import openpyxl
 from openpyxl.utils.exceptions import IllegalCharacterError
+import uuid
+import threading
+import time
 
 from .config import SpiderConfig, FieldMapping
 from .utils import FileUtils
 
 
 class DataExporter:
-    """数据导出器"""
-    
+    """数据导出器 - 支持并发安全的文件操作"""
+
     def __init__(self, config: SpiderConfig):
         self.config = config
         self.output_dir = Path(config.OUTPUT_DIR)
         self.output_dir.mkdir(parents=True, exist_ok=True)
-    
-    def export_to_excel(self, projects_data: List[List[Any]], 
-                       filename: Optional[str] = None) -> str:
-        """导出到Excel文件"""
-        if not filename:
+
+        # 🔧 并发控制：文件操作锁
+        self._file_lock = threading.Lock()
+        self._filename_counter = 0
+
+    def _generate_unique_filename(self, base_name: str, extension: str) -> str:
+        """生成唯一文件名，避免并发冲突"""
+        with self._file_lock:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"modian_projects_{timestamp}.xls"
+            microsecond = datetime.now().microsecond // 1000  # 毫秒精度
+            self._filename_counter += 1
+            unique_id = str(uuid.uuid4())[:8]
+
+            return f"{base_name}_{timestamp}_{microsecond:03d}_{self._filename_counter:03d}_{unique_id}.{extension}"
+
+    def export_to_excel(self, projects_data: List[List[Any]],
+                       filename: Optional[str] = None) -> str:
+        """导出到Excel文件 - 并发安全"""
+        if not filename:
+            filename = self._generate_unique_filename("modian_projects", "xls")
         
         file_path = self.output_dir / filename
         

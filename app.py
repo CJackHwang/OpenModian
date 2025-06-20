@@ -68,7 +68,9 @@ socketio = SocketIO(
 )
 CORS(app)  # 启用CORS支持
 
-# 全局变量
+# 🔧 全局变量 - 添加线程安全保护
+import threading
+_global_lock = threading.RLock()
 spider_instances = {}
 active_tasks = {}
 

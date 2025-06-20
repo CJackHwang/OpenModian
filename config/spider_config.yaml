@@ -27,6 +27,84 @@ spider_settings:
   - 20
   retry_delay: 2
   save_interval: 3  # 每3个项目保存一次，防止数据丢失
+
+# 🔧 新增：并发控制配置
+concurrency_settings:
+  # 数据库并发控制
+  max_db_connections: 10
+  db_connection_timeout: 30.0
+  db_lock_timeout: 10.0
+  enable_db_wal_mode: true  # 启用WAL模式支持并发读写
+
+  # 文件操作并发控制
+  max_file_operations: 5
+  file_operation_timeout: 30.0
+  enable_atomic_file_writes: true  # 启用原子文件写入
+
+  # 全局请求频率控制
+  global_request_rate_limit: 2.0  # 每秒最大请求数（所有爬虫实例总和）
+  enable_global_rate_limiting: true
+
+  # 任务调度并发控制
+  max_concurrent_scheduled_tasks: 3
+  task_check_interval: 5.0
+
+  # 资源监控配置
+  enable_resource_monitoring: true
+  memory_threshold_mb: 1024
+  cpu_threshold_percent: 80.0
+
+  # 错误处理和恢复
+  max_consecutive_errors: 5
+  error_backoff_factor: 2.0
+  max_retry_delay: 60.0
+
+# 🚀 新增：高级优化配置
+optimization_settings:
+  # 内存优化配置
+  memory_optimization:
+    enable_memory_monitoring: true
+    memory_threshold_mb: 1024
+    gc_threshold_percent: 80.0
+    monitoring_interval: 30.0
+    aggressive_cleanup_threshold: 1500
+
+  # 网络优化配置
+  network_optimization:
+    enable_connection_pooling: true
+    pool_connections: 20
+    pool_maxsize: 50
+    enable_smart_cache: true
+    cache_max_size_mb: 500
+    cache_max_age_seconds: 3600
+    enable_request_compression: true
+
+  # 错误恢复配置
+  error_recovery:
+    enable_smart_retry: true
+    max_retry_attempts: 3
+    base_retry_delay: 1.0
+    max_retry_delay: 60.0
+    backoff_factor: 2.0
+    enable_error_classification: true
+
+  # 性能调优配置
+  performance_tuning:
+    enable_auto_tuning: true
+    monitoring_interval: 10.0
+    cpu_threshold: 80.0
+    memory_threshold: 85.0
+    response_time_threshold: 5.0
+    error_rate_threshold: 10.0
+    tuning_cooldown: 120
+
+  # 数据流优化配置
+  data_streaming:
+    enable_streaming_processing: true
+    batch_size: 1000
+    buffer_size: 5000
+    enable_compression: true
+
 web_ui_settings:
   auto_open_browser: true
   debug: false

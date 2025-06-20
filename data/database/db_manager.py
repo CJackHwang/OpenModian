@@ -13,10 +13,13 @@ from typing import List, Dict, Any, Optional, Tuple
 import hashlib
 import shutil
 import os
+import threading
+import time
+from contextlib import contextmanager
 
 class DatabaseManager:
-    """数据库管理器"""
-    
+    """数据库管理器 - 支持并发访问"""
+
     def __init__(self, db_path: str = "data/database/modian_data.db"):
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -25,11 +28,71 @@ class DatabaseManager:
         self.backup_dir = Path("backups")
         self.backup_dir.mkdir(exist_ok=True)
 
+        # 🔧 并发控制：添加数据库锁和连接池
+        self._db_lock = threading.RLock()  # 可重入锁
+        self._connection_pool = []
+        self._pool_lock = threading.Lock()
+        self._max_connections = 10
+
+        # 初始化连接池
+        self._init_connection_pool()
         self.init_database()
-    
+
+    def _init_connection_pool(self):
+        """初始化数据库连接池"""
+        with self._pool_lock:
+            for _ in range(min(3, self._max_connections)):  # 初始创建3个连接
+                conn = sqlite3.connect(
+                    self.db_path,
+                    check_same_thread=False,  # 允许跨线程使用
+                    timeout=30.0  # 30秒超时
+                )
+                # 启用WAL模式以支持并发读写
+                conn.execute('PRAGMA journal_mode=WAL')
+                conn.execute('PRAGMA synchronous=NORMAL')
+                conn.execute('PRAGMA cache_size=10000')
+                conn.execute('PRAGMA temp_store=MEMORY')
+                self._connection_pool.append(conn)
+
+    @contextmanager
+    def get_connection(self):
+        """获取数据库连接的上下文管理器"""
+        conn = None
+        try:
+            with self._pool_lock:
+                if self._connection_pool:
+                    conn = self._connection_pool.pop()
+                else:
+                    # 连接池为空，创建新连接
+                    conn = sqlite3.connect(
+                        self.db_path,
+                        check_same_thread=False,
+                        timeout=30.0
+                    )
+                    conn.execute('PRAGMA journal_mode=WAL')
+                    conn.execute('PRAGMA synchronous=NORMAL')
+
+            yield conn
+
+        except Exception as e:
+            if conn:
+                conn.rollback()
+            raise e
+        finally:
+            if conn:
+                try:
+                    conn.commit()
+                    with self._pool_lock:
+                        if len(self._connection_pool) < self._max_connections:
+                            self._connection_pool.append(conn)
+                        else:
+                            conn.close()
+                except:
+                    conn.close()
+
     def init_database(self):
         """初始化数据库表结构"""
-        with sqlite3.connect(self.db_path) as conn:
+        with self.get_connection() as conn:
             cursor = conn.cursor()
             
             # 创建项目表
@@ -523,13 +586,15 @@ class DatabaseManager:
         return "、".join(change_items) if change_items else "无变化"
 
     def save_projects(self, projects_data, task_id: str = None) -> int:
-        """保存项目数据到数据库 - 支持列表和字典格式"""
+        """保存项目数据到数据库 - 支持列表和字典格式，线程安全"""
         saved_count = 0
         duplicate_count = 0
 
         try:
-            with sqlite3.connect(self.db_path) as conn:
-                cursor = conn.cursor()
+            # 🔧 使用数据库锁确保线程安全
+            with self._db_lock:
+                with self.get_connection() as conn:
+                    cursor = conn.cursor()
 
                 for project in projects_data:
                     try:
