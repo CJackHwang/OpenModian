@@ -228,6 +228,26 @@ class WebSpiderMonitor:
             print(f"Socket.IO发送更新失败: {e}")
             # 不抛出异常，避免影响爬虫主流程
 
+def cleanup_completed_task(task_id):
+    """清理单个已完成的任务"""
+    try:
+        # 清理爬虫实例
+        if task_id in spider_instances:
+            spider = spider_instances[task_id]
+            try:
+                spider._cleanup_lightning_managers()
+            except:
+                pass
+            del spider_instances[task_id]
+
+        # 清理任务记录
+        if task_id in active_tasks:
+            del active_tasks[task_id]
+            print(f"🧹 清理已完成任务: {task_id}")
+
+    except Exception as e:
+        print(f"清理任务 {task_id} 失败: {e}")
+
 def cleanup_old_tasks():
     """清理旧任务状态，避免冲突"""
     try:
@@ -239,21 +259,10 @@ def cleanup_old_tasks():
                 tasks_to_remove.append(task_id)
 
         for task_id in tasks_to_remove:
-            # 清理爬虫实例
-            if task_id in spider_instances:
-                spider = spider_instances[task_id]
-                try:
-                    spider._cleanup_lightning_managers()
-                except:
-                    pass
-                del spider_instances[task_id]
-
-            # 清理任务记录
-            if task_id in active_tasks:
-                del active_tasks[task_id]
+            cleanup_completed_task(task_id)
 
         if tasks_to_remove:
-            print(f"🧹 清理了 {len(tasks_to_remove)} 个旧任务状态")
+            print(f"🧹 批量清理了 {len(tasks_to_remove)} 个旧任务状态")
 
     except Exception as e:
         print(f"清理旧任务状态失败: {e}")
@@ -394,6 +403,16 @@ def start_crawl():
                     )
                     db_manager.update_task_status(task_id, 'completed', stats)
                     monitor.update_stats(status='completed')
+
+                    # 延迟清理任务状态，给前端时间显示完成状态
+                    def delayed_cleanup():
+                        import time
+                        time.sleep(5)  # 等待5秒让前端显示完成状态
+                        cleanup_completed_task(task_id)
+
+                    cleanup_thread = threading.Thread(target=delayed_cleanup)
+                    cleanup_thread.daemon = True
+                    cleanup_thread.start()
                 elif spider.is_stopped():
                     # 任务被停止，但数据已通过增量保存机制保存
                     total_saved = getattr(spider, 'saved_count', 0)
@@ -412,15 +431,45 @@ def start_crawl():
                     )
                     monitor.update_stats(status='stopped')
                     db_manager.update_task_status(task_id, 'stopped', stats)
+
+                    # 延迟清理任务状态
+                    def delayed_cleanup():
+                        import time
+                        time.sleep(5)
+                        cleanup_completed_task(task_id)
+
+                    cleanup_thread = threading.Thread(target=delayed_cleanup)
+                    cleanup_thread.daemon = True
+                    cleanup_thread.start()
                 else:
                     monitor.add_log('error', '❌ 爬取任务失败')
                     monitor.update_stats(status='failed')
                     db_manager.update_task_status(task_id, 'failed')
 
+                    # 延迟清理任务状态
+                    def delayed_cleanup():
+                        import time
+                        time.sleep(5)
+                        cleanup_completed_task(task_id)
+
+                    cleanup_thread = threading.Thread(target=delayed_cleanup)
+                    cleanup_thread.daemon = True
+                    cleanup_thread.start()
+
             except Exception as e:
                 monitor.add_log('error', f'爬取过程中出现错误: {str(e)}')
                 monitor.update_stats(status='error')
                 db_manager.update_task_status(task_id, 'error')
+
+                # 延迟清理任务状态
+                def delayed_cleanup():
+                    import time
+                    time.sleep(5)
+                    cleanup_completed_task(task_id)
+
+                cleanup_thread = threading.Thread(target=delayed_cleanup)
+                cleanup_thread.daemon = True
+                cleanup_thread.start()
         
         thread = threading.Thread(target=run_spider)
         thread.daemon = True
@@ -454,6 +503,16 @@ def stop_crawl(task_id):
 
                 # 更新数据库任务状态
                 db_manager.update_task_status(task_id, 'stopped')
+
+                # 延迟清理任务状态
+                def delayed_cleanup():
+                    import time
+                    time.sleep(5)
+                    cleanup_completed_task(task_id)
+
+                cleanup_thread = threading.Thread(target=delayed_cleanup)
+                cleanup_thread.daemon = True
+                cleanup_thread.start()
 
                 return jsonify({
                     'success': True,
@@ -1484,7 +1543,7 @@ def connect():
         print(f"❌ 连接处理错误: {e}")
 
 @socketio.event
-def disconnect(auth=None):
+def disconnect():
     """WebSocket断开连接"""
     try:
         print(f'🔌 客户端已断开: {request.sid}')

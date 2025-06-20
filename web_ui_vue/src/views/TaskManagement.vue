@@ -364,7 +364,10 @@ const filteredTasks = computed(() => {
 })
 
 const normalTasksCount = computed(() => {
-  return tasks.value.filter(task => task.task_type === 'normal').length
+  return tasks.value.filter(task =>
+    task.task_type === 'normal' &&
+    (task.stats.status === 'running' || task.stats.status === 'starting')
+  ).length
 })
 
 const activeScheduledTasksCount = computed(() => {
