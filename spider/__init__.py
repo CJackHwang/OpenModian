@@ -12,6 +12,13 @@
 - 并发控制
 """
 
+# 全局SSL警告抑制（仅用于开发环境）
+try:
+    import urllib3
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+except ImportError:
+    pass
+
 __version__ = "2.0.0"
 __author__ = "Spider Team"
 

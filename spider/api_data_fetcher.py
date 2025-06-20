@@ -11,9 +11,13 @@ import re
 from typing import Dict, Optional, Any
 from urllib.parse import urlparse
 import requests
+import urllib3
 
 from .crypto_utils import hex_md5, generate_timestamp
 from .config import SpiderConfig
+
+# 禁用SSL警告（仅用于开发环境）
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
 class ModianAPIFetcher:

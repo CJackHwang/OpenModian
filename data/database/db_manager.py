@@ -81,6 +81,23 @@ class DatabaseManager:
                     config_data TEXT
                 )
             ''')
+
+            # 🔧 修复：创建定时任务表
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS scheduled_tasks (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    task_id TEXT UNIQUE NOT NULL,
+                    name TEXT NOT NULL,
+                    config_data TEXT,
+                    interval_seconds INTEGER NOT NULL,
+                    next_run_time TIMESTAMP,
+                    is_active BOOLEAN DEFAULT 1,
+                    last_run_time TIMESTAMP,
+                    run_count INTEGER DEFAULT 0,
+                    last_status TEXT DEFAULT 'pending',
+                    created_time TIMESTAMP DEFAULT (datetime('now', 'localtime'))
+                )
+            ''')
             
             # 创建时间分类视图
             cursor.execute('''
@@ -100,6 +117,9 @@ class DatabaseManager:
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_crawl_time ON projects(crawl_time)')
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_category ON projects(category)')
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_task_id ON crawl_tasks(task_id)')
+            # 🔧 修复：为定时任务表创建索引
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_scheduled_task_id ON scheduled_tasks(task_id)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_scheduled_next_run ON scheduled_tasks(next_run_time)')
             
             conn.commit()
     

@@ -38,7 +38,29 @@
       >
         <!-- 任务ID列 -->
         <template #item.task_id="{ item }">
-          <code class="text-primary">{{ item.task_id.substring(0, 8) }}</code>
+          <div class="d-flex align-center">
+            <!-- 🔧 修复：添加任务类型图标识别 -->
+            <v-icon
+              :color="getTaskTypeColor(item.task_id)"
+              class="me-2"
+              size="small"
+            >
+              {{ getTaskTypeIcon(item.task_id) }}
+            </v-icon>
+            <code class="text-primary">{{ item.task_id.substring(0, 12) }}</code>
+          </div>
+        </template>
+
+        <!-- 🔧 修复：任务类型列 -->
+        <template #item.task_type="{ item }">
+          <v-chip
+            :color="getTaskTypeColor(item.task_id)"
+            variant="tonal"
+            size="small"
+          >
+            <v-icon start size="small">{{ getTaskTypeIcon(item.task_id) }}</v-icon>
+            {{ getTaskTypeText(item.task_id) }}
+          </v-chip>
         </template>
 
         <!-- 状态列 -->
@@ -156,7 +178,8 @@ const tasks = ref([])
 
 // 表格列定义
 const headers = [
-  { title: '任务ID', key: 'task_id', sortable: false, width: '120px' },
+  { title: '任务ID', key: 'task_id', sortable: false, width: '150px' },
+  { title: '类型', key: 'task_type', sortable: true, width: '100px' },
   { title: '状态', key: 'status', sortable: true, width: '120px' },
   { title: '配置', key: 'config', sortable: false, width: '150px' },
   { title: '处理结果', key: 'results', sortable: true, width: '120px' },
@@ -308,6 +331,28 @@ const formatDateTime = (dateStr) => {
   if (!dateStr) return ''
   // 确保正确处理时区，显示北京时间
   return dayjs(dateStr).tz('Asia/Shanghai').format('YYYY-MM-DD HH:mm:ss')
+}
+
+// 🔧 修复：添加任务类型识别方法
+const getTaskTypeIcon = (taskId) => {
+  if (taskId && taskId.includes('scheduled_')) {
+    return 'mdi-clock-outline'  // 定时任务图标
+  }
+  return 'mdi-play-circle'  // 普通任务图标
+}
+
+const getTaskTypeColor = (taskId) => {
+  if (taskId && taskId.includes('scheduled_')) {
+    return 'success'  // 定时任务用绿色
+  }
+  return 'primary'  // 普通任务用主色
+}
+
+const getTaskTypeText = (taskId) => {
+  if (taskId && taskId.includes('scheduled_')) {
+    return '定时任务'
+  }
+  return '手动任务'
 }
 
 // 生命周期

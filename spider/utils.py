@@ -20,8 +20,12 @@ from typing import Dict, List, Any, Optional, Tuple
 from pathlib import Path
 import requests
 from bs4 import BeautifulSoup
+import urllib3
 
 from .config import SpiderConfig, RegexPatterns
+
+# 禁用SSL警告（仅用于开发环境）
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
 class NetworkUtils:

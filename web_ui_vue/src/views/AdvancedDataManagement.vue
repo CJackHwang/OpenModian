@@ -242,21 +242,21 @@
 
       <!-- 表格容器，支持水平滚动 -->
       <div class="table-container" style="overflow-x: auto; width: 100%;">
-        <v-data-table
+        <!-- 🔧 修复：使用 v-data-table-server 实现服务器端分页 -->
+        <v-data-table-server
           v-model="selectedItems"
           :headers="headers"
           :items="projects"
           :loading="loading"
           :items-per-page="pagination.itemsPerPage"
           :page="pagination.page"
-          :server-items-length="totalCount"
+          :items-length="totalCount"
           class="elevation-0"
           item-value="id"
           show-select
           fixed-header
           :style="{ minWidth: '1200px' }"
-          @update:page="onPageChange"
-          @update:items-per-page="onItemsPerPageChange"
+          @update:options="onTableOptionsUpdate"
         >
         <!-- 项目名称列 -->
         <template #item.project_name="{ item }">
@@ -418,7 +418,7 @@
             </div>
           </div>
         </template>
-        </v-data-table>
+        </v-data-table-server>
       </div>
     </v-card>
 
@@ -935,8 +935,27 @@ const showAllProjects = () => {
   searchProjects()
 }
 
+// 🔧 修复：使用服务器端分页的统一事件处理
+const onTableOptionsUpdate = (options) => {
+  console.log('📊 表格选项更新:', options, '当前模式:', filterMode.value)
+
+  // 更新分页状态
+  pagination.page = options.page
+  pagination.itemsPerPage = options.itemsPerPage
+
+  // 根据当前模式调用相应的搜索方法
+  if (filterMode.value === 'simple') {
+    searchProjects()
+  } else {
+    searchProjectsAdvanced()
+  }
+}
+
+// 🔧 保留原有方法以兼容其他地方的调用
 const onPageChange = (page) => {
+  console.log('📄 分页切换:', page, '当前模式:', filterMode.value)
   pagination.page = page
+
   if (filterMode.value === 'simple') {
     searchProjects()
   } else {
@@ -945,8 +964,10 @@ const onPageChange = (page) => {
 }
 
 const onItemsPerPageChange = (itemsPerPage) => {
+  console.log('📊 每页条数变更:', itemsPerPage, '当前模式:', filterMode.value)
   pagination.itemsPerPage = itemsPerPage
-  pagination.page = 1
+  pagination.page = 1  // 重置到第一页
+
   if (filterMode.value === 'simple') {
     searchProjects()
   } else {

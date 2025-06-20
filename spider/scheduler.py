@@ -7,6 +7,7 @@
 import time
 import threading
 import json
+import sqlite3
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Callable
 from dataclasses import dataclass, asdict
@@ -22,6 +23,7 @@ class TaskExecutionRecord:
     status: str = "running"  # running, completed, failed, error
     result_summary: str = ""
     projects_processed: int = 0
+    projects_found: int = 0  # 🔧 修复：添加 projects_found 字段
     errors_count: int = 0
     duration_seconds: float = 0.0
 
@@ -366,21 +368,24 @@ class TaskScheduler:
 
                     # 🔧 修复：获取爬虫统计信息（优先级顺序修复）
                     projects_processed = 0
+                    projects_found = 0  # 🔧 修复：添加 projects_found 统计
                     errors_count = 0
 
                     # 🔧 修复：按优先级顺序获取统计信息
                     # 1. 优先从爬虫实例的saved_count获取（最准确）
                     if hasattr(spider, 'saved_count'):
                         projects_processed = getattr(spider, 'saved_count', 0)
+                        projects_found = len(getattr(spider, 'projects_data', []))
                         errors_count = len(getattr(spider, 'failed_urls', []))
-                        print(f"📊 从spider.saved_count获取统计: 保存{projects_processed}个项目，错误{errors_count}个")
+                        print(f"📊 从spider.saved_count获取统计: 发现{projects_found}个，保存{projects_processed}个项目，错误{errors_count}个")
 
                     # 2. 从web监控器获取统计信息（作为补充）
                     elif hasattr(spider, 'web_monitor') and spider.web_monitor:
                         monitor_stats = spider.web_monitor.stats
                         projects_processed = monitor_stats.get('projects_processed', 0)
+                        projects_found = monitor_stats.get('projects_found', 0)
                         errors_count = monitor_stats.get('errors_count', 0) or monitor_stats.get('failed_count', 0)
-                        print(f"📊 从web_monitor获取统计: 处理{projects_processed}个项目，错误{errors_count}个")
+                        print(f"📊 从web_monitor获取统计: 发现{projects_found}个，处理{projects_processed}个项目，错误{errors_count}个")
 
                         # 🔧 修复：如果监控器有saved_count属性，优先使用
                         if hasattr(spider.web_monitor, 'saved_count'):
@@ -389,16 +394,18 @@ class TaskScheduler:
 
                     # 3. 从项目数据列表获取（最后选择）
                     elif hasattr(spider, 'projects_data'):
-                        projects_processed = len(getattr(spider, 'projects_data', []))
+                        projects_found = len(getattr(spider, 'projects_data', []))
+                        projects_processed = projects_found  # 假设都处理了
                         errors_count = len(getattr(spider, 'failed_urls', []))
-                        print(f"📊 从projects_data获取统计: 发现{projects_processed}个项目，错误{errors_count}个")
+                        print(f"📊 从projects_data获取统计: 发现{projects_found}个项目，错误{errors_count}个")
 
                     else:
                         print(f"⚠️ 无法获取爬虫统计信息，spider属性: {[attr for attr in dir(spider) if not attr.startswith('_')]}")
 
                     execution_record.projects_processed = projects_processed
+                    execution_record.projects_found = projects_found  # 🔧 修复：设置 projects_found
                     execution_record.errors_count = errors_count
-                    execution_record.result_summary += f"，处理项目{projects_processed}个"
+                    execution_record.result_summary += f"，发现{projects_found}个，处理{projects_processed}个项目"
 
                     if errors_count > 0:
                         execution_record.result_summary += f"，失败{errors_count}个"
@@ -424,20 +431,17 @@ class TaskScheduler:
                 if len(task.execution_history) > 50:
                     task.execution_history = task.execution_history[-50:]
 
-                # 🔧 修复：异步更新数据库，避免阻塞调度器
+                # 🔧 修复：保存定时任务执行记录到历史任务数据库
                 if self.db_manager:
                     try:
-                        # 使用单独线程保存数据库，避免阻塞主调度循环
-                        def save_to_db():
-                            try:
-                                self._save_scheduled_task_to_db(task)
-                            except Exception as e:
-                                print(f"⚠️ 异步保存定时任务到数据库失败: {e}")
+                        # 1. 保存定时任务本身的状态
+                        self._save_scheduled_task_to_db(task)
 
-                        db_thread = threading.Thread(target=save_to_db, daemon=True)
-                        db_thread.start()
+                        # 2. 🔧 新增：将定时任务执行记录保存到历史任务表
+                        self._save_execution_to_history(task, execution_record)
+
                     except Exception as e:
-                        print(f"⚠️ 启动数据库保存线程失败: {e}")
+                        print(f"⚠️ 保存定时任务执行记录失败: {e}")
 
             except Exception as e:
                 print(f"❌ 定时任务执行失败: {task.name} - {e}")
@@ -512,16 +516,76 @@ class TaskScheduler:
     def _save_scheduled_task_to_db(self, task: ScheduledTask):
         """保存定时任务到数据库"""
         try:
-            # 这里需要实现数据库保存逻辑
-            # 暂时使用JSON文件保存
-            pass
+            # 将任务配置转换为JSON字符串
+            config_json = json.dumps(task.config, ensure_ascii=False)
+
+            # 保存到scheduled_tasks表
+            with sqlite3.connect(self.db_manager.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute('''
+                    INSERT OR REPLACE INTO scheduled_tasks
+                    (task_id, name, config_data, interval_seconds, next_run_time,
+                     is_active, last_run_time, run_count, last_status)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (
+                    task.task_id,
+                    task.name,
+                    config_json,
+                    task.interval_seconds,
+                    task.next_run_time.isoformat() if task.next_run_time else None,
+                    task.is_active,
+                    task.last_run_time.isoformat() if task.last_run_time else None,
+                    task.run_count,
+                    task.last_status
+                ))
+                conn.commit()
+
         except Exception as e:
             print(f"保存定时任务到数据库失败: {e}")
-    
+
+    def _save_execution_to_history(self, task: ScheduledTask, execution_record: TaskExecutionRecord):
+        """🔧 新增：将定时任务执行记录保存到历史任务表"""
+        try:
+            # 创建一个历史任务记录，用于在历史任务页面显示
+            history_task_id = f"{task.task_id}_exec_{task.run_count}"
+
+            # 将任务配置转换为JSON字符串
+            config_json = json.dumps(task.config, ensure_ascii=False)
+
+            # 保存到crawl_tasks表（历史任务表）
+            with sqlite3.connect(self.db_manager.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute('''
+                    INSERT OR REPLACE INTO crawl_tasks
+                    (task_id, start_page, end_page, category, start_time, end_time,
+                     status, projects_found, projects_processed, errors_count, config_data)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (
+                    history_task_id,
+                    task.config.get('start_page', 1),
+                    task.config.get('end_page', 10),
+                    task.config.get('category', 'all'),
+                    execution_record.start_time.isoformat() if execution_record.start_time else None,
+                    execution_record.end_time.isoformat() if execution_record.end_time else None,
+                    execution_record.status,
+                    execution_record.projects_found or 0,
+                    execution_record.projects_processed or 0,
+                    execution_record.errors_count or 0,
+                    config_json
+                ))
+                conn.commit()
+
+            print(f"✅ 定时任务执行记录已保存到历史任务表: {history_task_id}")
+
+        except Exception as e:
+            print(f"❌ 保存定时任务执行记录到历史任务表失败: {e}")
+
     def _remove_scheduled_task_from_db(self, task_id: str):
         """从数据库删除定时任务"""
         try:
-            # 这里需要实现数据库删除逻辑
-            pass
+            with sqlite3.connect(self.db_manager.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute('DELETE FROM scheduled_tasks WHERE task_id = ?', (task_id,))
+                conn.commit()
         except Exception as e:
             print(f"从数据库删除定时任务失败: {e}")
