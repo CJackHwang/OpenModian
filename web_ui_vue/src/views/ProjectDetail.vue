@@ -664,13 +664,4 @@ function getStatusColor(status) {
 .v-timeline-item {
   padding-bottom: 8px;
 }
-
-.v-card {
-  transition: all 0.3s ease;
-}
-
-.v-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-}
 </style>

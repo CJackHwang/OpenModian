@@ -16,9 +16,9 @@
 
       <v-toolbar-title class="app-title">
         <div class="d-flex align-center">
-          <div class="app-icon-container me-3">
-            <v-icon icon="mdi-bug" :size="titleIconSize" />
-          </div>
+          <v-avatar color="primary" class="me-3" :size="titleIconSize">
+            <v-icon icon="mdi-bug" />
+          </v-avatar>
           <div class="title-text">
             <span class="font-weight-medium d-none d-sm-inline">
               摩点爬虫管理系统
@@ -84,11 +84,11 @@
       :permanent="!isMobile"
     >
       <!-- 抽屉头部 -->
-      <div class="drawer-header">
+      <div class="pa-6">
         <div class="d-flex align-center">
-          <div class="drawer-icon-container me-4">
-            <v-icon icon="mdi-bug" :size="drawerIconSize" />
-          </div>
+          <v-avatar color="primary" class="me-4" :size="drawerIconSize">
+            <v-icon icon="mdi-bug" />
+          </v-avatar>
           <div class="drawer-title-container">
             <div class="text-h6 font-weight-medium">摩点爬虫</div>
             <div class="text-body-2 opacity-80">管理系统</div>
@@ -341,29 +341,11 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* 应用栏样式 */
-.app-bar {
-  border-bottom: 1px solid rgba(0, 0, 0, 0.12);
-  backdrop-filter: blur(10px);
-  transition: all 0.3s ease;
-}
-
+/* 基础布局样式 */
 .app-title {
   display: flex;
   align-items: center;
   font-weight: 500;
-}
-
-.app-icon-container {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
-  background: rgba(25, 118, 210, 0.1);
-  border: 1px solid rgba(25, 118, 210, 0.2);
-  transition: all 0.3s ease;
 }
 
 .title-text {
@@ -372,54 +354,6 @@ onMounted(() => {
 
 .app-actions {
   gap: 8px;
-}
-
-.status-chip {
-  font-weight: 500;
-  letter-spacing: 0.1px;
-}
-
-.theme-toggle,
-.refresh-button {
-  transition: all 0.3s ease;
-
-  &:hover {
-    transform: scale(1.05);
-  }
-}
-
-.nav-icon {
-  transition: all 0.3s ease;
-
-  &:hover {
-    transform: rotate(90deg);
-  }
-}
-
-/* 导航抽屉样式 */
-.navigation-drawer {
-  border-right: 1px solid rgba(0, 0, 0, 0.12);
-}
-
-.drawer-header {
-  padding: 32px 24px 24px;
-  background: linear-gradient(135deg, #e3f2fd 0%, rgba(227, 242, 253, 0.8) 100%);
-  color: #1976d2;
-  border-radius: 0 0 16px 16px;
-  margin-bottom: 16px;
-}
-
-.drawer-icon-container {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 56px;
-  height: 56px;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.2);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  transition: all 0.3s ease;
 }
 
 .drawer-title-container {
@@ -432,18 +366,12 @@ onMounted(() => {
 
 .nav-item {
   margin-bottom: 8px;
-  transition: all 0.3s ease;
-
-  &:hover {
-    transform: translateX(4px);
-  }
 }
 
 .drawer-footer {
   margin-top: auto;
 }
 
-/* 主内容区域样式 */
 .main-content {
   min-height: 100vh;
 }
@@ -457,17 +385,6 @@ onMounted(() => {
   @media (max-width: 960px) {
     padding: 16px;
   }
-}
-
-.icon-container {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 56px;
-  height: 56px;
-  border-radius: 16px;
-  background-color: rgba(255, 255, 255, 0.2);
-  backdrop-filter: blur(10px);
 }
 
 .opacity-80 {

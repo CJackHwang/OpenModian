@@ -616,9 +616,6 @@ onMounted(async () => {
 
 <style scoped>
 .sql-preview {
-  background: #f5f5f5;
-  padding: 16px;
-  border-radius: 4px;
   font-family: 'Courier New', monospace;
   white-space: pre-wrap;
   word-break: break-all;

@@ -1287,39 +1287,9 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.v-data-table {
-  background: transparent;
-}
-
-.v-card-title {
-  background: rgba(var(--v-theme-surface-variant), 0.1);
-}
-
-/* 表格容器滚动样式 */
 .table-container {
   overflow-x: auto;
   width: 100%;
-  /* 自定义滚动条样式 */
-  scrollbar-width: thin;
-  scrollbar-color: rgba(var(--v-theme-primary), 0.3) transparent;
-}
-
-.table-container::-webkit-scrollbar {
-  height: 8px;
-}
-
-.table-container::-webkit-scrollbar-track {
-  background: rgba(var(--v-theme-surface-variant), 0.1);
-  border-radius: 4px;
-}
-
-.table-container::-webkit-scrollbar-thumb {
-  background: rgba(var(--v-theme-primary), 0.3);
-  border-radius: 4px;
-}
-
-.table-container::-webkit-scrollbar-thumb:hover {
-  background: rgba(var(--v-theme-primary), 0.5);
 }
 
 /* 表格固定最小宽度，防止列压缩 */

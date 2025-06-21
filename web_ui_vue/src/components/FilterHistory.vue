@@ -225,10 +225,5 @@ onMounted(() => {
 <style scoped>
 .history-item {
   cursor: pointer;
-  transition: background-color 0.2s ease;
-}
-
-.history-item:hover {
-  background-color: rgba(var(--v-theme-primary), 0.05);
 }
 </style>

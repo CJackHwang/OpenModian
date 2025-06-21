@@ -1,16 +1,16 @@
 <template>
   <div>
     <!-- 页面标题 -->
-    <div class="page-header mb-8">
+    <div class="mb-8">
       <div class="d-flex align-center">
-        <div class="title-icon-container me-4">
-          <v-icon icon="mdi-view-dashboard" :size="titleIconSize" />
-        </div>
-        <div class="title-content">
-          <h1 class="page-title mb-1">
+        <v-avatar color="primary" class="me-4" :size="titleIconSize">
+          <v-icon icon="mdi-view-dashboard" />
+        </v-avatar>
+        <div class="flex-grow-1">
+          <h1 class="text-h4 font-weight-bold mb-1">
             仪表板
           </h1>
-          <p class="page-subtitle">
+          <p class="text-subtitle-1 text-medium-emphasis">
             系统概览和实时状态监控
           </p>
         </div>
@@ -18,110 +18,67 @@
     </div>
 
     <!-- 统计卡片 -->
-    <div class="stats-grid mb-10">
-      <v-card
-        class="stats-card stats-card--primary"
-        color="primary"
-        elevation="2"
-      >
-        <v-card-text class="text-center pa-6">
-          <div class="stats-icon-wrapper mb-4">
-            <v-icon icon="mdi-database" :size="statsIconSize" class="stats-icon" />
-          </div>
-          <div class="stats-number text-white mb-2">
-            {{ appStore.systemStats.totalProjects }}
-          </div>
-          <div class="stats-title text-white mb-1">总项目数</div>
-          <div class="stats-subtitle text-white">累计爬取项目</div>
-        </v-card-text>
-      </v-card>
+    <v-row class="mb-10">
+      <v-col cols="12" sm="6" md="3">
+        <v-card color="primary" elevation="2">
+          <v-card-text class="text-center pa-6">
+            <v-avatar color="primary-container" size="80" class="mb-4">
+              <v-icon icon="mdi-database" :size="statsIconSize" color="on-primary-container" />
+            </v-avatar>
+            <div class="text-h4 font-weight-bold text-white mb-2">
+              {{ appStore.systemStats.totalProjects }}
+            </div>
+            <div class="text-subtitle-1 text-white mb-1">总项目数</div>
+            <div class="text-body-2 text-white opacity-80">累计爬取项目</div>
+          </v-card-text>
+        </v-card>
+      </v-col>
 
-      <v-card
-        class="stats-card stats-card--secondary"
-        color="secondary"
-        elevation="2"
-      >
-        <v-card-text class="text-center pa-6">
-          <div class="stats-icon-wrapper mb-4">
-            <v-icon icon="mdi-calendar-today" :size="statsIconSize" class="stats-icon" />
-          </div>
-          <div class="stats-number text-white mb-2">
-            {{ appStore.systemStats.todayProjects }}
-          </div>
-          <div class="stats-title text-white mb-1">今日新增</div>
-          <div class="stats-subtitle text-white">今天爬取项目</div>
-        </v-card-text>
-      </v-card>
+      <v-col cols="12" sm="6" md="3">
+        <v-card color="secondary" elevation="2">
+          <v-card-text class="text-center pa-6">
+            <v-avatar color="secondary-container" size="80" class="mb-4">
+              <v-icon icon="mdi-calendar-today" :size="statsIconSize" color="on-secondary-container" />
+            </v-avatar>
+            <div class="text-h4 font-weight-bold text-white mb-2">
+              {{ appStore.systemStats.todayProjects }}
+            </div>
+            <div class="text-subtitle-1 text-white mb-1">今日新增</div>
+            <div class="text-body-2 text-white opacity-80">今天爬取项目</div>
+          </v-card-text>
+        </v-card>
+      </v-col>
 
-      <v-card
-        class="stats-card stats-card--tertiary"
-        color="success"
-        elevation="2"
-      >
-        <v-card-text class="text-center pa-6">
-          <div class="stats-icon-wrapper mb-4">
-            <v-icon icon="mdi-calendar-week" :size="statsIconSize" class="stats-icon" />
-          </div>
-          <div class="stats-number text-white mb-2">
-            {{ appStore.systemStats.weekProjects }}
-          </div>
-          <div class="stats-title text-white mb-1">本周新增</div>
-          <div class="stats-subtitle text-white">本周爬取项目</div>
-        </v-card-text>
-      </v-card>
+      <v-col cols="12" sm="6" md="3">
+        <v-card color="success" elevation="2">
+          <v-card-text class="text-center pa-6">
+            <v-avatar color="success-container" size="80" class="mb-4">
+              <v-icon icon="mdi-calendar-week" :size="statsIconSize" color="on-success-container" />
+            </v-avatar>
+            <div class="text-h4 font-weight-bold text-white mb-2">
+              {{ appStore.systemStats.weekProjects }}
+            </div>
+            <div class="text-subtitle-1 text-white mb-1">本周新增</div>
+            <div class="text-body-2 text-white opacity-80">本周爬取项目</div>
+          </v-card-text>
+        </v-card>
+      </v-col>
 
-      <v-card
-        class="stats-card stats-card--surface"
-        color="info"
-        elevation="2"
-      >
-        <v-card-text class="text-center pa-6">
-          <div class="stats-icon-wrapper mb-4">
-            <v-icon icon="mdi-cog" :size="statsIconSize" class="stats-icon" />
-          </div>
-          <div class="stats-number text-white mb-2">
-            {{ appStore.systemStats.activeTasks }}
-          </div>
-          <div class="stats-title text-white mb-1">活跃任务</div>
-          <div class="stats-subtitle text-white">正在运行任务</div>
-        </v-card-text>
-      </v-card>
-
-      <!-- 超大屏幕额外统计卡片 -->
-      <v-card
-        class="stats-card stats-card--extra stats-card--growth d-none d-xxl-flex"
-        color="success"
-        elevation="2"
-      >
-        <v-card-text class="text-center pa-6">
-          <div class="stats-icon-wrapper mb-4">
-            <v-icon icon="mdi-chart-line" :size="statsIconSize" class="stats-icon" />
-          </div>
-          <div class="stats-number text-white mb-2">
-            {{ Math.round((appStore.systemStats.todayProjects / appStore.systemStats.totalProjects) * 100) || 0 }}%
-          </div>
-          <div class="stats-title text-white mb-1">增长率</div>
-          <div class="stats-subtitle text-white">今日增长比例</div>
-        </v-card-text>
-      </v-card>
-
-      <v-card
-        class="stats-card stats-card--extra stats-card--average d-none d-xxl-flex"
-        color="warning"
-        elevation="2"
-      >
-        <v-card-text class="text-center pa-6">
-          <div class="stats-icon-wrapper mb-4">
-            <v-icon icon="mdi-trending-up" :size="statsIconSize" class="stats-icon" />
-          </div>
-          <div class="stats-number text-white mb-2">
-            {{ Math.round(appStore.systemStats.weekProjects / 7) || 0 }}
-          </div>
-          <div class="stats-title text-white mb-1">日均新增</div>
-          <div class="stats-subtitle text-white">本周平均值</div>
-        </v-card-text>
-      </v-card>
-    </div>
+      <v-col cols="12" sm="6" md="3">
+        <v-card color="info" elevation="2">
+          <v-card-text class="text-center pa-6">
+            <v-avatar color="info-container" size="80" class="mb-4">
+              <v-icon icon="mdi-cog" :size="statsIconSize" color="on-info-container" />
+            </v-avatar>
+            <div class="text-h4 font-weight-bold text-white mb-2">
+              {{ appStore.systemStats.activeTasks }}
+            </div>
+            <div class="text-subtitle-1 text-white mb-1">活跃任务</div>
+            <div class="text-body-2 text-white opacity-80">正在运行任务</div>
+          </v-card-text>
+        </v-card>
+      </v-col>
+    </v-row>
 
     <!-- 主要内容区域 - 响应式布局 -->
     <v-row>
@@ -323,158 +280,8 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* 页面头部样式 */
-.page-header {
-  margin-bottom: 32px;
-}
-
-.title-icon-container {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 64px;
-  height: 64px;
-  border-radius: 16px;
-  background: linear-gradient(135deg, rgba(25, 118, 210, 0.1) 0%, rgba(25, 118, 210, 0.2) 100%);
-  border: 1px solid rgba(25, 118, 210, 0.2);
-  transition: all 0.3s ease;
-}
-
-.title-content {
-  flex: 1;
-}
-
-.page-title {
-  font-size: 2rem;
-  font-weight: 500;
-  line-height: 1.2;
-  letter-spacing: -0.01em;
-}
-
-.page-subtitle {
-  font-size: 1rem;
-  line-height: 1.5;
-  opacity: 0.87;
-}
-
-/* 统计网格布局 */
-.stats-grid {
-  display: grid;
-  gap: 24px;
-  margin-bottom: 40px;
-
-  /* 手机：单列 */
-  grid-template-columns: 1fr;
-
-  /* 平板：双列 */
-  @media (min-width: 600px) {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 20px;
-  }
-
-  /* 中等屏幕：三列 */
-  @media (min-width: 960px) {
-    grid-template-columns: repeat(3, 1fr);
-    gap: 20px;
-  }
-
-  /* 大屏幕：四列 */
-  @media (min-width: 1264px) {
-    grid-template-columns: repeat(4, 1fr);
-    gap: 24px;
-  }
-
-  /* 超大屏幕：六列 */
-  @media (min-width: 2560px) {
-    grid-template-columns: repeat(6, 1fr);
-    gap: 28px;
-  }
-}
-
-/* 统计卡片样式 */
-.stats-card {
-  transition: all 0.3s ease;
-  cursor: pointer;
-  position: relative;
-  overflow: hidden;
-
-  &:hover {
-    transform: translateY(-4px);
-
-    .stats-icon-wrapper {
-      transform: scale(1.05);
-    }
-  }
-
-  &.stats-card--extra {
-    /* 超大屏幕才显示的额外卡片 */
-    @media (max-width: 2559px) {
-      display: none !important;
-    }
-  }
-}
-
-.stats-icon-wrapper {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  width: 80px;
-  height: 80px;
-  border-radius: 20px;
-  background: rgba(255, 255, 255, 0.2);
-  margin: 0 auto;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  transition: all 0.3s ease;
-
-  @media (max-width: 599px) {
-    width: 72px;
-    height: 72px;
-    border-radius: 18px;
-  }
-}
-
-.stats-icon {
-  opacity: 0.95;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
-  transition: all 0.3s ease;
-}
-
-.stats-number {
-  font-size: 2.5rem;
-  font-weight: 600;
-  line-height: 1;
-
-  @media (max-width: 599px) {
-    font-size: 2rem;
-  }
-}
-
-.stats-title {
-  font-size: 1rem;
-  font-weight: 500;
-
-  @media (max-width: 599px) {
-    font-size: 0.875rem;
-  }
-}
-
-.stats-subtitle {
-  font-size: 0.875rem;
+/* 基础样式 */
+.opacity-80 {
   opacity: 0.8;
-
-  @media (max-width: 599px) {
-    font-size: 0.75rem;
-  }
-}
-
-
-
-/* 响应式优化 */
-@media (max-width: 599px) {
-  .title-icon-container {
-    width: 56px;
-    height: 56px;
-    border-radius: 14px;
-  }
 }
 </style>

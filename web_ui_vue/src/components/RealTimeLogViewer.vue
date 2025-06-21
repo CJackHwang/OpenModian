@@ -477,53 +477,16 @@ onUnmounted(() => {
   font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', 'Monaco', 'Courier New', monospace;
   font-size: 13px;
   line-height: 1.5;
-  background-color: rgb(var(--v-theme-surface-container));
   padding: 12px;
-  border-radius: 8px;
-  border: 1px solid rgba(var(--v-theme-outline-variant), 0.2);
-
-  /* 深色模式优化 */
-  .v-theme--dark & {
-    background-color: rgb(var(--v-theme-surface-container-low));
-    border-color: rgba(var(--v-theme-outline), 0.2);
-  }
 }
 
 .log-entry {
   padding: 4px 8px;
   margin: 2px 0;
-  border-radius: 4px;
-  border-left: 3px solid transparent;
   word-wrap: break-word;
-  transition: all 0.2s ease;
-
-  &:hover {
-    background-color: rgba(var(--v-theme-primary), 0.08);
-    border-left-color: rgb(var(--v-theme-primary));
-  }
-
-  /* 不同日志级别的样式 */
-  &.log-debug {
-    border-left-color: rgba(var(--v-theme-on-surface-variant), 0.3);
-  }
-
-  &.log-info {
-    border-left-color: rgb(var(--v-theme-info));
-  }
-
-  &.log-warning {
-    border-left-color: rgb(var(--v-theme-warning));
-    background-color: rgba(var(--v-theme-warning), 0.05);
-  }
-
-  &.log-error {
-    border-left-color: rgb(var(--v-theme-error));
-    background-color: rgba(var(--v-theme-error), 0.05);
-  }
 }
 
 .log-timestamp {
-  color: rgb(var(--v-theme-on-surface-variant));
   margin-right: 12px;
   font-size: 12px;
   opacity: 0.8;
@@ -533,60 +496,17 @@ onUnmounted(() => {
   font-weight: 600;
   margin-right: 8px;
   padding: 2px 6px;
-  border-radius: 4px;
   font-size: 11px;
-
-  /* 不同级别的颜色 */
-  &.log-level-debug {
-    background-color: rgba(var(--v-theme-on-surface-variant), 0.1);
-    color: rgb(var(--v-theme-on-surface-variant));
-  }
-
-  &.log-level-info {
-    background-color: rgba(var(--v-theme-info), 0.1);
-    color: rgb(var(--v-theme-info));
-  }
-
-  &.log-level-warning {
-    background-color: rgba(var(--v-theme-warning), 0.1);
-    color: rgb(var(--v-theme-warning));
-  }
-
-  &.log-level-error {
-    background-color: rgba(var(--v-theme-error), 0.1);
-    color: rgb(var(--v-theme-error));
-  }
 }
 
 .log-source {
-  color: rgb(var(--v-theme-primary));
   margin-right: 8px;
   font-size: 12px;
   font-weight: 500;
 }
 
 .log-message {
-  color: rgb(var(--v-theme-on-surface));
   flex: 1;
   word-break: break-word;
-}
-
-/* 滚动条样式 */
-.log-container::-webkit-scrollbar {
-  width: 8px;
-}
-
-.log-container::-webkit-scrollbar-track {
-  background: rgba(var(--v-theme-on-surface), 0.1);
-  border-radius: 4px;
-}
-
-.log-container::-webkit-scrollbar-thumb {
-  background: rgba(var(--v-theme-on-surface), 0.3);
-  border-radius: 4px;
-}
-
-.log-container::-webkit-scrollbar-thumb:hover {
-  background: rgba(var(--v-theme-on-surface), 0.5);
 }
 </style>
