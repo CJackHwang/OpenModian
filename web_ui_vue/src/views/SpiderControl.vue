@@ -301,37 +301,11 @@
         </v-card>
 
         <!-- 实时日志 -->
-        <v-card elevation="2">
-          <v-card-title class="d-flex align-center">
-            <v-icon icon="mdi-console" class="me-3" />
-            实时日志
-            <v-spacer />
-            <v-btn
-              icon="mdi-delete"
-              variant="text"
-              size="small"
-              @click="clearLogs"
-              :disabled="!logs.length"
-            />
-          </v-card-title>
-
-          <v-card-text class="pa-0">
-            <div class="log-container">
-              <div v-if="logs.length === 0" class="text-center pa-4 text-medium-emphasis">
-                暂无日志信息
-              </div>
-              <div
-                v-for="(log, index) in logs"
-                :key="index"
-                :class="['log-entry', `log-${log.level}`]"
-              >
-                <span class="log-timestamp">[{{ log.timestamp }}]</span>
-                <span class="log-level">[{{ log.level.toUpperCase() }}]</span>
-                <span class="log-message">{{ log.message }}</span>
-              </div>
-            </div>
-          </v-card-text>
-        </v-card>
+        <RealTimeLogViewer
+          height="400px"
+          :max-logs="500"
+          :auto-scroll="true"
+        />
       </v-col>
     </v-row>
   </div>
@@ -341,8 +315,7 @@
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { useAppStore } from '@/stores/app'
 import axios from 'axios'
-import pageCache from '@/utils/pageCache'
-import socketManager from '@/utils/socketManager'
+import RealTimeLogViewer from '@/components/RealTimeLogViewer.vue'
 
 const appStore = useAppStore()
 
@@ -351,7 +324,6 @@ const formValid = ref(false)
 const starting = ref(false)
 const stopping = ref(false)
 const categories = ref([])
-const logs = ref([])
 const currentTask = ref(null)
 
 // 配置数据
@@ -374,7 +346,8 @@ const isRunning = computed(() => {
 // 方法
 const loadDefaultConfig = async () => {
   try {
-    const response = await axios.get('/api/config')
+    // 优先使用包含用户设置的配置API
+    const response = await axios.get('/api/config/with_user_settings')
     if (response.data.success) {
       const defaultConfig = response.data.config
       config.startPage = defaultConfig.start_page
@@ -384,6 +357,23 @@ const loadDefaultConfig = async () => {
       config.delayMin = defaultConfig.delay_min
       config.delayMax = defaultConfig.delay_max
       categories.value = defaultConfig.categories
+
+      console.log('✅ 已加载用户设置配置:', defaultConfig)
+    } else {
+      // 如果新API失败，回退到原API
+      const fallbackResponse = await axios.get('/api/config')
+      if (fallbackResponse.data.success) {
+        const defaultConfig = fallbackResponse.data.config
+        config.startPage = defaultConfig.start_page
+        config.endPage = defaultConfig.end_page
+        config.category = defaultConfig.category
+        config.maxConcurrent = defaultConfig.max_concurrent
+        config.delayMin = defaultConfig.delay_min
+        config.delayMax = defaultConfig.delay_max
+        categories.value = defaultConfig.categories
+
+        console.log('⚠️ 使用默认配置（用户设置API不可用）')
+      }
     }
   } catch (error) {
     console.error('加载默认配置失败:', error)
@@ -410,18 +400,59 @@ const startCrawling = async () => {
 
     if (response.data.success) {
       if (config.isScheduled) {
-        addLog('success', `定时任务已创建: ${response.data.task_id}`)
-        addLog('info', `执行间隔: ${config.scheduleInterval}秒`)
+        console.log(`✅ 定时任务已创建: ${response.data.task_id}`)
+        // 通过WebSocket发送日志
+        if (appStore.socket && appStore.socket.connected) {
+          appStore.socket.emit('log_manual', {
+            log_type: 'webui',
+            level: 'info',
+            message: `定时任务已创建: ${response.data.task_id}`,
+            source: 'spider-control'
+          })
+          appStore.socket.emit('log_manual', {
+            log_type: 'webui',
+            level: 'info',
+            message: `执行间隔: ${config.scheduleInterval}秒`,
+            source: 'spider-control'
+          })
+        }
       } else {
-        addLog('success', `任务已启动: ${response.data.task_id}`)
+        console.log(`✅ 任务已启动: ${response.data.task_id}`)
+        // 通过WebSocket发送日志
+        if (appStore.socket && appStore.socket.connected) {
+          appStore.socket.emit('log_manual', {
+            log_type: 'webui',
+            level: 'info',
+            message: `爬虫任务已启动: ${response.data.task_id}`,
+            source: 'spider-control'
+          })
+        }
         // 开始轮询任务状态
         startPolling()
       }
     } else {
-      addLog('error', `启动失败: ${response.data.message}`)
+      console.error(`❌ 启动失败: ${response.data.message}`)
+      // 通过WebSocket发送错误日志
+      if (appStore.socket && appStore.socket.connected) {
+        appStore.socket.emit('log_manual', {
+          log_type: 'webui',
+          level: 'error',
+          message: `启动失败: ${response.data.message}`,
+          source: 'spider-control'
+        })
+      }
     }
   } catch (error) {
-    addLog('error', `启动失败: ${error.message}`)
+    console.error(`❌ 启动失败: ${error.message}`)
+    // 通过WebSocket发送错误日志
+    if (appStore.socket && appStore.socket.connected) {
+      appStore.socket.emit('log_manual', {
+        log_type: 'webui',
+        level: 'error',
+        message: `启动失败: ${error.message}`,
+        source: 'spider-control'
+      })
+    }
   } finally {
     starting.value = false
   }
@@ -435,42 +466,45 @@ const stopCrawling = async () => {
     const response = await axios.post(`/api/stop_crawl/${currentTask.value.id}`)
 
     if (response.data.success) {
-      addLog('warning', '任务已停止')
+      console.log('⚠️ 任务已停止')
+      // 通过WebSocket发送日志
+      if (appStore.socket && appStore.socket.connected) {
+        appStore.socket.emit('log_manual', {
+          log_type: 'webui',
+          level: 'warning',
+          message: '爬虫任务已停止',
+          source: 'spider-control'
+        })
+      }
     } else {
-      addLog('error', `停止失败: ${response.data.message}`)
+      console.error(`❌ 停止失败: ${response.data.message}`)
+      // 通过WebSocket发送错误日志
+      if (appStore.socket && appStore.socket.connected) {
+        appStore.socket.emit('log_manual', {
+          log_type: 'webui',
+          level: 'error',
+          message: `停止失败: ${response.data.message}`,
+          source: 'spider-control'
+        })
+      }
     }
   } catch (error) {
-    addLog('error', `停止失败: ${error.message}`)
+    console.error(`❌ 停止失败: ${error.message}`)
+    // 通过WebSocket发送错误日志
+    if (appStore.socket && appStore.socket.connected) {
+      appStore.socket.emit('log_manual', {
+        log_type: 'webui',
+        level: 'error',
+        message: `停止失败: ${error.message}`,
+        source: 'spider-control'
+      })
+    }
   } finally {
     stopping.value = false
   }
 }
 
-const addLog = (level, message) => {
-  const timestamp = new Date().toLocaleTimeString()
-  logs.value.push({
-    timestamp,
-    level,
-    message
-  })
-
-  // 只保留最近100条日志
-  if (logs.value.length > 100) {
-    logs.value = logs.value.slice(-100)
-  }
-
-  // 滚动到底部
-  setTimeout(() => {
-    const container = document.querySelector('.log-container')
-    if (container) {
-      container.scrollTop = container.scrollHeight
-    }
-  }, 100)
-}
-
-const clearLogs = () => {
-  logs.value = []
-}
+// 日志功能现在由RealTimeLogViewer组件处理
 
 const getTaskStatusColor = (status) => {
   const colors = {
@@ -559,12 +593,7 @@ onMounted(() => {
             stats: data.stats
           }
 
-          // 更新日志
-          if (data.stats.logs && Array.isArray(data.stats.logs)) {
-            // 替换所有日志（确保同步）
-            logs.value = [...data.stats.logs]
-            console.log(`📝 更新日志: ${logs.value.length} 条`)
-          }
+          // 日志更新现在由RealTimeLogViewer组件处理
         }
       })
 
@@ -588,100 +617,5 @@ onUnmounted(() => {
 <style scoped>
 .font-mono {
   font-family: 'Courier New', monospace;
-}
-
-.log-container {
-  max-height: 400px;
-  overflow-y: auto;
-  background: linear-gradient(135deg, #1e1e1e 0%, #2d2d2d 100%);
-  color: #ffffff;
-  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-  font-size: 13px;
-  padding: 16px;
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.log-entry {
-  margin-bottom: 4px;
-  line-height: 1.5;
-  padding: 2px 0;
-  border-left: 3px solid transparent;
-  padding-left: 8px;
-  transition: all 0.2s ease;
-
-  &:hover {
-    background-color: rgba(255, 255, 255, 0.05);
-    border-radius: 4px;
-  }
-}
-
-.log-timestamp {
-  color: #888;
-  margin-right: 8px;
-  font-weight: 500;
-}
-
-.log-level {
-  color: #ccc;
-  margin-right: 8px;
-  font-weight: 600;
-  min-width: 60px;
-  display: inline-block;
-}
-
-.log-message {
-  color: #fff;
-}
-
-.log-info {
-  border-left-color: #4fc3f7;
-
-  .log-level {
-    color: #4fc3f7;
-  }
-}
-
-.log-success {
-  border-left-color: #81c784;
-
-  .log-level {
-    color: #81c784;
-  }
-}
-
-.log-warning {
-  border-left-color: #ffb74d;
-
-  .log-level {
-    color: #ffb74d;
-  }
-}
-
-.log-error {
-  border-left-color: #e57373;
-
-  .log-level {
-    color: #e57373;
-  }
-}
-
-/* 滚动条样式 */
-.log-container::-webkit-scrollbar {
-  width: 8px;
-}
-
-.log-container::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 4px;
-}
-
-.log-container::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.3);
-  border-radius: 4px;
-
-  &:hover {
-    background: rgba(255, 255, 255, 0.5);
-  }
 }
 </style>

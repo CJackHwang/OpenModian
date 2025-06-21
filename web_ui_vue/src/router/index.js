@@ -60,6 +60,14 @@ const router = createRouter({
       }
     },
     {
+      path: '/logs',
+      name: 'logs',
+      component: () => import('@/views/LogViewer.vue'),
+      meta: {
+        title: '实时日志'
+      }
+    },
+    {
       path: '/settings',
       name: 'settings',
       component: () => import('@/views/Settings.vue'),

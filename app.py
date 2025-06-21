@@ -1,1587 +1,235 @@
 # -*- coding: utf-8 -*-
 """
-摩点爬虫Web UI主应用
+摩点爬虫Web UI主应用 - 重构版
 基于Flask的可视化工作流管理界面
+采用工程化标准架构，保持与原版本功能完全一致
 """
 
 import os
 import sys
-import json
-import threading
-import time
-from datetime import datetime
-from pathlib import Path
 
 # 导入eventlet并进行monkey patching以支持WebSocket
-try:
-    import eventlet
-    eventlet.monkey_patch()
-    print("✅ Eventlet已加载，WebSocket支持已启用")
-except ImportError:
-    print("⚠️  Eventlet未安装，将使用threading模式（无WebSocket支持）")
+# 注释掉monkey_patch避免导入时阻塞
+# try:
+#     import eventlet
+#     eventlet.monkey_patch()
+#     print("✅ Eventlet已加载，WebSocket支持已启用")
+# except ImportError:
+#     print("⚠️  Eventlet未安装，将使用threading模式（无WebSocket支持）")
 
 # 添加项目根目录到路径
 project_root = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, project_root)
 
-from flask import Flask, request, jsonify, send_file, send_from_directory
-from flask_socketio import SocketIO, emit
+from flask import Flask, send_from_directory, jsonify
+from flask_socketio import SocketIO
 from flask_cors import CORS
-import uuid
-from werkzeug.utils import secure_filename
 
+# 导入重构后的模块
+from core.monitors import ScheduledTaskMonitor
+from core.logging import init_system_logger, log_system
+from services import SpiderService
+from services.log_service import RealTimeLogService
+from api.middleware import setup_error_handlers
+from api.routes import (
+    register_spider_routes,
+    register_data_routes,
+    register_task_routes,
+    register_system_routes,
+    register_settings_routes
+)
+from api.websocket import register_websocket_handlers
+from data.database.db_manager import DatabaseManager
+from spider.scheduler import TaskScheduler
 from spider.core import SpiderCore
 from spider.config import SpiderConfig
-# from spider.monitor import SpiderMonitor  # 暂时不使用
-from data.database.db_manager import DatabaseManager
 
-# Vue构建文件路径
-vue_dist_path = os.path.join(project_root, "web_ui_vue", "dist")
 
-# 始终使用Vue前端（如果构建文件不存在会提示用户构建）
-app = Flask(__name__, static_folder=vue_dist_path, static_url_path='')
-
-app.config['SECRET_KEY'] = 'modian_spider_secret_key_2024'
-
-# 优化Socket.IO配置以提高稳定性
-# 如果eventlet可用，使用eventlet模式；否则使用threading模式
-try:
-    import eventlet
-    async_mode = 'eventlet'
-    print("🔌 使用eventlet模式，完整WebSocket支持")
-except ImportError:
-    async_mode = 'threading'
-    print("🔌 使用threading模式，仅polling传输")
-
-socketio = SocketIO(
-    app,
-    cors_allowed_origins="*",
-    async_mode=async_mode,
-    logger=False,
-    engineio_logger=False,
-    # 添加更多配置以提高稳定性
-    ping_timeout=60,
-    ping_interval=25,
-    max_http_buffer_size=1000000,
-    allow_upgrades=True,
-    transports=['websocket', 'polling'] if async_mode == 'eventlet' else ['polling']
-)
-CORS(app)  # 启用CORS支持
-
-# 🔧 全局变量 - 添加线程安全保护
-import threading
-_global_lock = threading.RLock()
-spider_instances = {}
-active_tasks = {}
-
-# 创建数据库管理器，使用统一的数据库路径
-db_path = os.path.join(project_root, "data", "database", "modian_data.db")
-db_manager = DatabaseManager(db_path)
-
-# 🔧 新增：创建定时任务调度器
-from spider.scheduler import TaskScheduler
-
-def create_spider_instance():
-    """爬虫实例工厂函数 - 🔧 修复：为定时任务创建带监控的爬虫实例"""
-    from spider.core import SpiderCore
-    from spider.config import SpiderConfig
-
-    config = SpiderConfig.load_from_yaml()
-
-    # 🔧 修复：为定时任务创建功能完整的监控器
-    class ScheduledTaskMonitor:
-        def __init__(self):
-            self.stats = {
-                'projects_processed': 0,
-                'total_projects': 0,
-                'errors_count': 0,
-                'failed_count': 0,
-                'status': 'running',
-                'pages_crawled': 0,
-                'projects_found': 0,
-                'current_page': 0,
-                'total_pages': 0,
-                'progress': 0
-            }
-            self.saved_count = 0  # 🔧 添加保存计数器
-
-        def update_progress(self, current_page=0, total_pages=0, total_projects=0, completed_projects=0, project_progress=0, **kwargs):
-            """更新进度信息 - 🔧 修复：完整的进度更新"""
-            self.stats.update({
-                'current_page': current_page,
-                'total_pages': total_pages,
-                'total_projects': total_projects,
-                'projects_processed': completed_projects,
-                'projects_found': total_projects,
-                'progress': project_progress
-            })
-            self.stats.update(kwargs)
-
-            # 🔧 修复：同步保存计数
-            if completed_projects > 0:
-                self.saved_count = completed_projects
-                self.stats['projects_processed'] = completed_projects
-
-            print(f"📊 定时任务进度更新: 页面{current_page}/{total_pages}, 项目{completed_projects}/{total_projects}")
-
-        def add_log(self, level, message):
-            print(f"[{level.upper()}] {message}")
-
-        def update_stats(self, **kwargs):
-            """更新统计信息 - 🔧 修复：同步更新保存计数"""
-            self.stats.update(kwargs)
-
-            # 🔧 修复：确保保存计数同步
-            if 'projects_processed' in kwargs:
-                self.saved_count = kwargs['projects_processed']
-            elif 'total_projects' in kwargs:
-                self.stats['projects_found'] = kwargs['total_projects']
-
-        def increment_saved_count(self, count=1):
-            """增加保存计数 - 🔧 修复：提供增量更新方法"""
-            self.saved_count += count
-            self.stats['projects_processed'] = self.saved_count
-            print(f"📊 定时任务保存计数更新: {self.saved_count}")
-
-        def set_final_stats(self, projects_found=0, projects_saved=0):
-            """设置最终统计 - 🔧 修复：提供最终统计设置方法"""
-            self.stats.update({
-                'projects_found': projects_found,
-                'projects_processed': projects_saved,
-                'total_projects': projects_found
-            })
-            self.saved_count = projects_saved
-            print(f"📊 定时任务最终统计: 发现{projects_found}个，保存{projects_saved}个")
-
-    monitor = ScheduledTaskMonitor()
-    return SpiderCore(config, web_monitor=monitor, db_manager=db_manager)
-
-# 初始化定时任务调度器
-task_scheduler = TaskScheduler(db_manager=db_manager, spider_factory=create_spider_instance)
-task_scheduler.start_scheduler()
-
-class WebSpiderMonitor:
-    """Web界面专用的爬虫监控器"""
+class RefactoredSpiderApp:
+    """重构版爬虫应用 - 工程化架构"""
     
-    def __init__(self, task_id):
-        self.task_id = task_id
-        self.stats = {
-            'start_time': datetime.now().isoformat(),
-            'status': 'running',
-            'pages_crawled': 0,
-            'projects_found': 0,
-            'projects_processed': 0,
-            'errors': 0,
-            'current_page': 0,
-            'total_pages': 0,
-            'progress': 0,
-            'logs': []
-        }
-    
-    def update_progress(self, current_page=0, total_pages=0, total_projects=0, completed_projects=0, project_progress=0):
-        """更新进度（增强版本）"""
-        self.stats['current_page'] = current_page
-        self.stats['total_pages'] = total_pages
-        self.stats['total_projects'] = total_projects
-        self.stats['projects_processed'] = completed_projects
+    def __init__(self):
+        self.app = None
+        self.socketio = None
+        self.db_manager = None
+        self.task_scheduler = None
+        self.spider_service = None
+        self.log_service = None
 
-        # 计算总体进度：页面爬取占30%，项目详情爬取占70%
-        if total_pages > 0 and total_projects > 0:
-            page_progress = (current_page / total_pages) * 30
-            detail_progress = (completed_projects / total_projects) * 70
-            self.stats['progress'] = page_progress + detail_progress
-        elif total_pages > 0:
-            self.stats['progress'] = (current_page / total_pages) * 100
-        elif project_progress > 0:
-            self.stats['progress'] = project_progress
-        else:
-            self.stats['progress'] = 0
+        self._setup_application()
+    
+    def _setup_application(self):
+        """设置应用"""
+        # 创建Flask应用
+        vue_dist_path = os.path.join(project_root, "web_ui_vue", "dist")
+        self.app = Flask(__name__, static_folder=vue_dist_path, static_url_path='')
+        self.app.config['SECRET_KEY'] = 'modian_spider_secret_key_2024'
+        
+        # 设置CORS
+        CORS(self.app)
+        
+        # 设置SocketIO
+        self._setup_socketio()
+        
+        # 设置数据库
+        self._setup_database()
+        
+        # 设置任务调度器
+        self._setup_task_scheduler()
+        
+        # 设置服务层
+        self._setup_services()
 
-        self.emit_update()
+        # 设置日志服务
+        self._setup_log_service()
+
+        # 设置错误处理
+        setup_error_handlers(self.app)
+
+        # 注册路由
+        self._register_routes()
+
+        # 注册WebSocket事件
+        register_websocket_handlers(self.socketio)
     
-    def add_log(self, level, message):
-        """添加日志"""
-        log_entry = {
-            'timestamp': datetime.now().strftime('%H:%M:%S'),
-            'level': level,
-            'message': message
-        }
-        self.stats['logs'].append(log_entry)
-        # 只保留最近100条日志
-        if len(self.stats['logs']) > 100:
-            self.stats['logs'] = self.stats['logs'][-100:]
-        self.emit_update()
-    
-    def update_stats(self, **kwargs):
-        """更新统计信息"""
-        self.stats.update(kwargs)
-        self.emit_update()
-    
-    def emit_update(self):
-        """发送更新到前端"""
+    def _setup_socketio(self):
+        """设置SocketIO"""
         try:
-            socketio.emit('task_update', {
-                'task_id': self.task_id,
-                'stats': self.stats
-            })
-        except Exception as e:
-            print(f"Socket.IO发送更新失败: {e}")
-            # 不抛出异常，避免影响爬虫主流程
-
-def cleanup_completed_task(task_id):
-    """清理单个已完成的任务"""
-    try:
-        # 清理爬虫实例
-        if task_id in spider_instances:
-            spider = spider_instances[task_id]
-            try:
-                spider._cleanup_lightning_managers()
-            except:
-                pass
-            del spider_instances[task_id]
-
-        # 清理任务记录
-        if task_id in active_tasks:
-            del active_tasks[task_id]
-            print(f"🧹 清理已完成任务: {task_id}")
-
-    except Exception as e:
-        print(f"清理任务 {task_id} 失败: {e}")
-
-def cleanup_old_tasks():
-    """清理旧任务状态，避免冲突"""
-    try:
-        # 清理已完成或失败的任务
-        tasks_to_remove = []
-        for task_id, task_info in active_tasks.items():
-            status = task_info['monitor'].stats.get('status', 'unknown')
-            if status in ['completed', 'failed', 'stopped', 'error']:
-                tasks_to_remove.append(task_id)
-
-        for task_id in tasks_to_remove:
-            cleanup_completed_task(task_id)
-
-        if tasks_to_remove:
-            print(f"🧹 批量清理了 {len(tasks_to_remove)} 个旧任务状态")
-
-    except Exception as e:
-        print(f"清理旧任务状态失败: {e}")
-
-@app.route('/')
-def index():
-    """主页"""
-    if os.path.exists(vue_dist_path):
-        return send_from_directory(vue_dist_path, 'index.html')
-    else:
-        return jsonify({
-            'error': 'Vue前端未构建',
-            'message': '请运行 python3 start_vue_ui.py build 构建前端'
-        }), 404
-
-@app.route('/<path:path>')
-def vue_routes(path):
-    """Vue路由处理"""
-    if os.path.exists(vue_dist_path):
-        # 检查是否是静态文件
-        if '.' in path:
-            try:
-                return send_from_directory(vue_dist_path, path)
-            except:
-                pass
-        # 对于Vue路由，返回index.html
-        return send_from_directory(vue_dist_path, 'index.html')
-    else:
-        return jsonify({
-            'error': 'Vue前端未构建',
-            'message': '请运行 python3 start_vue_ui.py build 构建前端'
-        }), 404
-
-@app.route('/api/start_crawl', methods=['POST'])
-def start_crawl():
-    """启动爬虫任务"""
-    try:
-        data = request.json
-
-        # 🔧 清理旧任务状态，避免冲突
-        cleanup_old_tasks()
-
-        # 🔧 检查是否为后台定时任务
-        is_scheduled = data.get('is_scheduled', False)
-        schedule_interval = data.get('schedule_interval', 3600)  # 默认1小时
-
-        if is_scheduled:
-            # 创建定时任务
-            try:
-                task_name = f"定时爬取_{data.get('category', 'all')}_{data.get('start_page', 1)}-{data.get('end_page', 10)}"
-                task_id = task_scheduler.add_scheduled_task(
-                    name=task_name,
-                    config=data,
-                    interval_seconds=max(5, schedule_interval)  # 最小5秒间隔
-                )
-
-                return jsonify({
-                    'success': True,
-                    'task_id': task_id,
-                    'message': f'定时任务已创建，执行间隔: {schedule_interval}秒',
-                    'is_scheduled': True
-                })
-            except Exception as e:
-                return jsonify({
-                    'success': False,
-                    'message': f'创建定时任务失败: {str(e)}'
-                }), 500
-
-        # 生成普通任务ID
-        task_id = str(uuid.uuid4())
+            import eventlet
+            async_mode = 'eventlet'
+            print("🔌 使用eventlet模式，完整WebSocket支持")
+        except ImportError:
+            async_mode = 'threading'
+            print("🔌 使用threading模式，仅polling传输")
         
-        # 创建爬虫配置
-        config = SpiderConfig()
+        self.socketio = SocketIO(
+            self.app,
+            cors_allowed_origins="*",
+            async_mode=async_mode,
+            logger=False,
+            engineio_logger=False,
+            ping_timeout=60,
+            ping_interval=25,
+            max_http_buffer_size=1000000,
+            allow_upgrades=True,
+            transports=['websocket', 'polling'] if async_mode == 'eventlet' else ['polling']
+        )
+    
+    def _setup_database(self):
+        """设置数据库"""
+        db_path = os.path.join(project_root, "data", "database", "modian_data.db")
+        self.db_manager = DatabaseManager(db_path)
+    
+    def _setup_task_scheduler(self):
+        """设置任务调度器"""
+        def create_spider_instance():
+            """爬虫实例工厂函数"""
+            config = SpiderConfig.load_from_yaml()
+            monitor = ScheduledTaskMonitor()
+            return SpiderCore(config, web_monitor=monitor, db_manager=self.db_manager)
         
-        # 获取配置参数
-        start_page = int(data.get('start_page', 1))
-        end_page = int(data.get('end_page', 10))
-        category = data.get('category', 'all')
-
-        if 'max_concurrent' in data:
-            config.MAX_CONCURRENT_REQUESTS = int(data['max_concurrent'])
-        if 'delay_min' in data and 'delay_max' in data:
-            config.REQUEST_DELAY = (float(data['delay_min']), float(data['delay_max']))
-        
-        # 创建监控器
-        monitor = WebSpiderMonitor(task_id)
-        
-        # 创建爬虫实例，传入Web监控器和数据库管理器
-        spider = SpiderCore(config, web_monitor=monitor, db_manager=db_manager)
-        
-        # 保存实例
-        spider_instances[task_id] = spider
-        active_tasks[task_id] = {
-            'monitor': monitor,
-            'config': data,
-            'thread': None,
-            'status': 'starting'
-        }
-        
-        # 保存任务到数据库
-        db_manager.save_crawl_task(task_id, data)
-
-        # 启动爬虫线程
-        def run_spider():
-            try:
-                monitor.add_log('info', f'开始爬取任务 {task_id}')
-                monitor.update_stats(status='running')
-
-                # 设置进度更新回调
-                def update_progress_callback(current_page=0, total_pages=0, total_projects=0, completed_projects=0, project_progress=0):
-                    monitor.update_progress(current_page, total_pages, total_projects, completed_projects, project_progress)
-
-                spider.set_progress_callback(update_progress_callback)
-
-                # 启动爬虫
-                success = spider.start_crawling(
-                    start_page=start_page,
-                    end_page=end_page,
-                    category=category,
-                    task_id=task_id
-                )
-
-                if success and not spider.is_stopped():
-                    # 数据已通过增量保存机制保存，这里只需要更新最终状态
-                    total_saved = getattr(spider, 'saved_count', 0)
-                    total_found = len(spider.projects_data) if hasattr(spider, 'projects_data') else 0
-
-                    monitor.add_log('success', f'🎉 爬取任务完成！发现 {total_found} 个项目，成功保存 {total_saved} 条数据到数据库')
-
-                    # 更新任务统计
-                    stats = {
-                        'projects_found': total_found,
-                        'projects_processed': total_saved
-                    }
-                    monitor.update_stats(
-                        projects_found=total_found,
-                        projects_processed=total_saved
-                    )
-                    db_manager.update_task_status(task_id, 'completed', stats)
-                    monitor.update_stats(status='completed')
-
-                    # 延迟清理任务状态，给前端时间显示完成状态
-                    def delayed_cleanup():
-                        import time
-                        time.sleep(5)  # 等待5秒让前端显示完成状态
-                        cleanup_completed_task(task_id)
-
-                    cleanup_thread = threading.Thread(target=delayed_cleanup)
-                    cleanup_thread.daemon = True
-                    cleanup_thread.start()
-                elif spider.is_stopped():
-                    # 任务被停止，但数据已通过增量保存机制保存
-                    total_saved = getattr(spider, 'saved_count', 0)
-                    total_found = len(spider.projects_data) if hasattr(spider, 'projects_data') else 0
-
-                    monitor.add_log('warning', f'⏹️ 任务被用户停止，已保存 {total_saved} 条数据到数据库（共发现 {total_found} 个项目）')
-
-                    # 更新任务统计
-                    stats = {
-                        'projects_found': total_found,
-                        'projects_processed': total_saved
-                    }
-                    monitor.update_stats(
-                        projects_found=total_found,
-                        projects_processed=total_saved
-                    )
-                    monitor.update_stats(status='stopped')
-                    db_manager.update_task_status(task_id, 'stopped', stats)
-
-                    # 延迟清理任务状态
-                    def delayed_cleanup():
-                        import time
-                        time.sleep(5)
-                        cleanup_completed_task(task_id)
-
-                    cleanup_thread = threading.Thread(target=delayed_cleanup)
-                    cleanup_thread.daemon = True
-                    cleanup_thread.start()
-                else:
-                    monitor.add_log('error', '❌ 爬取任务失败')
-                    monitor.update_stats(status='failed')
-                    db_manager.update_task_status(task_id, 'failed')
-
-                    # 延迟清理任务状态
-                    def delayed_cleanup():
-                        import time
-                        time.sleep(5)
-                        cleanup_completed_task(task_id)
-
-                    cleanup_thread = threading.Thread(target=delayed_cleanup)
-                    cleanup_thread.daemon = True
-                    cleanup_thread.start()
-
-            except Exception as e:
-                monitor.add_log('error', f'爬取过程中出现错误: {str(e)}')
-                monitor.update_stats(status='error')
-                db_manager.update_task_status(task_id, 'error')
-
-                # 延迟清理任务状态
-                def delayed_cleanup():
-                    import time
-                    time.sleep(5)
-                    cleanup_completed_task(task_id)
-
-                cleanup_thread = threading.Thread(target=delayed_cleanup)
-                cleanup_thread.daemon = True
-                cleanup_thread.start()
-        
-        thread = threading.Thread(target=run_spider)
-        thread.daemon = True
-        thread.start()
-        
-        active_tasks[task_id]['thread'] = thread
-        
-        return jsonify({
-            'success': True,
-            'task_id': task_id,
-            'message': '爬虫任务已启动'
-        })
-        
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'message': f'启动失败: {str(e)}'
-        }), 500
-
-@app.route('/api/stop_crawl/<task_id>', methods=['POST'])
-def stop_crawl(task_id):
-    """停止爬虫任务"""
-    try:
-        if task_id in active_tasks:
-            # 停止爬虫实例
-            if task_id in spider_instances:
-                spider = spider_instances[task_id]
-                spider.stop_crawling()
-                active_tasks[task_id]['monitor'].add_log('warning', '用户请求停止任务')
-                active_tasks[task_id]['monitor'].update_stats(status='stopped')
-
-                # 更新数据库任务状态
-                db_manager.update_task_status(task_id, 'stopped')
-
-                # 延迟清理任务状态
-                def delayed_cleanup():
-                    import time
-                    time.sleep(5)
-                    cleanup_completed_task(task_id)
-
-                cleanup_thread = threading.Thread(target=delayed_cleanup)
-                cleanup_thread.daemon = True
-                cleanup_thread.start()
-
-                return jsonify({
-                    'success': True,
-                    'message': '任务已停止'
-                })
-            else:
-                return jsonify({
-                    'success': False,
-                    'message': '爬虫实例不存在'
-                }), 404
-        else:
-            return jsonify({
-                'success': False,
-                'message': '任务不存在'
-            }), 404
-
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'message': f'停止失败: {str(e)}'
-        }), 500
-
-@app.route('/api/tasks')
-def get_tasks():
-    """获取所有任务状态（活跃任务 + 定时任务）"""
-    tasks = []
-
-    # 添加活跃的普通任务
-    for task_id, task_info in active_tasks.items():
-        tasks.append({
-            'task_id': task_id,
-            'task_type': 'normal',
-            'config': task_info['config'],
-            'stats': task_info['monitor'].stats,
-            'is_scheduled': False
-        })
-
-    # 添加定时任务
-    try:
-        scheduled_tasks = task_scheduler.get_scheduled_tasks()
-        for scheduled_task in scheduled_tasks:
-            tasks.append({
-                'task_id': scheduled_task['task_id'],
-                'task_type': 'scheduled',
-                'config': scheduled_task['config'],
-                'stats': {
-                    'status': 'scheduled' if scheduled_task['is_active'] else 'paused',
-                    'next_run_time': scheduled_task['next_run_time'],
-                    'last_run_time': scheduled_task['last_run_time'],
-                    'run_count': scheduled_task['run_count'],
-                    'last_status': scheduled_task['last_status'],
-                    'interval_seconds': scheduled_task['interval_seconds']
-                },
-                'is_scheduled': True,
-                'is_active': scheduled_task['is_active'],
-                'is_running': scheduled_task['is_running'],
-                'schedule_info': {
-                    'interval_seconds': scheduled_task['interval_seconds'],
-                    'next_run_time': scheduled_task['next_run_time'],
-                    'last_run_time': scheduled_task['last_run_time'],
-                    'run_count': scheduled_task['run_count']
-                }
-            })
-    except Exception as e:
-        print(f"获取定时任务失败: {e}")
-
-    return jsonify({
-        'success': True,
-        'tasks': tasks,
-        'normal_tasks': len([t for t in tasks if t['task_type'] == 'normal']),
-        'scheduled_tasks': len([t for t in tasks if t['task_type'] == 'scheduled'])
-    })
-
-@app.route('/api/tasks/history')
-def get_task_history():
-    """获取历史任务记录"""
-    try:
-        limit = int(request.args.get('limit', 100))
-        tasks = db_manager.get_all_tasks(limit)
-
-        return jsonify({
-            'success': True,
-            'tasks': tasks,
-            'count': len(tasks)
-        })
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'message': f'获取任务历史失败: {str(e)}'
-        }), 500
-
-@app.route('/api/task/<task_id>')
-def get_task(task_id):
-    """获取特定任务状态（活跃任务或历史任务）"""
-    # 首先检查活跃任务
-    if task_id in active_tasks:
-        return jsonify({
-            'success': True,
-            'task': {
-                'task_id': task_id,
-                'config': active_tasks[task_id]['config'],
-                'stats': active_tasks[task_id]['monitor'].stats,
-                'is_active': True
-            }
-        })
-
-    # 检查历史任务
-    try:
-        task = db_manager.get_task_by_id(task_id)
-        if task:
-            return jsonify({
-                'success': True,
-                'task': {
-                    'task_id': task['task_id'],
-                    'config': task.get('config', {}),
-                    'stats': {
-                        'status': task['status'],
-                        'start_time': task['start_time'],
-                        'end_time': task['end_time'],
-                        'projects_found': task['projects_found'],
-                        'projects_processed': task['projects_processed'],
-                        'errors_count': task['errors_count'],
-                        'duration': task.get('duration')
-                    },
-                    'is_active': False
-                }
-            })
-        else:
-            return jsonify({
-                'success': False,
-                'message': '任务不存在'
-            }), 404
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'message': f'获取任务详情失败: {str(e)}'
-        }), 500
-
-@app.route('/api/task/<task_id>', methods=['DELETE'])
-def delete_task(task_id):
-    """删除历史任务记录"""
-    try:
-        # 不能删除活跃任务
-        if task_id in active_tasks:
-            return jsonify({
-                'success': False,
-                'message': '不能删除正在运行的任务'
-            }), 400
-
-        success = db_manager.delete_task(task_id)
-        if success:
-            return jsonify({
-                'success': True,
-                'message': '任务删除成功'
-            })
-        else:
-            return jsonify({
-                'success': False,
-                'message': '任务不存在或删除失败'
-            }), 404
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'message': f'删除任务失败: {str(e)}'
-        }), 500
-
-@app.route('/api/download/<task_id>')
-def download_results(task_id):
-    """下载爬取结果"""
-    try:
-        if task_id in spider_instances:
-            spider = spider_instances[task_id]
-            
-            # 查找最新的输出文件
-            output_dir = Path(spider.config.OUTPUT_DIR)
-            excel_files = list(output_dir.glob('*.xlsx'))
-            
-            if excel_files:
-                # 返回最新的文件
-                latest_file = max(excel_files, key=lambda x: x.stat().st_mtime)
-                return send_file(latest_file, as_attachment=True)
-            else:
-                return jsonify({
-                    'success': False,
-                    'message': '没有找到输出文件'
-                }), 404
-        else:
-            return jsonify({
-                'success': False,
-                'message': '任务不存在'
-            }), 404
-            
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'message': f'下载失败: {str(e)}'
-        }), 500
-
-@app.route('/api/config')
-def get_config():
-    """获取默认配置"""
-    config = SpiderConfig()
-    return jsonify({
-        'success': True,
-        'config': {
-            'start_page': 1,
-            'end_page': 10,
-            'category': 'all',
-            'max_concurrent': config.MAX_CONCURRENT_REQUESTS,
-            'delay_min': config.REQUEST_DELAY[0],
-            'delay_max': config.REQUEST_DELAY[1],
-            'categories': [
-                {'value': 'all', 'label': '全部'},
-                {'value': 'games', 'label': '游戏'},
-                {'value': 'publishing', 'label': '出版'},
-                {'value': 'tablegames', 'label': '桌游'},
-                {'value': 'toys', 'label': '潮玩模型'},
-                {'value': 'cards', 'label': '卡牌'},
-                {'value': 'technology', 'label': '科技'},
-                {'value': 'film-video', 'label': '影视'},
-                {'value': 'music', 'label': '音乐'},
-                {'value': 'activities', 'label': '活动'},
-                {'value': 'design', 'label': '设计'},
-                {'value': 'curio', 'label': '文玩'},
-                {'value': 'home', 'label': '家居'},
-                {'value': 'food', 'label': '食品'},
-                {'value': 'comics', 'label': '动漫'},
-                {'value': 'charity', 'label': '爱心通道'},
-                {'value': 'animals', 'label': '动物救助'},
-                {'value': 'wishes', 'label': '个人愿望'},
-                {'value': 'others', 'label': '其他'}
-            ]
-        }
-    })
-
-@app.route('/api/database/stats')
-def get_database_stats():
-    """获取数据库统计信息"""
-    try:
-        stats = db_manager.get_statistics()
-        return jsonify({
-            'success': True,
-            'stats': stats
-        })
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'message': f'获取统计信息失败: {str(e)}'
-        }), 500
-
-def clean_image_urls(projects):
-    """清理项目数据中的无效图片URL"""
-    invalid_values = ['none', 'null', 'undefined', '', ' ', 'N/A', 'n/a']
-
-    for project in projects:
-        # 清理作者头像URL
-        if project.get('author_image') in invalid_values:
-            project['author_image'] = None
-
-        # 清理项目图片URL
-        if project.get('project_image') in invalid_values:
-            project['project_image'] = None
-
-    return projects
-
-@app.route('/api/database/projects')
-def get_database_projects():
-    """获取数据库中的项目数据"""
-    try:
-        time_period = request.args.get('period', 'all')
-        category = request.args.get('category', 'all')
-        limit = int(request.args.get('limit', 100))
-
-        # 如果有分类筛选，使用搜索功能
-        if category != 'all':
-            conditions = {'category': category}
-            projects = db_manager.search_projects(conditions, limit, 0)
-            print(f"🔍 分类筛选 '{category}': 找到 {len(projects)} 个项目")
-        else:
-            projects = db_manager.get_projects_by_time(time_period, limit)
-            print(f"📊 时间筛选 '{time_period}': 找到 {len(projects)} 个项目")
-
-        # 清理无效的图片URL
-        projects = clean_image_urls(projects)
-
-        return jsonify({
-            'success': True,
-            'projects': projects,
-            'count': len(projects)
-        })
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'message': f'获取项目数据失败: {str(e)}'
-        }), 500
-
-@app.route('/api/database/export')
-def export_database():
-    """导出数据库数据"""
-    try:
-        time_period = request.args.get('period', 'all')
-
-        output_path = db_manager.export_to_excel(time_period)
-
-        if output_path:
-            return send_file(output_path, as_attachment=True)
-        else:
-            return jsonify({
-                'success': False,
-                'message': '导出失败或没有数据'
-            }), 404
-
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'message': f'导出失败: {str(e)}'
-        }), 500
-
-@app.route('/api/database/project/<int:project_id>', methods=['GET'])
-def get_project(project_id):
-    """获取单个项目详情"""
-    try:
-        project = db_manager.get_project_by_id(project_id)
-        if project:
-            return jsonify({
-                'success': True,
-                'project': project
-            })
-        else:
-            return jsonify({
-                'success': False,
-                'message': '项目不存在'
-            }), 404
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'message': f'获取项目失败: {str(e)}'
-        }), 500
-
-@app.route('/api/database/project/<int:project_id>', methods=['PUT'])
-def update_project(project_id):
-    """更新项目信息"""
-    try:
-        data = request.get_json()
-        success = db_manager.update_project(project_id, data)
-
-        if success:
-            return jsonify({
-                'success': True,
-                'message': '项目更新成功'
-            })
-        else:
-            return jsonify({
-                'success': False,
-                'message': '项目不存在或更新失败'
-            }), 404
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'message': f'更新项目失败: {str(e)}'
-        }), 500
-
-@app.route('/api/database/project/<int:project_id>', methods=['DELETE'])
-def delete_project(project_id):
-    """删除项目"""
-    try:
-        success = db_manager.delete_project(project_id)
-
-        if success:
-            return jsonify({
-                'success': True,
-                'message': '项目删除成功'
-            })
-        else:
-            return jsonify({
-                'success': False,
-                'message': '项目不存在或删除失败'
-            }), 404
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'message': f'删除项目失败: {str(e)}'
-        }), 500
-
-@app.route('/api/database/projects/batch', methods=['DELETE'])
-def batch_delete_projects():
-    """批量删除项目"""
-    try:
-        data = request.get_json()
-        project_ids = data.get('project_ids', [])
-
-        if not project_ids:
-            return jsonify({
-                'success': False,
-                'message': '请提供要删除的项目ID列表'
-            }), 400
-
-        deleted_count = db_manager.batch_delete_projects(project_ids)
-
-        return jsonify({
-            'success': True,
-            'message': f'成功删除 {deleted_count} 个项目',
-            'deleted_count': deleted_count
-        })
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'message': f'批量删除失败: {str(e)}'
-        }), 500
-
-@app.route('/api/database/projects/search', methods=['POST'])
-def search_projects():
-    """高级搜索项目"""
-    try:
-        data = request.get_json()
-        conditions = data.get('conditions', {})
-        sort_config = data.get('sort', [])
-        limit = data.get('limit', 100)
-        offset = data.get('offset', 0)
-
-        projects = db_manager.search_projects(conditions, limit, offset, sort_config)
-        total_count = db_manager.count_projects(conditions)
-
-        # 清理无效的图片URL
-        projects = clean_image_urls(projects)
-
-        return jsonify({
-            'success': True,
-            'projects': projects,
-            'total_count': total_count,
-            'limit': limit,
-            'offset': offset,
-            'sort_config': sort_config
-        })
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'message': f'搜索失败: {str(e)}'
-        }), 500
-
-@app.route('/api/database/import_json', methods=['POST'])
-def import_json_data():
-    """从JSON文件导入数据到数据库"""
-    try:
-        import json
-        from pathlib import Path
-
-        # JSON文件路径 - 使用统一的数据目录
-        json_file = Path("data/raw/json/modian_projects.json")
-
-        if not json_file.exists():
-            return jsonify({
-                'success': False,
-                'message': f'JSON文件不存在: {json_file}'
-            }), 404
-
-        # 读取JSON数据
-        with open(json_file, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-
-        projects = data.get('projects', [])
-
-        if not projects:
-            return jsonify({
-                'success': False,
-                'message': '没有找到项目数据'
-            }), 400
-
-        # 清空现有数据（可选）
-        clear_existing = request.json.get('clear_existing', False)
-        if clear_existing:
-            import sqlite3
-            with sqlite3.connect(db_manager.db_path) as conn:
-                cursor = conn.cursor()
-                cursor.execute('DELETE FROM projects')
-                conn.commit()
-
-        # 导入数据
-        saved_count = db_manager.save_projects(projects, task_id="json_import")
-
-        return jsonify({
-            'success': True,
-            'message': f'成功导入 {saved_count} 条数据',
-            'imported_count': saved_count,
-            'total_count': len(projects)
-        })
-
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'message': f'导入失败: {str(e)}'
-        }), 500
-
-@app.route('/api/projects/<project_id>/detail', methods=['GET'])
-def get_project_detail(project_id):
-    """获取项目详情"""
-    try:
-        # 获取最新的项目数据
-        project = db_manager.get_project_by_project_id(project_id)
-
-        if not project:
-            return jsonify({
-                'success': False,
-                'message': '项目不存在'
-            }), 404
-
-        # 清理无效的图片URL
-        project = clean_image_urls([project])[0]
-
-        # 获取项目统计数据
-        stats = db_manager.get_project_statistics(project_id)
-
-        return jsonify({
-            'success': True,
-            'project': project,
-            'statistics': stats
-        })
-
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'message': f'获取项目详情失败: {str(e)}'
-        }), 500
-
-@app.route('/api/projects/<project_id>/history', methods=['GET'])
-def get_project_history(project_id):
-    """获取项目历史数据"""
-    try:
-        limit = request.args.get('limit', 50, type=int)
-        offset = request.args.get('offset', 0, type=int)
-
-        # 获取历史记录
-        history = db_manager.get_project_history(project_id, limit + offset)
-
-        # 应用分页
-        paginated_history = history[offset:offset + limit]
-
-        # 获取变化检测和统计数据
-        changes = db_manager.detect_project_changes(project_id)
-        statistics = db_manager.get_project_statistics(project_id)
-
-        return jsonify({
-            'success': True,
-            'history': paginated_history,
-            'total_count': len(history),
-            'limit': limit,
-            'offset': offset,
-            'changes': changes,
-            'statistics': statistics
-        })
-
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'message': f'获取项目历史失败: {str(e)}'
-        }), 500
-
-@app.route('/api/projects/<project_id>/changes', methods=['GET'])
-def get_project_changes(project_id):
-    """获取项目数据变化检测"""
-    try:
-        changes = db_manager.detect_project_changes(project_id)
-
-        return jsonify({
-            'success': True,
-            'project_id': project_id,
-            'changes': changes
-        })
-
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'message': f'获取项目变化失败: {str(e)}'
-        }), 500
-
-@app.route('/api/projects/<project_id>/statistics', methods=['GET'])
-def get_project_statistics_api(project_id):
-    """获取项目统计数据和趋势分析"""
-    try:
-        statistics = db_manager.get_project_statistics(project_id)
-
-        return jsonify({
-            'success': True,
-            'project_id': project_id,
-            'statistics': statistics
-        })
-
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'message': f'获取项目统计失败: {str(e)}'
-        }), 500
-
-@app.route('/api/projects/<project_id>/export', methods=['GET'])
-def export_project_data(project_id):
-    """导出项目历史数据"""
-    try:
-        # 获取所有历史记录
-        history = db_manager.get_project_history(project_id, 1000)  # 最多1000条
-
-        if not history:
-            return jsonify({
-                'success': False,
-                'message': '没有找到项目数据'
-            }), 404
-
-        # 准备导出数据
-        export_data = {
-            'project_id': project_id,
-            'project_name': history[0]['project_name'] if history else '',
-            'export_time': datetime.now().isoformat(),
-            'total_records': len(history),
-            'history': history
-        }
-
-        # 设置响应头
-        response = jsonify(export_data)
-        response.headers['Content-Disposition'] = f'attachment; filename=project_{project_id}_history.json'
-        response.headers['Content-Type'] = 'application/json'
-
-        return response
-
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'message': f'导出数据失败: {str(e)}'
-        }), 500
-
-# ==================== 动态筛选选项API ====================
-
-@app.route('/api/database/filter_options')
-def get_filter_options():
-    """获取基于数据库实际数据的动态筛选选项"""
-    try:
-        # 获取所有可用的分类
-        categories = db_manager.get_distinct_values('category')
-
-        # 获取所有可用的项目状态
-        statuses = db_manager.get_distinct_values('project_status')
-
-        # 获取作者列表（限制前100个）
-        authors = db_manager.get_distinct_values('author_name', limit=100)
-
-        # 获取数据统计信息
-        stats = db_manager.get_statistics()
-
-        # 构建筛选选项
-        filter_options = {
-            'categories': [
-                {'value': 'all', 'label': '全部分类', 'count': stats.get('total_projects', 0)}
-            ] + [
-                {'value': cat, 'label': cat, 'count': 0} for cat in categories if cat
-            ],
-            'statuses': [
-                {'value': 'all', 'label': '全部状态', 'count': stats.get('total_projects', 0)}
-            ] + [
-                {'value': status, 'label': status, 'count': 0} for status in statuses if status
-            ],
-            'authors': [
-                {'value': 'all', 'label': '全部作者', 'count': stats.get('total_projects', 0)}
-            ] + [
-                {'value': author, 'label': author, 'count': 0} for author in authors if author
-            ],
-            'date_ranges': [
-                {'value': 'all', 'label': '全部时间'},
-                {'value': 'day', 'label': '今天'},
-                {'value': 'week', 'label': '本周'},
-                {'value': 'month', 'label': '本月'}
-            ],
-            'amount_ranges': [
-                {'value': 'all', 'label': '全部金额'},
-                {'value': '0-1000', 'label': '0-1000元'},
-                {'value': '1000-10000', 'label': '1000-10000元'},
-                {'value': '10000-100000', 'label': '1万-10万元'},
-                {'value': '100000+', 'label': '10万元以上'}
-            ]
-        }
-
-        # 🔧 获取每个分类和状态的实际项目数量
-        for category_option in filter_options['categories'][1:]:  # 跳过"全部"选项
-            count = db_manager.count_projects({'category': category_option['value']})
-            category_option['count'] = count
-
-        for status_option in filter_options['statuses'][1:]:  # 跳过"全部"选项
-            count = db_manager.count_projects({'status': status_option['value']})
-            status_option['count'] = count
-
-        return jsonify({
-            'success': True,
-            'filter_options': filter_options,
-            'statistics': stats
-        })
-
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'message': f'获取筛选选项失败: {str(e)}'
-        }), 500
-
-# ==================== 定时任务管理API ====================
-
-@app.route('/api/scheduled_tasks')
-def get_scheduled_tasks():
-    """获取所有定时任务"""
-    try:
-        tasks = task_scheduler.get_scheduled_tasks()
-        return jsonify({
-            'success': True,
-            'tasks': tasks,
-            'count': len(tasks)
-        })
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'message': f'获取定时任务失败: {str(e)}'
-        }), 500
-
-@app.route('/api/scheduled_tasks/<task_id>', methods=['DELETE'])
-def delete_scheduled_task(task_id):
-    """删除定时任务"""
-    try:
-        success = task_scheduler.remove_scheduled_task(task_id)
-        if success:
-            return jsonify({
-                'success': True,
-                'message': '定时任务删除成功'
-            })
-        else:
-            return jsonify({
-                'success': False,
-                'message': '定时任务不存在或正在运行'
-            }), 400
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'message': f'删除定时任务失败: {str(e)}'
-        }), 500
-
-@app.route('/api/scheduled_tasks/<task_id>/toggle', methods=['POST'])
-def toggle_scheduled_task(task_id):
-    """切换定时任务状态"""
-    try:
-        success = task_scheduler.toggle_task_status(task_id)
-        if success:
-            return jsonify({
-                'success': True,
-                'message': '任务状态切换成功'
-            })
-        else:
-            return jsonify({
-                'success': False,
-                'message': '定时任务不存在'
-            }), 404
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'message': f'切换任务状态失败: {str(e)}'
-        }), 500
-
-@app.route('/api/scheduled_tasks/<task_id>/run_now', methods=['POST'])
-def run_scheduled_task_now(task_id):
-    """立即执行定时任务"""
-    try:
-        # 这里需要实现立即执行逻辑
-        # 暂时返回成功，实际实现需要在TaskScheduler中添加方法
-        success = task_scheduler.run_task_immediately(task_id)
-        if success:
-            return jsonify({
-                'success': True,
-                'message': '任务已开始执行'
-            })
-        else:
-            return jsonify({
-                'success': False,
-                'message': '任务不存在或无法执行'
-            }), 404
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'message': f'立即执行任务失败: {str(e)}'
-        }), 500
-
-@app.route('/api/scheduled_tasks/<task_id>/history')
-def get_scheduled_task_history(task_id):
-    """获取定时任务执行历史"""
-    try:
-        limit = int(request.args.get('limit', 20))
-        history = task_scheduler.get_task_execution_history(task_id, limit)
-
-        return jsonify({
-            'success': True,
-            'history': history,
-            'count': len(history)
-        })
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'message': f'获取任务执行历史失败: {str(e)}'
-        }), 500
-
-@app.route('/api/scheduler/status')
-def get_scheduler_status():
-    """获取调度器状态 - 🔧 修复：监控调度器健康状态"""
-    try:
-        status = task_scheduler.get_scheduler_status()
-        return jsonify({
-            'success': True,
-            'scheduler_status': status
-        })
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'message': f'获取调度器状态失败: {str(e)}'
-        }), 500
-
-@app.route('/api/scheduler/restart', methods=['POST'])
-def restart_scheduler():
-    """重启调度器 - 🔧 修复：提供调度器重启功能"""
-    try:
-        print("🔄 重启调度器...")
-        task_scheduler.stop_scheduler()
-        time.sleep(2)  # 等待调度器完全停止
-        task_scheduler.start_scheduler()
-
-        return jsonify({
-            'success': True,
-            'message': '调度器重启成功'
-        })
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'message': f'重启调度器失败: {str(e)}'
-        }), 500
-
-# ==================== 备份管理API ====================
-
-@app.route('/api/backup/create', methods=['POST'])
-def create_backup():
-    """创建数据库备份"""
-    try:
-        data = request.get_json() or {}
-        backup_format = data.get('format', 'sql')  # 默认SQL格式
-        include_metadata = data.get('include_metadata', True)
-
-        # 验证格式
-        if backup_format not in ['sql', 'json']:
-            return jsonify({
-                'success': False,
-                'message': '不支持的备份格式，仅支持 sql 或 json'
-            }), 400
-
-        # 创建备份
-        result = db_manager.create_backup(backup_format, include_metadata)
-
-        if result.get('success'):
-            return jsonify(result)
-        else:
-            return jsonify(result), 500
-
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'message': f'创建备份失败: {str(e)}'
-        }), 500
-
-@app.route('/api/backup/list', methods=['GET'])
-def list_backups():
-    """获取备份文件列表"""
-    try:
-        backups = db_manager.list_backups()
-
-        return jsonify({
-            'success': True,
-            'backups': backups,
-            'count': len(backups)
-        })
-
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'message': f'获取备份列表失败: {str(e)}'
-        }), 500
-
-@app.route('/api/backup/restore', methods=['POST'])
-def restore_backup():
-    """恢复数据库备份"""
-    try:
-        data = request.get_json() or {}
-        backup_filename = data.get('backup_filename')
-
-        if not backup_filename:
-            return jsonify({
-                'success': False,
-                'message': '请指定要恢复的备份文件名'
-            }), 400
-
-        # 构建完整路径
-        backup_path = os.path.join("backups", backup_filename)
-
-        # 恢复备份
-        result = db_manager.restore_backup(backup_path)
-
-        if result.get('success'):
-            return jsonify(result)
-        else:
-            return jsonify(result), 500
-
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'message': f'恢复备份失败: {str(e)}'
-        }), 500
-
-@app.route('/api/backup/upload', methods=['POST'])
-def upload_backup():
-    """上传备份文件"""
-    try:
-        if 'file' not in request.files:
-            return jsonify({
-                'success': False,
-                'message': '没有选择文件'
-            }), 400
-
-        file = request.files['file']
-
-        if file.filename == '':
-            return jsonify({
-                'success': False,
-                'message': '没有选择文件'
-            }), 400
-
-        # 验证文件扩展名
-        if not file.filename.lower().endswith(('.sql', '.json')):
-            return jsonify({
-                'success': False,
-                'message': '只支持 .sql 和 .json 格式的备份文件'
-            }), 400
-
-        # 安全的文件名
-        filename = secure_filename(file.filename)
-
-        # 确保备份目录存在
-        backup_dir = Path("backups")
-        backup_dir.mkdir(exist_ok=True)
-
-        # 保存文件
-        file_path = backup_dir / filename
-        file.save(str(file_path))
-
-        return jsonify({
-            'success': True,
-            'message': f'备份文件上传成功: {filename}',
-            'filename': filename
-        })
-
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'message': f'上传备份文件失败: {str(e)}'
-        }), 500
-
-@app.route('/api/backup/download/<backup_filename>', methods=['GET'])
-def download_backup(backup_filename):
-    """下载备份文件"""
-    try:
-        backup_dir = Path("backups")
-        backup_path = backup_dir / backup_filename
-
-        if not backup_path.exists():
-            return jsonify({
-                'success': False,
-                'message': f'备份文件不存在: {backup_filename}'
-            }), 404
-
-        return send_file(
-            str(backup_path),
-            as_attachment=True,
-            download_name=backup_filename
+        self.task_scheduler = TaskScheduler(
+            db_manager=self.db_manager,
+            spider_factory=create_spider_instance
+        )
+        # 延迟启动调度器，避免导入时阻塞
+        # self.task_scheduler.start_scheduler()
+    
+    def _setup_services(self):
+        """设置服务层"""
+        self.spider_service = SpiderService(
+            db_manager=self.db_manager,
+            task_scheduler=self.task_scheduler,
+            socketio=self.socketio
         )
 
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'message': f'下载备份文件失败: {str(e)}'
-        }), 500
+    def _setup_log_service(self):
+        """设置日志服务"""
+        try:
+            self.log_service = RealTimeLogService(socketio=self.socketio)
 
-@app.route('/api/backup/delete/<backup_filename>', methods=['DELETE'])
-def delete_backup(backup_filename):
-    """删除备份文件"""
-    try:
-        result = db_manager.delete_backup(backup_filename)
+            # 将日志服务绑定到socketio实例，供WebSocket处理器使用
+            self.socketio.log_service = self.log_service
 
-        if result.get('success'):
-            return jsonify(result)
+            # 初始化系统日志记录器
+            init_system_logger(self.log_service)
+
+            print("✅ 实时日志服务已启动")
+            log_system('info', '实时日志服务已启动', 'app')
+        except Exception as e:
+            print(f"❌ 启动日志服务失败: {e}")
+            self.log_service = None
+    
+    def _register_routes(self):
+        """注册路由"""
+        # Vue前端路由
+        @self.app.route('/')
+        def index():
+            return self._serve_vue_file('index.html')
+        
+        @self.app.route('/<path:path>')
+        def vue_routes(path):
+            if '.' in path:
+                try:
+                    return self._serve_vue_file(path)
+                except:
+                    pass
+            return self._serve_vue_file('index.html')
+        
+        # 注册API路由
+        register_spider_routes(self.app, self.spider_service)
+        register_data_routes(self.app, self.db_manager)
+        register_task_routes(self.app, self.spider_service, self.task_scheduler, self.db_manager)
+        register_system_routes(self.app, self.db_manager)
+        register_settings_routes(self.app, self.db_manager)
+    
+    def _serve_vue_file(self, filename):
+        """服务Vue文件"""
+        vue_dist_path = os.path.join(project_root, "web_ui_vue", "dist")
+        if os.path.exists(vue_dist_path):
+            return send_from_directory(vue_dist_path, filename)
         else:
-            return jsonify(result), 500
+            return jsonify({
+                'error': 'Vue前端未构建',
+                'message': '请运行 python3 start_vue_ui.py build 构建前端'
+            }), 404
+    
+    def start_scheduler(self):
+        """启动任务调度器"""
+        if self.task_scheduler and not hasattr(self.task_scheduler, '_scheduler_started'):
+            self.task_scheduler.start_scheduler()
+            self.task_scheduler._scheduler_started = True
 
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'message': f'删除备份文件失败: {str(e)}'
-        }), 500
+    def run(self, host='0.0.0.0', port=8080, debug=True):
+        """运行应用"""
+        try:
+            # 启动任务调度器
+            self.start_scheduler()
 
-@app.route('/api/backup/info/<backup_filename>', methods=['GET'])
-def get_backup_info(backup_filename):
-    """获取备份文件详细信息"""
-    try:
-        result = db_manager.get_backup_info(backup_filename)
+            print("🚀 摩点爬虫Web UI启动中... (重构版)")
+            print(f"📱 访问地址: http://localhost:{port}")
+            print("⏹️  按 Ctrl+C 停止服务")
+            print("-" * 50)
 
-        if result.get('success'):
-            return jsonify(result)
-        else:
-            return jsonify(result), 500
+            # 记录启动日志
+            log_system('info', f'摩点爬虫Web UI启动完成，监听端口: {port}', 'app')
+            log_system('info', f'访问地址: http://localhost:{port}', 'app')
+            log_system('info', f'调试模式: {"开启" if debug else "关闭"}', 'app')
+            log_system('info', f'监听地址: {host}', 'app')
 
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'message': f'获取备份信息失败: {str(e)}'
-        }), 500
+            self.socketio.run(self.app, debug=debug, host=host, port=port)
+        except KeyboardInterrupt:
+            print("\n👋 服务已停止")
+            log_system('warning', '服务被用户手动停止', 'app')
+        except Exception as e:
+            print(f"❌ 启动失败: {e}")
+            log_system('error', f'应用启动失败: {str(e)}', 'app')
 
-@socketio.event
-def connect():
-    """WebSocket连接"""
-    try:
-        print(f'✅ 客户端已连接: {request.sid}')
-        emit('connected', {'message': '连接成功', 'sid': request.sid})
-    except Exception as e:
-        print(f"❌ 连接处理错误: {e}")
-
-@socketio.event
-def disconnect():
-    """WebSocket断开连接"""
-    try:
-        print(f'🔌 客户端已断开: {request.sid}')
-    except Exception as e:
-        print(f'🔌 客户端已断开 (获取SID失败: {e})')
-
-@socketio.on_error_default
-def default_error_handler(e):
-    """默认错误处理器"""
-    try:
-        print(f"⚠️  SocketIO错误: {e}")
-        print(f"错误类型: {type(e).__name__}")
-        import traceback
-        traceback.print_exc()
-    except Exception as handler_error:
-        print(f"❌ 错误处理器本身出错: {handler_error}")
-    return False
-
-@socketio.on('ping')
-def handle_ping():
-    """心跳检测"""
-    try:
-        emit('pong', {'timestamp': datetime.now().isoformat()})
-    except Exception as e:
-        print(f"❌ 心跳检测错误: {e}")
-
-@socketio.on('connect_error')
-def handle_connect_error(data):
-    """连接错误处理"""
-    try:
-        print(f"🔥 连接错误: {data}")
-    except Exception as e:
-        print(f"❌ 连接错误处理失败: {e}")
 
 def find_available_port(start_port=8080, max_port=8090):
     """查找可用端口"""
     import socket
-
+    
     for port in range(start_port, max_port + 1):
         try:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -1589,51 +237,32 @@ def find_available_port(start_port=8080, max_port=8090):
                 return port
         except OSError:
             continue
-
+    
     return None
 
+
+# 创建应用实例
+refactored_app = RefactoredSpiderApp()
+
+# 导出Flask应用和SocketIO实例，用于外部访问
+app = refactored_app.app
+socketio = refactored_app.socketio
+
+# 设置全局socketio实例，确保WebSpiderMonitor能够访问
+import sys
+sys.modules[__name__].socketio = socketio
+
 if __name__ == '__main__':
-    # 检查Vue构建文件是否存在
-    if not os.path.exists(vue_dist_path):
-        print("⚠️  Vue前端未构建，请先运行：")
-        print("   python3 start_vue_ui.py build")
-        print("   或者运行：python3 start_vue_ui.py prod")
-        print("")
-
-    # 只在主进程中执行端口检测和启动信息显示
-    if os.environ.get('WERKZEUG_RUN_MAIN') != 'true':
-        # 查找可用端口
-        port = find_available_port()
-
-        if port is None:
-            print("❌ 无法找到可用端口 (8080-8090)")
-            print("请手动停止占用端口的程序或使用其他端口")
-            exit(1)
-
-        if port != 8080:
-            print(f"⚠️  端口8080被占用，使用端口{port}")
-
-        print("🚀 摩点爬虫Web UI启动中...")
-        print(f"📱 访问地址: http://localhost:{port}")
-        print("⏹️  按 Ctrl+C 停止服务")
-        print("-" * 50)
-
-        # 将端口保存到环境变量，供重启后的进程使用
-        os.environ['SPIDER_WEB_PORT'] = str(port)
-    else:
-        # 重启后的进程从环境变量获取端口
-        port = int(os.environ.get('SPIDER_WEB_PORT', 8080))
-
-    try:
-        socketio.run(app, debug=True, host='0.0.0.0', port=port)
-    except KeyboardInterrupt:
-        print("\n👋 服务已停止")
-    except Exception as e:
-        print(f"❌ 启动失败: {e}")
-
-        if "Address already in use" in str(e):
-            print("\n💡 解决方案:")
-            print("1. 关闭占用端口的程序")
-            print("2. 在macOS中关闭AirPlay接收器:")
-            print("   系统偏好设置 -> 通用 -> 隔空投送与接力 -> 关闭AirPlay接收器")
-            print("3. 或者修改web_ui/app.py中的端口号")
+    # 查找可用端口
+    port = find_available_port()
+    
+    if port is None:
+        print("❌ 无法找到可用端口 (8080-8090)")
+        print("请手动停止占用端口的程序或使用其他端口")
+        exit(1)
+    
+    if port != 8080:
+        print(f"⚠️  端口8080被占用，使用端口{port}")
+    
+    # 运行应用
+    refactored_app.run(port=port)

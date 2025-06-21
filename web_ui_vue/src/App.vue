@@ -181,6 +181,11 @@ const menuItems = [
     to: '/history'
   },
   {
+    title: '实时日志',
+    icon: 'mdi-console-line',
+    to: '/logs'
+  },
+  {
     title: '系统设置',
     icon: 'mdi-cog',
     to: '/settings'

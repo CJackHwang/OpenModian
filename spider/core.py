@@ -229,6 +229,8 @@ class SpiderCore:
     def start_crawling(self, start_page: int = 1, end_page: int = 50,
                       category: str = "all", task_id: str = None) -> bool:
         """开始爬取"""
+        from core.logging import log_spider, log_system
+
         try:
             self._is_running = True
             self._stop_flag.clear()
@@ -240,23 +242,34 @@ class SpiderCore:
             self._log("info", f"分类: {category}")
             self._log("info", f"任务ID: {task_id}")
 
+            # 记录详细的爬取开始信息
+            log_spider('info', f'爬虫引擎启动: 任务ID={task_id}', 'spider-core')
+            log_spider('info', f'爬取参数: 页面{start_page}-{end_page}, 分类={category}', 'spider-core')
+            log_spider('info', f'并发配置: {self.config.MAX_CONCURRENT_REQUESTS}线程, 延迟{self.config.REQUEST_DELAY[0]}-{self.config.REQUEST_DELAY[1]}秒', 'spider-core')
+            log_system('info', f'动态保存间隔: 每{self.save_interval}个项目', 'spider-core')
+
             # 启动监控
             self.monitor.start_monitoring()
+            log_system('debug', '爬虫监控器已启动', 'spider-core')
 
             # 爬取项目列表
+            log_spider('info', '开始爬取项目列表页面...', 'spider-core')
             project_urls = self._crawl_project_lists(start_page, end_page, category)
 
             if self.is_stopped():
                 self._log("warning", "爬取已被用户停止")
+                log_spider('warning', '爬取被用户手动停止', 'spider-core')
                 # 即使被停止，也要保存已获取的数据
                 self._save_remaining_data()
                 return False
 
             if not project_urls:
                 self._log("warning", "未找到任何项目URL")
+                log_spider('warning', '未发现任何有效项目URL', 'spider-core')
                 return False
 
             self._log("info", f"发现 {len(project_urls)} 个项目，开始详细爬取...")
+            log_spider('info', f'项目列表爬取完成: 发现{len(project_urls)}个项目', 'spider-core')
 
             # 更新进度
             if self._progress_callback:
@@ -264,59 +277,77 @@ class SpiderCore:
                 self._progress_callback(current_page=total_pages, total_pages=total_pages, total_projects=len(project_urls), completed_projects=0)
 
             # 爬取项目详情
+            log_spider('info', '开始并发爬取项目详情...', 'spider-core')
             success = self._crawl_project_details(project_urls)
 
             # 停止监控
             self.monitor.stop_monitoring()
+            log_system('debug', '爬虫监控器已停止', 'spider-core')
 
             # 保存剩余数据
             self._save_remaining_data()
 
             # 数据导出（如果有数据且未被停止）
             if self.projects_data and not self.is_stopped():
+                log_spider('info', '开始导出爬取数据...', 'spider-core')
                 self._export_data()
 
             # 打印统计信息
             self.monitor.print_stats()
 
+            log_spider('info', f'爬取任务完成: 成功={success}, 保存项目数={self.saved_count}', 'spider-core')
+
             return success
 
         except KeyboardInterrupt:
             print("\n用户中断爬取")
+            log_spider('warning', '爬取被键盘中断', 'spider-core')
             self._is_running = False
             self.monitor.stop_monitoring()
             return False
         except Exception as e:
             print(f"爬取过程中出现错误: {e}")
+            log_spider('error', f'爬取过程异常: {str(e)}', 'spider-core')
             self.monitor.record_error("crawling_error", str(e))
             self._is_running = False
             self.monitor.stop_monitoring()
             return False
         finally:
             self._is_running = False
+            log_system('info', f'爬虫引擎已停止: 任务ID={task_id}', 'spider-core')
             # 动态数据管理器已弃用，无需清理
 
     def _crawl_project_lists(self, start_page: int, end_page: int,
                            category: str) -> List[Tuple[str, str, str, str]]:
         """爬取项目列表页面"""
+        from core.logging import log_spider, log_system
+
         project_urls = []
+        total_pages = end_page - start_page + 1
+
+        log_spider('info', f'开始爬取项目列表: {total_pages}页 (页面{start_page}-{end_page})', 'spider-core')
 
         for page in range(start_page, end_page + 1):
             # 检查停止标志
             if self.is_stopped():
                 print("收到停止信号，停止爬取页面列表")
+                log_spider('warning', f'爬取被停止，已处理{page-start_page}页', 'spider-core')
                 break
 
             try:
                 self._log("info", f"正在爬取第 {page} 页...")
+                log_spider('debug', f'开始处理第{page}页 (进度: {page-start_page+1}/{total_pages})', 'spider-core')
 
                 url = self.config.get_full_url(category, page)
+                log_spider('debug', f'请求URL: {url}', 'spider-core')
+
                 page_projects = self._parse_project_list_page(url, page)
 
                 if page_projects:
                     project_urls.extend(page_projects)
                     self.monitor.record_page(True)
                     self._log("success", f"第 {page} 页发现 {len(page_projects)} 个项目")
+                    log_spider('info', f'第{page}页解析成功: 发现{len(page_projects)}个项目, 累计{len(project_urls)}个', 'spider-core')
 
                     # 更新进度
                     if self._progress_callback:
@@ -326,17 +357,21 @@ class SpiderCore:
                 else:
                     self.monitor.record_page(False)
                     self._log("warning", f"第 {page} 页未发现项目")
+                    log_spider('warning', f'第{page}页未发现有效项目', 'spider-core')
 
                 # 检查是否需要停止
                 if self.monitor.stats.consecutive_errors > self.config.MAX_CONSECUTIVE_ERRORS:
                     print("连续错误过多，停止爬取")
+                    log_spider('error', f'连续错误过多({self.monitor.stats.consecutive_errors}次)，停止爬取', 'spider-core')
                     break
 
             except Exception as e:
                 print(f"爬取第 {page} 页失败: {e}")
+                log_spider('error', f'第{page}页爬取失败: {str(e)}', 'spider-core')
                 self.monitor.record_error("page_crawl_error", str(e))
                 self.monitor.record_page(False)
 
+        log_spider('info', f'项目列表爬取完成: 处理{page-start_page+1}页，发现{len(project_urls)}个项目', 'spider-core')
         return project_urls
 
     def _parse_project_list_page(self, url: str, page: int) -> List[Tuple[str, str, str, str, Dict[str, str]]]:

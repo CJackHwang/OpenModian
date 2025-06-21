@@ -115,7 +115,8 @@
                 <v-btn
                   color="primary"
                   @click="saveSettings"
-                  :loading="showSaveSuccess"
+                  :loading="saveLoading"
+                  :disabled="loading"
                 >
                   {{ showSaveSuccess ? '已保存' : '保存设置' }}
                 </v-btn>
@@ -123,6 +124,8 @@
                 <v-btn
                   variant="outlined"
                   @click="resetSettings"
+                  :loading="loading"
+                  :disabled="saveLoading"
                 >
                   重置默认
                 </v-btn>
@@ -149,12 +152,15 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { useTheme } from 'vuetify'
+import axios from 'axios'
 
 const theme = useTheme()
 
 // 响应式数据
 const darkMode = ref(false)
 const showSaveSuccess = ref(false)
+const loading = ref(false)
+const saveLoading = ref(false)
 
 const defaultSettings = reactive({
   maxConcurrent: 3,
@@ -180,34 +186,86 @@ const toggleTheme = () => {
   localStorage.setItem('theme', theme.global.name.value)
 }
 
-const saveSettings = () => {
-  localStorage.setItem('defaultSettings', JSON.stringify(defaultSettings))
-  showSaveSuccess.value = true
-  setTimeout(() => {
+const saveSettings = async () => {
+  saveLoading.value = true
+  try {
+    // 保存爬虫设置到后端
+    const spiderSettings = {
+      spider_max_concurrent: defaultSettings.maxConcurrent,
+      spider_delay_min: defaultSettings.delayMin,
+      spider_delay_max: defaultSettings.delayMax,
+      spider_category: defaultSettings.category
+    }
+
+    const response = await axios.post('/api/settings', {
+      settings: spiderSettings
+    })
+
+    if (response.data.success) {
+      showSaveSuccess.value = true
+      setTimeout(() => {
+        showSaveSuccess.value = false
+      }, 3000)
+    } else {
+      throw new Error(response.data.message || '保存失败')
+    }
+  } catch (error) {
+    console.error('保存设置失败:', error)
+    // 显示错误提示
     showSaveSuccess.value = false
-  }, 3000)
-}
-
-const resetSettings = () => {
-  defaultSettings.maxConcurrent = 3
-  defaultSettings.delayMin = 1
-  defaultSettings.delayMax = 3
-  defaultSettings.category = 'all'
-}
-
-const loadSettings = () => {
-  // 只读取主题设置，不自动应用
-  const savedTheme = localStorage.getItem('theme')
-  if (savedTheme) {
-    darkMode.value = savedTheme === 'dark'
-  } else {
-    darkMode.value = theme.global.name.value === 'dark'
+  } finally {
+    saveLoading.value = false
   }
+}
 
-  // 加载默认设置
-  const savedSettings = localStorage.getItem('defaultSettings')
-  if (savedSettings) {
-    Object.assign(defaultSettings, JSON.parse(savedSettings))
+const resetSettings = async () => {
+  loading.value = true
+  try {
+    const response = await axios.post('/api/settings/reset')
+    if (response.data.success) {
+      // 重新加载设置
+      await loadSettings()
+    } else {
+      throw new Error(response.data.message || '重置失败')
+    }
+  } catch (error) {
+    console.error('重置设置失败:', error)
+  } finally {
+    loading.value = false
+  }
+}
+
+const loadSettings = async () => {
+  loading.value = true
+  try {
+    // 加载主题设置（仍使用localStorage）
+    const savedTheme = localStorage.getItem('theme')
+    if (savedTheme) {
+      darkMode.value = savedTheme === 'dark'
+    } else {
+      darkMode.value = theme.global.name.value === 'dark'
+    }
+
+    // 从后端加载爬虫设置
+    const response = await axios.get('/api/settings')
+    if (response.data.success) {
+      const settings = response.data.settings
+
+      // 更新爬虫设置
+      defaultSettings.maxConcurrent = settings.spider_max_concurrent || 3
+      defaultSettings.delayMin = settings.spider_delay_min || 1
+      defaultSettings.delayMax = settings.spider_delay_max || 3
+      defaultSettings.category = settings.spider_category || 'all'
+    }
+  } catch (error) {
+    console.error('加载设置失败:', error)
+    // 使用默认值
+    defaultSettings.maxConcurrent = 3
+    defaultSettings.delayMin = 1
+    defaultSettings.delayMax = 3
+    defaultSettings.category = 'all'
+  } finally {
+    loading.value = false
   }
 }
 

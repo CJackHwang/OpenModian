@@ -161,6 +161,19 @@ class DatabaseManager:
                     created_time TIMESTAMP DEFAULT (datetime('now', 'localtime'))
                 )
             ''')
+
+            # 🔧 新增：创建用户设置表
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS user_settings (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    setting_key TEXT UNIQUE NOT NULL,
+                    setting_value TEXT NOT NULL,
+                    setting_type TEXT DEFAULT 'string',
+                    description TEXT,
+                    updated_time TIMESTAMP DEFAULT (datetime('now', 'localtime')),
+                    created_time TIMESTAMP DEFAULT (datetime('now', 'localtime'))
+                )
+            ''')
             
             # 创建时间分类视图
             cursor.execute('''
@@ -183,6 +196,9 @@ class DatabaseManager:
             # 🔧 修复：为定时任务表创建索引
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_scheduled_task_id ON scheduled_tasks(task_id)')
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_scheduled_next_run ON scheduled_tasks(next_run_time)')
+            # 🔧 新增：为用户设置表创建索引
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_setting_key ON user_settings(setting_key)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_setting_updated ON user_settings(updated_time)')
             
             conn.commit()
     
@@ -584,6 +600,109 @@ class DatabaseManager:
                     change_items.append(f"{field_name}{change}({growth_rate:+.1f}%)")
 
         return "、".join(change_items) if change_items else "无变化"
+
+    # ==================== 用户设置管理 ====================
+
+    def save_user_setting(self, key: str, value: Any, setting_type: str = 'string', description: str = None) -> bool:
+        """保存用户设置"""
+        try:
+            import json
+
+            # 根据类型序列化值
+            if setting_type == 'json':
+                serialized_value = json.dumps(value, ensure_ascii=False)
+            else:
+                serialized_value = str(value)
+
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute('''
+                    INSERT OR REPLACE INTO user_settings
+                    (setting_key, setting_value, setting_type, description, updated_time)
+                    VALUES (?, ?, ?, ?, datetime('now', 'localtime'))
+                ''', (key, serialized_value, setting_type, description))
+                conn.commit()
+                return True
+        except Exception as e:
+            print(f"❌ 保存用户设置失败: {e}")
+            return False
+
+    def get_user_setting(self, key: str, default_value: Any = None):
+        """获取用户设置"""
+        try:
+            import json
+
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute('''
+                    SELECT setting_value, setting_type FROM user_settings
+                    WHERE setting_key = ?
+                ''', (key,))
+                result = cursor.fetchone()
+
+                if result:
+                    value, setting_type = result
+                    # 根据类型反序列化值
+                    if setting_type == 'json':
+                        return json.loads(value)
+                    elif setting_type == 'int':
+                        return int(value)
+                    elif setting_type == 'float':
+                        return float(value)
+                    elif setting_type == 'bool':
+                        return value.lower() in ('true', '1', 'yes')
+                    else:
+                        return value
+                else:
+                    return default_value
+        except Exception as e:
+            print(f"❌ 获取用户设置失败: {e}")
+            return default_value
+
+    def get_all_user_settings(self) -> Dict[str, Any]:
+        """获取所有用户设置"""
+        try:
+            import json
+
+            settings = {}
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute('''
+                    SELECT setting_key, setting_value, setting_type
+                    FROM user_settings
+                    ORDER BY setting_key
+                ''')
+
+                for row in cursor.fetchall():
+                    key, value, setting_type = row
+                    # 根据类型反序列化值
+                    if setting_type == 'json':
+                        settings[key] = json.loads(value)
+                    elif setting_type == 'int':
+                        settings[key] = int(value)
+                    elif setting_type == 'float':
+                        settings[key] = float(value)
+                    elif setting_type == 'bool':
+                        settings[key] = value.lower() in ('true', '1', 'yes')
+                    else:
+                        settings[key] = value
+
+            return settings
+        except Exception as e:
+            print(f"❌ 获取所有用户设置失败: {e}")
+            return {}
+
+    def delete_user_setting(self, key: str) -> bool:
+        """删除用户设置"""
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute('DELETE FROM user_settings WHERE setting_key = ?', (key,))
+                conn.commit()
+                return cursor.rowcount > 0
+        except Exception as e:
+            print(f"❌ 删除用户设置失败: {e}")
+            return False
 
     def save_projects(self, projects_data, task_id: str = None) -> int:
         """保存项目数据到数据库 - 支持列表和字典格式，线程安全"""
@@ -1795,3 +1914,110 @@ class DatabaseManager:
         except Exception as e:
             print(f"获取字段 {field} 的不同值失败: {e}")
             return []
+
+    def get_amount_statistics(self) -> Dict[str, Any]:
+        """获取金额统计信息"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+
+                cursor.execute('''
+                    SELECT
+                        MIN(raised_amount) as min_amount,
+                        MAX(raised_amount) as max_amount,
+                        AVG(raised_amount) as avg_amount,
+                        MIN(target_amount) as min_target,
+                        MAX(target_amount) as max_target,
+                        AVG(target_amount) as avg_target
+                    FROM projects
+                    WHERE raised_amount IS NOT NULL AND target_amount IS NOT NULL
+                ''')
+
+                result = cursor.fetchone()
+                if result:
+                    return {
+                        'min_amount': result[0] or 0,
+                        'max_amount': result[1] or 1000000,
+                        'avg_amount': result[2] or 0,
+                        'min_target': result[3] or 0,
+                        'max_target': result[4] or 1000000,
+                        'avg_target': result[5] or 0
+                    }
+                else:
+                    return {
+                        'min_amount': 0,
+                        'max_amount': 1000000,
+                        'avg_amount': 0,
+                        'min_target': 0,
+                        'max_target': 1000000,
+                        'avg_target': 0
+                    }
+
+        except Exception as e:
+            print(f"获取金额统计失败: {e}")
+            return {
+                'min_amount': 0,
+                'max_amount': 1000000,
+                'avg_amount': 0,
+                'min_target': 0,
+                'max_target': 1000000,
+                'avg_target': 0
+            }
+
+    def get_time_range(self) -> Dict[str, Any]:
+        """获取时间范围信息"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+
+                cursor.execute('''
+                    SELECT
+                        MIN(crawl_time) as earliest_date,
+                        MAX(crawl_time) as latest_date,
+                        MIN(start_time) as earliest_start,
+                        MAX(end_time) as latest_end
+                    FROM projects
+                    WHERE crawl_time IS NOT NULL
+                ''')
+
+                result = cursor.fetchone()
+                if result:
+                    return {
+                        'earliest_date': result[0],
+                        'latest_date': result[1],
+                        'earliest_start': result[2],
+                        'latest_end': result[3]
+                    }
+                else:
+                    return {
+                        'earliest_date': None,
+                        'latest_date': None,
+                        'earliest_start': None,
+                        'latest_end': None
+                    }
+
+        except Exception as e:
+            print(f"获取时间范围失败: {e}")
+            return {
+                'earliest_date': None,
+                'latest_date': None,
+                'earliest_start': None,
+                'latest_end': None
+            }
+
+    def count_project_history(self, project_id: str) -> int:
+        """统计项目历史记录数量"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+
+                cursor.execute('''
+                    SELECT COUNT(*) FROM projects
+                    WHERE project_id = ?
+                ''', (project_id,))
+
+                return cursor.fetchone()[0]
+
+        except Exception as e:
+            print(f"统计项目历史记录失败: {e}")
+            return 0

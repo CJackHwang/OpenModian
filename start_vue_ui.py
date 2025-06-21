@@ -120,15 +120,20 @@ def build_frontend():
         print(f"✗ Vue前端构建失败: {e}")
         return False
 
-def start_integrated_server():
+def start_integrated_server(use_refactored=False):
     """启动集成服务器（Flask + Vue）"""
-    print("🚀 启动集成服务器...")
+    if use_refactored:
+        print("🚀 启动集成服务器（重构版）...")
+        app_file_name = "app.py"  # 重构版本现在是主版本
+    else:
+        print("🚀 启动集成服务器（原版）...")
+        app_file_name = "app_original_backup.py"  # 原版本已备份
 
     project_root = Path(__file__).parent
-    app_file = project_root / "app.py"
+    app_file = project_root / app_file_name
 
     if not app_file.exists():
-        print("✗ Flask应用文件不存在")
+        print(f"✗ Flask应用文件不存在: {app_file_name}")
         return False
 
     try:
@@ -152,15 +157,20 @@ def start_integrated_server():
 
 
 
-def start_backend_dev():
+def start_backend_dev(use_refactored=False):
     """启动Flask后端开发服务器"""
-    print("🚀 启动Flask后端开发服务器...")
+    if use_refactored:
+        print("🚀 启动Flask后端开发服务器（重构版）...")
+        app_file_name = "app.py"  # 重构版本现在是主版本
+    else:
+        print("🚀 启动Flask后端开发服务器（原版）...")
+        app_file_name = "app_original_backup.py"  # 原版本已备份
 
     project_root = Path(__file__).parent
-    app_file = project_root / "app.py"
+    app_file = project_root / app_file_name
 
     if not app_file.exists():
-        print("✗ Flask应用文件不存在")
+        print(f"✗ Flask应用文件不存在: {app_file_name}")
         return False
 
     try:
@@ -263,22 +273,41 @@ def main():
 
     # 检查命令行参数
     mode = 'prod'  # 默认生产模式（单端口）
+    use_refactored = True  # 默认使用重构版本
+
     if len(sys.argv) > 1:
-        if sys.argv[1] in ['dev', 'build', 'prod', 'single']:
+        if sys.argv[1] in ['dev', 'build', 'prod', 'single', 'legacy']:
             mode = sys.argv[1]
         else:
-            print("用法: python3 start_vue_ui.py [dev|build|prod|single]")
-            print("  dev    - 开发模式（前后端分离，热重载）")
-            print("  build  - 仅构建前端")
-            print("  prod   - 生产模式（单端口，默认）")
-            print("  single - 单端口模式（同prod）")
+            print("用法: python3 start_vue_ui.py [dev|build|prod|single|legacy]")
+            print("  dev     - 开发模式（前后端分离，热重载）")
+            print("  build   - 仅构建前端")
+            print("  prod    - 生产模式（单端口，默认，重构版本）")
+            print("  single  - 单端口模式（同prod）")
+            print("  legacy  - 原版本（即将弃用，仅作备用）")
             return
+
+    # 检查是否使用原版本
+    if mode == 'legacy':
+        use_refactored = False
+        mode = 'prod'  # 原版本也使用生产模式
+        print("⚠️  警告：您正在使用原版本，该版本即将弃用")
+        print("⚠️  建议使用重构版本（默认）以获得更好的架构和稳定性")
 
     # single模式等同于prod模式
     if mode == 'single':
         mode = 'prod'
 
     print("摩点爬虫Vue UI启动器")
+    print("=" * 50)
+
+    # 显示版本信息
+    if use_refactored:
+        print("🏗️  当前版本：重构版（工程化架构，推荐）")
+        print("✨ 特性：模块化设计、统一错误处理、标准化API")
+    else:
+        print("⚠️  当前版本：原版（即将弃用）")
+        print("💡 建议：使用默认重构版本或添加 'legacy' 参数")
     print("=" * 50)
 
     # 检查Node.js和npm
@@ -316,8 +345,9 @@ def main():
 
     elif mode == 'dev':
         # 开发模式（前后端分离）
+        version_text = "重构版" if use_refactored else "原版（即将弃用）"
         print("\n" + "=" * 50)
-        print("🚀 启动开发模式（前后端分离）...")
+        print(f"🚀 启动开发模式（前后端分离，{version_text}）...")
         print("📱 前端开发服务器: http://localhost:3001")
         print("🔧 后端API服务器: http://localhost:8080")
         print("⚠️  注意：此模式仅用于前端开发调试")
@@ -325,7 +355,7 @@ def main():
         print("=" * 50)
 
         # 启动后端
-        backend_thread = threading.Thread(target=start_backend_dev, daemon=True)
+        backend_thread = threading.Thread(target=lambda: start_backend_dev(use_refactored), daemon=True)
         backend_thread.start()
 
         # 在后台打开浏览器（延迟启动）
@@ -340,10 +370,15 @@ def main():
 
     elif mode == 'prod':
         # 生产模式（单端口）
+        version_text = "重构版" if use_refactored else "原版（即将弃用）"
         print("\n" + "=" * 50)
-        print("🚀 启动单端口模式...")
+        print(f"🚀 启动单端口模式（{version_text}）...")
         print("📱 访问地址: http://localhost:8080")
         print("✨ 前后端整合在同一端口")
+        if use_refactored:
+            print("🏗️  使用工程化重构架构")
+        else:
+            print("⚠️  警告：使用原版本，建议切换到重构版本")
         print("⏹️  按 Ctrl+C 停止服务")
         print("=" * 50)
 
@@ -358,7 +393,7 @@ def main():
 
         # 启动集成服务器（主线程）
         try:
-            start_integrated_server()
+            start_integrated_server(use_refactored)
         except KeyboardInterrupt:
             print("\n👋 集成服务器已停止")
 

@@ -22,6 +22,10 @@ pyyaml>=6.0
 
 # 日志和工具
 pathlib2>=2.3.7; python_version<"3.4"
+watchdog>=3.0.0
+
+# 系统监控
+psutil>=5.9.0
 
 # 开发和测试（可选）
 # pytest>=7.0.0
