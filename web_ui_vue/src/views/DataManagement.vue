@@ -5,13 +5,13 @@
       <v-col>
         <div class="d-flex align-center mb-4">
           <div class="title-icon-container me-4">
-            <v-icon icon="mdi-database" size="32" />
+            <v-icon icon="mdi-database" size="32" class="title-icon" />
           </div>
           <div>
-            <h1 class="text-headline-large font-weight-medium text-primary mb-1">
+            <h1 class="text-headline-large font-weight-medium text-high-emphasis mb-1">
               数据管理
             </h1>
-            <p class="text-body-large text-on-surface-variant">
+            <p class="text-body-large text-medium-emphasis">
               查看、搜索和管理爬取的项目数据
             </p>
           </div>
@@ -116,11 +116,11 @@
         align-tabs="start"
       >
         <v-tab value="data">
-          <v-icon icon="mdi-table" class="me-2" />
+          <v-icon icon="mdi-table" class="me-2 icon-medium-emphasis" />
           数据查看
         </v-tab>
         <v-tab value="backup">
-          <v-icon icon="mdi-backup-restore" class="me-2" />
+          <v-icon icon="mdi-backup-restore" class="me-2 icon-medium-emphasis" />
           备份管理
         </v-tab>
       </v-tabs>
@@ -133,7 +133,7 @@
         <!-- 筛选和搜索 -->
     <v-card elevation="2" class="mb-6">
       <v-card-title>
-        <v-icon icon="mdi-filter" class="me-3" />
+        <v-icon icon="mdi-filter" class="me-3 icon-primary" />
         数据筛选
       </v-card-title>
 
@@ -187,7 +187,7 @@
     <!-- 数据表格 -->
     <v-card elevation="2">
       <v-card-title>
-        <v-icon icon="mdi-table" class="me-3" />
+        <v-icon icon="mdi-table" class="me-3 icon-primary" />
         项目数据
         <v-spacer />
         <v-chip variant="outlined">
@@ -200,8 +200,10 @@
         :items="filteredProjects"
         :loading="loading"
         :items-per-page="itemsPerPage"
-        class="elevation-0"
+        class="data-table elevation-0"
         item-value="id"
+        density="default"
+        :mobile-breakpoint="0"
       >
         <!-- 项目名称列 -->
         <template #item.project_name="{ item }">
@@ -316,7 +318,7 @@
         <!-- 无数据状态 -->
         <template #no-data>
           <div class="text-center pa-8">
-            <v-icon size="64" class="mb-4 text-medium-emphasis">mdi-database-off</v-icon>
+            <v-icon size="64" class="mb-4 icon-medium-emphasis">mdi-database-off</v-icon>
             <div class="text-h6 text-medium-emphasis">暂无数据</div>
             <div class="text-subtitle-2 text-medium-emphasis mb-4">
               请先运行爬虫任务获取数据

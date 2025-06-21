@@ -7,7 +7,7 @@
           <v-icon icon="mdi-spider" class="me-3" size="large" />
           爬虫控制
         </h1>
-        <p class="text-h6 text-medium-emphasis">
+        <p class="text-h6">
           配置和管理爬虫任务
         </p>
       </v-col>
@@ -166,7 +166,7 @@
               @click="startCrawling"
               :disabled="!formValid"
               :loading="starting"
-              variant="elevated"
+
               class="mb-3"
             >
               开始爬取
@@ -180,7 +180,7 @@
               prepend-icon="mdi-stop"
               @click="stopCrawling"
               :loading="stopping"
-              variant="elevated"
+
               class="mb-3"
             >
               停止爬取
@@ -210,7 +210,7 @@
             <v-chip
               v-if="currentTask"
               :color="getTaskStatusColor(currentTask.status)"
-              variant="flat"
+
             >
               {{ getTaskStatusText(currentTask.status) }}
             </v-chip>
@@ -269,30 +269,30 @@
                   <div class="text-h6 font-weight-bold text-primary">
                     {{ currentTask.stats?.pagesCrawled || 0 }}
                   </div>
-                  <div class="text-caption text-medium-emphasis">已爬页面</div>
+                  <div class="text-caption">已爬页面</div>
                 </v-col>
                 <v-col cols="6" md="3">
                   <div class="text-h6 font-weight-bold text-success">
                     {{ currentTask.stats?.projectsFound || 0 }}
                   </div>
-                  <div class="text-caption text-medium-emphasis">发现项目</div>
+                  <div class="text-caption">发现项目</div>
                 </v-col>
                 <v-col cols="6" md="3">
                   <div class="text-h6 font-weight-bold text-info">
                     {{ currentTask.stats?.projectsProcessed || 0 }}
                   </div>
-                  <div class="text-caption text-medium-emphasis">已处理</div>
+                  <div class="text-caption">已处理</div>
                 </v-col>
                 <v-col cols="6" md="3">
                   <div class="text-h6 font-weight-bold text-error">
                     {{ currentTask.stats?.errors || 0 }}
                   </div>
-                  <div class="text-caption text-medium-emphasis">错误数</div>
+                  <div class="text-caption">错误数</div>
                 </v-col>
               </v-row>
             </div>
 
-            <div v-else class="text-center py-8 text-medium-emphasis">
+            <div v-else class="text-center py-8">
               <v-icon icon="mdi-sleep" size="64" class="mb-4" />
               <div class="text-h6">暂无活跃任务</div>
               <div class="text-subtitle-2">配置参数后点击"开始爬取"启动任务</div>

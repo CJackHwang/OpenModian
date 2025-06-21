@@ -134,14 +134,20 @@
 
         <!-- 状态列 -->
         <template #item.status="{ item }">
-          <v-chip
-            :color="getStatusColor(item.stats.status)"
-            variant="flat"
-            size="small"
-          >
-            <v-icon start>{{ getStatusIcon(item.stats.status) }}</v-icon>
-            {{ getStatusText(item.stats.status) }}
-          </v-chip>
+          <div class="d-flex align-center">
+            <div
+              :class="['status-indicator', `status-${item.stats.status}`]"
+            ></div>
+            <v-chip
+              :color="getStatusColor(item.stats.status)"
+              variant="flat"
+              size="small"
+              class="ms-2"
+            >
+              <v-icon start>{{ getStatusIcon(item.stats.status) }}</v-icon>
+              <span class="status-text">{{ getStatusText(item.stats.status) }}</span>
+            </v-chip>
+          </div>
         </template>
 
         <!-- 配置列 -->
