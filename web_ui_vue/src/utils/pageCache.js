@@ -191,6 +191,14 @@ export const pageCache = {
     const pageKey = `spider_task_${taskId}`
     return pageCacheManager.getPageData(pageKey)
   },
+
+  /**
+   * 删除爬虫任务缓存
+   */
+  removeSpiderTask(taskId) {
+    const pageKey = `spider_task_${taskId}`
+    pageCacheManager.removePageData(pageKey)
+  },
   
   /**
    * 缓存数据管理页面状态

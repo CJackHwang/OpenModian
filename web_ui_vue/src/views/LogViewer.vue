@@ -114,10 +114,13 @@
       
       <v-row>
         <v-col cols="12">
-          <RealTimeLogViewer 
-            height="calc(100vh - 300px)"
+          <RealTimeLogViewer
+            :height="logViewerHeight"
+            :min-height="'400px'"
+            :max-height="'calc(100vh - 250px)'"
             :max-logs="1000"
             :auto-scroll="autoScroll"
+            :compact="false"
             ref="logViewer"
           />
         </v-col>
@@ -183,10 +186,12 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useAppStore } from '@/stores/app'
+import { useDisplay } from 'vuetify'
 import RealTimeLogViewer from '@/components/RealTimeLogViewer.vue'
 
 // Store
 const appStore = useAppStore()
+const display = useDisplay()
 
 // 响应式数据
 const connectionStatus = ref(false)
@@ -218,6 +223,13 @@ const logLevels = [
 // 计算属性
 const totalLogs = computed(() => {
   return filteredLogs.value.length
+})
+
+// 日志查看器高度计算
+const logViewerHeight = computed(() => {
+  if (display.xs.value) return '400px'
+  if (display.sm.value) return '500px'
+  return 'calc(100vh - 300px)'
 })
 
 // 方法

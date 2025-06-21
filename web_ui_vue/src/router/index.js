@@ -76,6 +76,14 @@ const router = createRouter({
       }
     },
     {
+      path: '/test',
+      name: 'component-test',
+      component: () => import('@/views/ComponentTest.vue'),
+      meta: {
+        title: '组件测试'
+      }
+    },
+    {
       path: '/:pathMatch(.*)*',
       name: 'not-found',
       component: () => import('@/views/NotFound.vue'),

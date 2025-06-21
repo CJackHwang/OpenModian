@@ -302,9 +302,12 @@
 
         <!-- 实时日志 -->
         <RealTimeLogViewer
-          height="400px"
+          :height="logViewerHeight"
+          :min-height="'300px'"
+          :max-height="'600px'"
           :max-logs="500"
           :auto-scroll="true"
+          :compact="display.xs.value"
         />
       </v-col>
     </v-row>
@@ -314,10 +317,13 @@
 <script setup>
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { useAppStore } from '@/stores/app'
+import { useDisplay } from 'vuetify'
 import axios from 'axios'
 import RealTimeLogViewer from '@/components/RealTimeLogViewer.vue'
+import { pageCache } from '@/utils/pageCache'
 
 const appStore = useAppStore()
+const display = useDisplay()
 
 // 响应式数据
 const formValid = ref(false)
@@ -341,6 +347,14 @@ const config = reactive({
 // 计算属性
 const isRunning = computed(() => {
   return currentTask.value && ['starting', 'running'].includes(currentTask.value.status)
+})
+
+// 日志查看器高度计算
+const logViewerHeight = computed(() => {
+  if (display.xs.value) return '300px'
+  if (display.sm.value) return '350px'
+  if (display.md.value) return '400px'
+  return '450px'
 })
 
 // 方法
@@ -418,6 +432,23 @@ const startCrawling = async () => {
         }
       } else {
         console.log(`✅ 任务已启动: ${response.data.task_id}`)
+
+        // 设置当前任务状态
+        currentTask.value = {
+          id: response.data.task_id,
+          status: 'starting',
+          progress: 0,
+          startTime: new Date().toISOString(),
+          stats: {
+            status: 'starting',
+            progress: 0,
+            pages_crawled: 0,
+            projects_found: 0,
+            projects_processed: 0,
+            errors: 0
+          }
+        }
+
         // 通过WebSocket发送日志
         if (appStore.socket && appStore.socket.connected) {
           appStore.socket.emit('log_manual', {
@@ -427,8 +458,12 @@ const startCrawling = async () => {
             source: 'spider-control'
           })
         }
+
         // 开始轮询任务状态
         startPolling()
+
+        // 缓存任务状态
+        pageCache.cacheSpiderTask('current', currentTask.value)
       }
     } else {
       console.error(`❌ 启动失败: ${response.data.message}`)
@@ -467,6 +502,19 @@ const stopCrawling = async () => {
 
     if (response.data.success) {
       console.log('⚠️ 任务已停止')
+
+      // 更新任务状态
+      if (currentTask.value) {
+        currentTask.value.status = 'stopped'
+        currentTask.value.stats.status = 'stopped'
+
+        // 缓存更新后的状态
+        pageCache.cacheSpiderTask('current', currentTask.value)
+      }
+
+      // 停止轮询
+      stopPolling()
+
       // 通过WebSocket发送日志
       if (appStore.socket && appStore.socket.connected) {
         appStore.socket.emit('log_manual', {
@@ -554,9 +602,16 @@ const startPolling = () => {
           stats: task.stats
         }
 
-        // 如果任务完成或失败，停止轮询
+        // 缓存任务状态
+        pageCache.cacheSpiderTask('current', currentTask.value)
+
+        // 如果任务完成或失败，停止轮询并清理缓存
         if (['completed', 'failed', 'stopped'].includes(task.stats.status)) {
           stopPolling()
+          // 延迟清理缓存，让用户能看到最终状态
+          setTimeout(() => {
+            pageCache.removeSpiderTask('current')
+          }, 30000) // 30秒后清理
         }
       }
     } catch (error) {
@@ -572,9 +627,56 @@ const stopPolling = () => {
   }
 }
 
+// 恢复任务状态
+const restoreTaskState = async () => {
+  try {
+    // 1. 尝试从缓存恢复
+    const cachedTask = pageCache.getSpiderTask('current')
+    if (cachedTask && cachedTask.taskData) {
+      console.log('📋 从缓存恢复任务状态:', cachedTask.taskData)
+      currentTask.value = cachedTask.taskData
+    }
+
+    // 2. 查询服务器当前活跃任务
+    const response = await axios.get('/api/tasks')
+    if (response.data.success && response.data.tasks.length > 0) {
+      // 查找正在运行的任务
+      const runningTask = response.data.tasks.find(task =>
+        ['running', 'starting'].includes(task.stats.status)
+      )
+
+      if (runningTask) {
+        console.log('🔄 发现正在运行的任务:', runningTask)
+        currentTask.value = {
+          id: runningTask.task_id,
+          status: runningTask.stats.status,
+          progress: runningTask.stats.progress,
+          startTime: runningTask.stats.start_time,
+          stats: runningTask.stats
+        }
+
+        // 开始轮询
+        startPolling()
+
+        // 缓存任务状态
+        pageCache.cacheSpiderTask('current', currentTask.value)
+      } else {
+        // 没有运行中的任务，清理缓存
+        pageCache.removeSpiderTask('current')
+        currentTask.value = null
+      }
+    }
+  } catch (error) {
+    console.error('恢复任务状态失败:', error)
+  }
+}
+
 // 生命周期
 onMounted(() => {
   loadDefaultConfig()
+
+  // 恢复任务状态
+  restoreTaskState()
 
   // 监听WebSocket消息
   const setupWebSocketListeners = () => {
@@ -593,12 +695,17 @@ onMounted(() => {
             stats: data.stats
           }
 
+          // 缓存最新任务状态
+          pageCache.cacheSpiderTask('current', currentTask.value)
+
           // 日志更新现在由RealTimeLogViewer组件处理
         }
       })
 
       appStore.socket.on('connect', () => {
         console.log('✅ WebSocket已连接，重新设置监听器')
+        // WebSocket重连后重新查询任务状态
+        restoreTaskState()
       })
     } else {
       console.log('⚠️ WebSocket未初始化，1秒后重试')

@@ -113,6 +113,29 @@ export const useAppStore = defineStore('app', () => {
           handleTaskUpdate(data)
         })
 
+        // 日志相关事件监听
+        socket.value.on('log_update', (data) => {
+          console.log('📡 收到日志更新:', data)
+          // 这个事件会被RealTimeLogViewer组件监听
+        })
+
+        socket.value.on('log_history', (data) => {
+          console.log('📝 收到历史日志:', data)
+          // 这个事件会被RealTimeLogViewer组件监听
+        })
+
+        socket.value.on('log_subscribed', (data) => {
+          console.log('✅ 日志订阅成功:', data)
+        })
+
+        socket.value.on('log_unsubscribed', (data) => {
+          console.log('❌ 日志取消订阅:', data)
+        })
+
+        socket.value.on('log_cleared', (data) => {
+          console.log('🗑️ 日志已清空:', data)
+        })
+
         // 手动触发连接（如果需要）
         setTimeout(() => {
           if (!socket.value.connected) {
@@ -137,7 +160,8 @@ export const useAppStore = defineStore('app', () => {
   }
 
   const handleTaskUpdate = (data) => {
-    if (data.task_id === currentTask.id) {
+    if (data.task_id === currentTask.id || !currentTask.id) {
+      currentTask.id = data.task_id
       currentTask.status = data.stats.status
       currentTask.progress = data.stats.progress || 0
       currentTask.stats = {
@@ -147,6 +171,8 @@ export const useAppStore = defineStore('app', () => {
         errors: data.stats.errors || 0
       }
       currentTask.logs = data.stats.logs || []
+
+      console.log('📊 全局任务状态更新:', currentTask)
     }
   }
 
@@ -192,6 +218,42 @@ export const useAppStore = defineStore('app', () => {
         systemStats.failedTasks = tasks.filter(t =>
           t.stats && (t.stats.status === 'failed' || t.stats.status === 'error')
         ).length
+
+        // 更新当前任务状态
+        const runningTask = tasks.find(t =>
+          t.stats && (t.stats.status === 'running' || t.stats.status === 'starting')
+        )
+
+        if (runningTask) {
+          currentTask.id = runningTask.task_id
+          currentTask.status = runningTask.stats.status
+          currentTask.progress = runningTask.stats.progress || 0
+          currentTask.stats = {
+            pagesCrawled: runningTask.stats.pages_crawled || 0,
+            projectsFound: runningTask.stats.projects_found || 0,
+            projectsProcessed: runningTask.stats.projects_processed || 0,
+            errors: runningTask.stats.errors || 0
+          }
+          console.log('🔄 更新全局任务状态:', currentTask)
+        } else if (currentTask.id && !['completed', 'failed', 'stopped'].includes(currentTask.status)) {
+          // 如果当前有任务但服务器没有运行中的任务，重置状态
+          currentTask.id = null
+          currentTask.status = 'idle'
+          currentTask.progress = 0
+          currentTask.stats = {
+            pagesCrawled: 0,
+            projectsFound: 0,
+            projectsProcessed: 0,
+            errors: 0
+          }
+          console.log('🧹 重置全局任务状态')
+        }
+
+        console.log('📊 任务统计更新:', {
+          active: systemStats.activeTasks,
+          completed: systemStats.completedTasks,
+          failed: systemStats.failedTasks
+        })
       } else {
         console.warn('任务API返回数据格式异常:', response.data)
         // 设置默认值

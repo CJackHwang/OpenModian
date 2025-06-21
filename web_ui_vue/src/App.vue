@@ -274,6 +274,11 @@ const menuItems = [
     title: '系统设置',
     icon: 'mdi-cog',
     to: '/settings'
+  },
+  {
+    title: '组件测试',
+    icon: 'mdi-test-tube',
+    to: '/test'
   }
 ]
 

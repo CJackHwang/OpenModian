@@ -216,8 +216,20 @@
             </v-btn>
           </v-card-text>
         </v-card>
+      </v-col>
+    </v-row>
 
-
+    <!-- 实时日志区域 -->
+    <v-row class="mt-4">
+      <v-col cols="12">
+        <RealTimeLogViewer
+          :height="logViewerHeight"
+          :min-height="'250px'"
+          :max-height="'500px'"
+          :max-logs="300"
+          :auto-scroll="true"
+          :compact="display.xs.value"
+        />
       </v-col>
     </v-row>
   </div>
@@ -227,6 +239,7 @@
 import { onMounted, computed } from 'vue'
 import { useDisplay } from 'vuetify'
 import { useAppStore } from '@/stores/app'
+import RealTimeLogViewer from '@/components/RealTimeLogViewer.vue'
 
 const display = useDisplay()
 const appStore = useAppStore()
@@ -242,6 +255,14 @@ const statsIconSize = computed(() => {
   if (display.xs.value) return 40
   if (display.sm.value) return 48
   return 56
+})
+
+// 日志查看器高度计算
+const logViewerHeight = computed(() => {
+  if (display.xs.value) return '300px'
+  if (display.sm.value) return '350px'
+  if (display.md.value) return '400px'
+  return '450px'
 })
 
 

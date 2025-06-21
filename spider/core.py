@@ -208,6 +208,13 @@ class SpiderCore:
         if self.web_monitor:
             self.web_monitor.add_log(level, message)
 
+        # 同时记录到实时日志系统
+        try:
+            from core.logging import log_spider
+            log_spider(level, message, 'spider-core')
+        except Exception as e:
+            print(f"记录实时日志失败: {e}")
+
     def set_progress_callback(self, callback):
         """设置进度回调函数"""
         self._progress_callback = callback
