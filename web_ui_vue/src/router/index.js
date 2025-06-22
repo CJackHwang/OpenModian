@@ -92,6 +92,14 @@ const router = createRouter({
       }
     },
     {
+      path: '/md3-test',
+      name: 'md3-test',
+      component: () => import('@/views/MD3Test.vue'),
+      meta: {
+        title: 'MD3设计测试'
+      }
+    },
+    {
       path: '/:pathMatch(.*)*',
       name: 'not-found',
       component: () => import('@/views/NotFound.vue'),

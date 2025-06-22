@@ -1,21 +1,37 @@
-// Material Design 3 全局样式系统 - 现代简洁设计
+// Material Design 3 全局样式系统 - 现代化扁平设计
 
-// 基础重置和字体
+// 现代化全局样式 - 基于用户要求的完整样式规范
 * {
   box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }
 
-body {
-  font-family: 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+html, body {
+  -webkit-text-size-adjust: 100%;
+  word-break: normal;
+  tab-size: 4;
+  text-rendering: optimizeLegibility;
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+  font-family: "Roboto Flex", "Roboto", "Helvetica Neue", Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  line-height: 1.6;
-  letter-spacing: 0.00938em;
+  overflow-wrap: break-word;
+  color: inherit;
+  letter-spacing: 0.0178571429em;
+  text-transform: none;
+  direction: ltr;
+  color-scheme: normal;
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 1.5;
+  user-select: none;
+  background-repeat: no-repeat;
 }
 
-// MD3 设计令牌系统
+// MD3 设计令牌系统 - 基于官方Material Design 3规范
 :root {
-  // MD3 间距系统
+  // MD3 间距系统 - 官方标准
   --md3-spacing-xs: 4px;
   --md3-spacing-sm: 8px;
   --md3-spacing-md: 16px;
@@ -23,25 +39,42 @@ body {
   --md3-spacing-xl: 32px;
   --md3-spacing-xxl: 48px;
 
-  // MD3 圆角系统
-  --md3-radius-xs: 4px;
-  --md3-radius-sm: 8px;
-  --md3-radius-md: 12px;
-  --md3-radius-lg: 16px;
-  --md3-radius-xl: 20px;
-  --md3-radius-xxl: 28px;
+  // MD3 圆角系统 - 官方标准（基于Android开发者文档）
+  --md3-radius-none: 0px;        // 无圆角
+  --md3-radius-xs: 4px;          // 小组件（文本框）
+  --md3-radius-sm: 8px;          // 芯片
+  --md3-radius-md: 12px;         // 卡片
+  --md3-radius-lg: 16px;         // FAB
+  --md3-radius-xl: 20px;         // 按钮
+  --md3-radius-xxl: 28px;        // 大型容器
+  --md3-radius-full: 50%;        // 完全圆形
 
-  // MD3 动画系统 - 标准缓动
+  // MD3 动画系统 - 官方标准缓动
   --md3-motion-easing-standard: cubic-bezier(0.2, 0, 0, 1);
   --md3-motion-easing-emphasized: cubic-bezier(0.05, 0.7, 0.1, 1);
   --md3-motion-duration-short: 150ms;
   --md3-motion-duration-medium: 300ms;
   --md3-motion-duration-long: 500ms;
 
-  // MD3 状态层透明度 - 使用Vuetify变量
-  --md3-state-hover-opacity: var(--v-hover-opacity);
-  --md3-state-focus-opacity: var(--v-focus-opacity);
-  --md3-state-pressed-opacity: var(--v-pressed-opacity);
+  // MD3 状态层透明度 - 官方标准
+  --md3-state-hover-opacity: 0.08;
+  --md3-state-focus-opacity: 0.12;
+  --md3-state-pressed-opacity: 0.16;
+
+  // MD3 elevation系统 - 强制扁平化，所有阴影设为0
+  --md3-elevation-level0: 0dp;    // 表面
+  --md3-elevation-level1: 0dp;    // 强制扁平化
+  --md3-elevation-level2: 0dp;    // 强制扁平化
+  --md3-elevation-level3: 0dp;    // 强制扁平化
+  --md3-elevation-level4: 0dp;    // 强制扁平化
+  --md3-elevation-level5: 0dp;    // 强制扁平化
+
+  // MD3 tonal elevation透明度
+  --md3-tonal-elevation-1: 0.05;
+  --md3-tonal-elevation-2: 0.08;
+  --md3-tonal-elevation-3: 0.11;
+  --md3-tonal-elevation-4: 0.12;
+  --md3-tonal-elevation-5: 0.14;
 
   // 兼容性变量 - 保持向后兼容
   --spacing-xs: var(--md3-spacing-xs);
@@ -56,9 +89,21 @@ body {
   --radius-lg: var(--md3-radius-lg);
   --radius-xl: var(--md3-radius-xl);
 
-  --transition-fast: var(--md3-motion-duration-short) var(--md3-motion-easing-standard);
-  --transition-normal: var(--md3-motion-duration-medium) var(--md3-motion-easing-standard);
-  --transition-slow: var(--md3-motion-duration-long) var(--md3-motion-easing-emphasized);
+  // 扁平化过渡效果 - 移除复杂动画
+  --transition-fast: 0ms;
+  --transition-normal: 0ms;
+  --transition-slow: 0ms;
+
+  // 现代化布局变量
+  --v-layout-left: 320px;
+  --v-layout-right: 0px;
+  --v-layout-top: 72px;
+  --v-layout-bottom: 0px;
+
+  // 输入控件变量
+  --v-input-control-height: 56px;
+  --v-input-padding-top: 16px;
+  --v-selection-control-size: 40px;
 }
 
 // MD3 应用级组件样式 - 现在通过Vuetify defaults配置管理
@@ -177,21 +222,25 @@ body {
 
 // VField和VSelect文字颜色由Vuetify3自动管理，无需CSS覆盖
 
-// MD3 VSelect和VMenu样式 - 优化背景对比度，文字颜色由Vuetify自动管理
+// MD3 VSelect和VMenu样式 - 大圆角扁平化设计
 .v-select-menu,
 .v-menu-content {
-  background-color: rgb(var(--v-theme-surface-container-high)); // ✅ 修复：使用更高对比度的背景
-  border: 1px solid rgb(var(--v-theme-outline)); // ✅ 修复：使用outline提高边框对比度
+  background-color: rgb(var(--v-theme-surface-container-high));
+  border: 1px solid rgb(var(--v-theme-outline)); // 使用描边而非阴影
+  box-shadow: none; // 移除阴影，完全扁平化
+  border-radius: var(--md3-radius-lg); // 大圆角
 
   .v-list {
     background-color: transparent;
   }
 }
 
-// MD3 VMenu覆盖层样式 - 优化背景对比度
+// MD3 VMenu覆盖层样式 - 大圆角扁平化设计
 .v-menu > .v-overlay__content {
-  background-color: rgb(var(--v-theme-surface-container-high)); // ✅ 修复：使用更高对比度的背景
-  border: 1px solid rgb(var(--v-theme-outline)); // ✅ 修复：使用outline提高边框对比度
+  background-color: rgb(var(--v-theme-surface-container-high));
+  border: 1px solid rgb(var(--v-theme-outline));
+  box-shadow: none; // 移除阴影
+  border-radius: var(--md3-radius-lg); // 大圆角
 }
 
 // .v-list 和 .v-list-item 样式现在通过Vuetify defaults配置管理
@@ -203,6 +252,8 @@ body {
 // 响应式工具类
 // 使用Vuetify的响应式显示类替代自定义实现
 // 推荐使用: d-none d-md-block, d-block d-md-none 等Vuetify原生类
+
+// MD3 扁平化设计 - 完全通过Vuetify3 defaults配置管理，无CSS覆盖
 
 // MD3 布局系统 - 响应式容器
 .app-container {
@@ -423,4 +474,30 @@ body {
   100% {
     background-position: -200% 0;
   }
+}
+
+// 强制移除所有组件的默认阴影 - 完全扁平化设计（保留按钮原样）
+.v-card,
+.v-chip,
+.v-dialog,
+.v-menu,
+.v-sheet,
+.v-app-bar,
+.v-navigation-drawer,
+.v-data-table,
+.v-expansion-panels,
+.v-stepper,
+.v-carousel,
+.v-banner,
+.v-fab,
+.v-bottom-sheet,
+.v-date-picker,
+.v-time-picker,
+.v-alert,
+.v-overlay__content,
+.v-btn-group,
+.v-btn-toggle {
+  box-shadow: none !important;
+  -webkit-box-shadow: none !important;
+  -moz-box-shadow: none !important;
 }
