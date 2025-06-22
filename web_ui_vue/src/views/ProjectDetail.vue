@@ -305,51 +305,131 @@
                   <v-col cols="6" md="3">
                     <v-card variant="outlined" class="text-center pa-3">
                       <div class="text-h6 font-weight-bold"
-                           :class="getTrendColorClass(statistics.trends.raised_amount_growth)">
-                        {{ formatGrowth(statistics.trends.raised_amount_growth) }}
+                           :class="getTrendColorClass(statistics.trends.raised_amount?.change_rate)">
+                        {{ formatGrowth(statistics.trends.raised_amount?.change_rate) }}
                       </div>
                       <div class="text-caption text-on-surface-variant">资金增长率</div>
+                      <div class="text-caption text-on-surface-variant mt-1">
+                        {{ formatChange(statistics.trends.raised_amount?.change, '¥') }}
+                      </div>
                     </v-card>
                   </v-col>
                   <v-col cols="6" md="3">
                     <v-card variant="outlined" class="text-center pa-3">
                       <div class="text-h6 font-weight-bold"
-                           :class="getTrendColorClass(statistics.trends.backer_count_growth)">
-                        {{ formatGrowth(statistics.trends.backer_count_growth) }}
+                           :class="getTrendColorClass(statistics.trends.backer_count?.change_rate)">
+                        {{ formatGrowth(statistics.trends.backer_count?.change_rate) }}
                       </div>
                       <div class="text-caption text-on-surface-variant">支持者增长率</div>
+                      <div class="text-caption text-on-surface-variant mt-1">
+                        {{ formatChange(statistics.trends.backer_count?.change, '') }}
+                      </div>
                     </v-card>
                   </v-col>
                   <v-col cols="6" md="3">
                     <v-card variant="outlined" class="text-center pa-3">
                       <div class="text-h6 font-weight-bold"
-                           :class="getTrendColorClass(statistics.trends.supporter_count_growth)">
-                        {{ formatGrowth(statistics.trends.supporter_count_growth) }}
+                           :class="getTrendColorClass(statistics.trends.like_count?.change_rate)">
+                        {{ formatGrowth(statistics.trends.like_count?.change_rate) }}
                       </div>
                       <div class="text-caption text-on-surface-variant">点赞增长率</div>
+                      <div class="text-caption text-on-surface-variant mt-1">
+                        {{ formatChange(statistics.trends.like_count?.change, '') }}
+                      </div>
                     </v-card>
                   </v-col>
+                  <v-col cols="6" md="3">
+                    <v-card variant="outlined" class="text-center pa-3">
+                      <div class="text-h6 font-weight-bold"
+                           :class="getTrendColorClass(statistics.trends.comment_count?.change_rate)">
+                        {{ formatGrowth(statistics.trends.comment_count?.change_rate) }}
+                      </div>
+                      <div class="text-caption text-on-surface-variant">评论增长率</div>
+                      <div class="text-caption text-on-surface-variant mt-1">
+                        {{ formatChange(statistics.trends.comment_count?.change, '') }}
+                      </div>
+                    </v-card>
+                  </v-col>
+                </v-row>
+
+                <!-- 历史数据概览 -->
+                <v-row class="mt-2">
                   <v-col cols="6" md="3">
                     <v-card variant="outlined" class="text-center pa-3">
                       <div class="text-h6 font-weight-bold text-on-surface">{{ statistics.total_records || 0 }}</div>
                       <div class="text-caption text-on-surface-variant">历史记录数</div>
                     </v-card>
                   </v-col>
+                  <v-col cols="6" md="3">
+                    <v-card variant="outlined" class="text-center pa-3">
+                      <div class="text-h6 font-weight-bold text-on-surface">
+                        {{ formatRelativeTime(statistics.first_crawl) }}
+                      </div>
+                      <div class="text-caption text-on-surface-variant">首次爬取</div>
+                    </v-card>
+                  </v-col>
+                  <v-col cols="6" md="3">
+                    <v-card variant="outlined" class="text-center pa-3">
+                      <div class="text-h6 font-weight-bold text-on-surface">
+                        {{ formatRelativeTime(statistics.last_crawl) }}
+                      </div>
+                      <div class="text-caption text-on-surface-variant">最近爬取</div>
+                    </v-card>
+                  </v-col>
+                  <v-col cols="6" md="3">
+                    <v-card variant="outlined" class="text-center pa-3">
+                      <div class="text-h6 font-weight-bold"
+                           :class="statistics.has_changes ? 'text-success' : 'text-on-surface-variant'">
+                        {{ statistics.has_changes ? '有变化' : '无变化' }}
+                      </div>
+                      <div class="text-caption text-on-surface-variant">数据状态</div>
+                    </v-card>
+                  </v-col>
                 </v-row>
+              </div>
+
+              <!-- 增长率分析面板 -->
+              <div v-if="history.length >= 2" class="mb-6">
+                <GrowthAnalysisPanel
+                  :history-data="history"
+                />
+              </div>
+
+              <!-- 历史数据趋势图表 -->
+              <div v-if="history.length >= 2" class="mb-6">
+                <HistoryTrendChart
+                  :history-data="history"
+                  :height="400"
+                />
               </div>
 
               <!-- 历史记录时间线 -->
               <div v-if="history.length > 0">
+                <div class="d-flex align-center mb-4">
+                  <v-icon class="mr-2" color="primary">mdi-timeline-clock</v-icon>
+                  <span class="text-h6 font-weight-bold text-on-surface">详细时间线</span>
+                  <v-spacer></v-spacer>
+                  <v-chip
+                    color="info"
+                    size="small"
+                    variant="outlined"
+                  >
+                    {{ history.length }} 条记录
+                  </v-chip>
+                </div>
                 <v-timeline density="compact">
                   <v-timeline-item
-                    v-for="(record, index) in history"
+                    v-for="(record, index) in displayedTimelineHistory"
                     :key="index"
                     :dot-color="index === 0 ? 'primary' : 'on-surface-variant'"
                     size="small"
                   >
                     <template v-slot:opposite>
                       <div class="text-caption text-on-surface-variant">
-                        {{ formatDate(record.crawl_time) }}
+                        <div>{{ formatDate(record.crawl_time) }}</div>
+                        <div class="text-caption text-on-surface-variant mt-1">
+                          {{ formatRelativeTime(record.crawl_time) }}
+                        </div>
                       </div>
                     </template>
                     
@@ -369,10 +449,10 @@
                               评论: {{ record.comment_count || 0 }}
                             </div>
                           </div>
-                          <div v-if="index < history.length - 1" class="text-right">
+                          <div v-if="index < displayedTimelineHistory.length - 1" class="text-right">
                             <div class="text-caption"
-                                 :class="getChangeColorClass(record.raised_amount - history[index + 1].raised_amount)">
-                              {{ formatChange(record.raised_amount - history[index + 1].raised_amount, '¥') }}
+                                 :class="getChangeColorClass(record.raised_amount - displayedTimelineHistory[index + 1].raised_amount)">
+                              {{ formatChange(record.raised_amount - displayedTimelineHistory[index + 1].raised_amount, '¥') }}
                             </div>
                           </div>
                         </div>
@@ -381,12 +461,24 @@
                   </v-timeline-item>
                 </v-timeline>
 
-                <!-- 加载更多按钮 -->
+                <!-- 展开更多时间线记录 -->
+                <div v-if="hasMoreTimelineRecords" class="text-center mt-4">
+                  <v-btn
+                    @click="expandTimeline"
+                    variant="outlined"
+                    color="primary"
+                  >
+                    展开更多时间线记录 ({{ history.length - timelineDisplayLimit }} 条)
+                  </v-btn>
+                </div>
+
+                <!-- 加载更多历史数据 -->
                 <div v-if="history.length < totalHistoryCount" class="text-center mt-4">
-                  <v-btn 
-                    @click="loadMoreHistory" 
+                  <v-btn
+                    @click="loadMoreHistory"
                     :loading="historyLoading"
                     variant="outlined"
+                    color="secondary"
                   >
                     加载更多历史记录
                   </v-btn>
@@ -419,6 +511,9 @@ import { useRoute } from 'vue-router'
 import { useSnackbar } from '@/composables/useSnackbar'
 import axios from 'axios'
 import { isValidImageUrl } from '@/utils/imageUtils'
+import { formatDateTime, formatRelativeTime } from '@/utils/timeUtils'
+import GrowthAnalysisPanel from '@/components/GrowthAnalysisPanel.vue'
+import HistoryTrendChart from '@/components/HistoryTrendChart.vue'
 
 const route = useRoute()
 const { showSnackbar } = useSnackbar()
@@ -435,9 +530,20 @@ const rewards = ref([])
 const totalHistoryCount = ref(0)
 const historyOffset = ref(0)
 const historyLimit = ref(10)
+const timelineDisplayLimit = ref(5) // 时间线显示限制
 
 // 计算属性
 const projectId = computed(() => route.params.id)
+
+// 时间线显示的历史记录（限制数量避免过长）
+const displayedTimelineHistory = computed(() => {
+  return history.value.slice(0, timelineDisplayLimit.value)
+})
+
+// 是否有更多时间线记录
+const hasMoreTimelineRecords = computed(() => {
+  return history.value.length > timelineDisplayLimit.value
+})
 
 // 生命周期
 onMounted(() => {
@@ -504,6 +610,10 @@ async function loadProjectHistory() {
 async function loadMoreHistory() {
   historyOffset.value += historyLimit.value
   await loadProjectHistory()
+}
+
+function expandTimeline() {
+  timelineDisplayLimit.value = Math.min(timelineDisplayLimit.value + 10, history.value.length)
 }
 
 async function exportProjectData() {
@@ -642,7 +752,8 @@ function formatNumber(num) {
 function formatDate(dateStr) {
   if (!dateStr) return '未知'
   try {
-    return new Date(dateStr).toLocaleString('zh-CN')
+    // 使用统一的时间工具，显示访问者本地时区
+    return formatDateTime(dateStr, 'YYYY-MM-DD HH:mm:ss')
   } catch {
     return dateStr
   }
@@ -654,11 +765,13 @@ function formatGrowth(growth) {
   return `${sign}${growth.toFixed(1)}%`
 }
 
-function formatChange(change, prefix = '') {
-  if (!change) return '无变化'
-  const sign = change >= 0 ? '+' : ''
-  return `${sign}${prefix}${formatNumber(Math.abs(change))}`
+function formatChange(value, prefix = '') {
+  if (value === undefined || value === null || isNaN(value)) return '无变化'
+  const sign = value >= 0 ? '+' : ''
+  return `${sign}${prefix}${Math.abs(value).toLocaleString()}`
 }
+
+
 
 // MD3标准颜色CSS类函数
 function getTrendColorClass(value) {
