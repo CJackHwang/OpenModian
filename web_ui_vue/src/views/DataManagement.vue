@@ -175,7 +175,7 @@
 
       <v-card-text class="pa-6 pt-0">
         <v-row>
-          <v-col cols="12" md="3">
+          <v-col cols="12" md="2">
             <v-select
               v-model="filters.period"
               :items="periodOptions"
@@ -186,7 +186,7 @@
               @update:model-value="applyFilters"
             />
           </v-col>
-          <v-col cols="12" md="3">
+          <v-col cols="12" md="2">
             <v-select
               v-model="filters.category"
               :items="categoryOptions"
@@ -195,6 +195,17 @@
               density="comfortable"
               prepend-inner-icon="mdi-tag"
               @update:model-value="applyFilters"
+            />
+          </v-col>
+          <v-col cols="12" md="2">
+            <v-text-field
+              v-model="filters.projectId"
+              label="项目ID"
+              prepend-inner-icon="mdi-identifier"
+              variant="outlined"
+              density="comfortable"
+              clearable
+              @update:model-value="debounceSearch"
             />
           </v-col>
           <v-col cols="12" md="4">
@@ -238,24 +249,39 @@
           <div class="text-h6 font-weight-bold">项目数据</div>
           <div class="text-body-2 text-medium-emphasis">详细的项目信息列表</div>
         </div>
-        <v-chip
-          variant="tonal"
-          color="info"
-          prepend-icon="mdi-database"
-        >
-          共 {{ filteredProjects.length }} 条记录
-        </v-chip>
+        <div class="d-flex align-center ga-2">
+          <v-chip
+            variant="tonal"
+            color="info"
+            prepend-icon="mdi-database"
+          >
+            共 {{ totalCount }} 条记录
+          </v-chip>
+          <v-chip
+            variant="outlined"
+            color="warning"
+            size="small"
+            prepend-icon="mdi-information"
+          >
+            每页最多100条
+          </v-chip>
+        </div>
       </v-card-title>
 
-      <v-data-table
+      <v-data-table-server
         :headers="headers"
-        :items="filteredProjects"
+        :items="projects"
         :loading="loading"
         :items-per-page="itemsPerPage"
+        :page="currentPage"
+        :items-length="totalCount"
+        :items-per-page-options="itemsPerPageOptions"
         class="data-table elevation-0"
         item-value="id"
         density="default"
         :mobile-breakpoint="0"
+        show-current-page
+        @update:options="onTableOptionsUpdate"
       >
         <!-- 项目名称列 -->
         <template #item.project_name="{ item }">
@@ -384,7 +410,50 @@
             </v-btn>
           </div>
         </template>
-      </v-data-table>
+      </v-data-table-server>
+
+      <!-- 自定义分页控制 -->
+      <v-card-actions v-if="totalCount > 0" class="justify-center">
+        <div class="d-flex align-center ga-4">
+          <v-btn
+            icon="mdi-chevron-left"
+            variant="outlined"
+            size="small"
+            :disabled="currentPage <= 1"
+            @click="goToPage(currentPage - 1)"
+          />
+
+          <div class="d-flex align-center ga-2">
+            <span class="text-body-2">第</span>
+            <v-text-field
+              v-model.number="currentPageInput"
+              type="number"
+              :min="1"
+              :max="totalPages"
+              variant="outlined"
+              density="compact"
+              style="width: 80px;"
+              @keyup.enter="goToPage(currentPageInput)"
+              @blur="goToPage(currentPageInput)"
+            />
+            <span class="text-body-2">页，共 {{ totalPages }} 页</span>
+          </div>
+
+          <v-btn
+            icon="mdi-chevron-right"
+            variant="outlined"
+            size="small"
+            :disabled="currentPage >= totalPages"
+            @click="goToPage(currentPage + 1)"
+          />
+
+          <v-divider vertical />
+
+          <div class="text-caption text-medium-emphasis">
+            共 {{ totalCount }} 条记录
+          </div>
+        </div>
+      </v-card-actions>
     </v-card>
       </v-window-item>
 
@@ -411,6 +480,19 @@ const exporting = ref(false)
 const projects = ref([])
 const itemsPerPage = ref(25)
 const activeTab = ref('data')
+const totalCount = ref(0)
+
+// 分页相关的响应式数据
+const currentPageInput = ref(1)
+const currentPage = ref(1)
+
+// 每页显示数量选项 - 限制最大100条防止浏览器卡死
+const itemsPerPageOptions = [
+  { value: 10, title: '10' },
+  { value: 25, title: '25' },
+  { value: 50, title: '50' },
+  { value: 100, title: '100' }
+]
 
 const stats = reactive({
   total: 0,
@@ -422,6 +504,7 @@ const stats = reactive({
 const filters = reactive({
   period: 'all',
   category: 'all',
+  projectId: '',
   search: ''
 })
 
@@ -562,17 +645,14 @@ const headers = [
   }
 ]
 
-// 计算属性 - 现在主要用于显示，实际筛选通过API完成
-const filteredProjects = computed(() => {
-  // 如果有搜索条件，在前端进行实时搜索筛选
-  if (filters.search) {
-    return projects.value.filter(p =>
-      p.project_name?.toLowerCase().includes(filters.search.toLowerCase())
-    )
-  }
+// 分页相关计算属性 - 基于服务器端总数
+const totalPages = computed(() => {
+  return Math.ceil(totalCount.value / itemsPerPage.value)
+})
 
-  // 否则直接返回从API获取的数据
-  return projects.value
+// 监听分页变化，同步输入框
+watch(() => currentPage.value, (newPage) => {
+  currentPageInput.value = newPage
 })
 
 // 方法
@@ -580,25 +660,43 @@ const refreshData = async () => {
   try {
     loading.value = true
 
-    // 构建查询参数
-    const params = new URLSearchParams({
-      period: filters.period,
-      limit: '1000'
-    })
+    // 构建搜索条件
+    const conditions = {}
 
-    // 添加分类筛选参数
+    // 添加分类筛选
     if (filters.category !== 'all') {
-      params.append('category', filters.category)
+      conditions.category = filters.category
     }
 
-    // 加载项目数据
-    const projectsResponse = await axios.get(`/api/database/projects?${params.toString()}`)
+    // 添加时间筛选
+    if (filters.period !== 'all') {
+      conditions.time_period = filters.period
+    }
+
+    // 添加项目ID搜索
+    if (filters.projectId && filters.projectId.trim()) {
+      conditions.project_id = filters.projectId.trim()
+    }
+
+    // 添加项目名称搜索
+    if (filters.search && filters.search.trim()) {
+      conditions.project_name = filters.search.trim()
+    }
+
+    // 计算分页参数
+    const offset = (currentPage.value - 1) * itemsPerPage.value
+
+    // 使用搜索API获取分页数据
+    const projectsResponse = await axios.post('/api/database/projects/search', {
+      conditions,
+      limit: itemsPerPage.value,
+      offset
+    })
+
     if (projectsResponse.data.success) {
       projects.value = projectsResponse.data.projects || []
-      console.log(`📊 加载项目数据: ${projects.value.length} 条，分类筛选: ${filters.category}`)
-      if (projects.value.length > 0) {
-        console.log('📊 前5个项目的分类:', projects.value.slice(0, 5).map(p => ({ name: p.project_name, category: p.category })))
-      }
+      totalCount.value = projectsResponse.data.total_count || 0
+      console.log(`📊 加载项目数据: ${projects.value.length} 条，总计: ${totalCount.value}，分类筛选: ${filters.category}`)
     }
 
     // 加载统计数据
@@ -740,6 +838,38 @@ const goToProjectDetail = (projectId) => {
   if (projectId) {
     router.push(`/projects/${projectId}`)
   }
+}
+
+// 表格选项更新处理（服务器端分页）
+const onTableOptionsUpdate = (options) => {
+  console.log('📊 表格选项更新:', options)
+
+  // 限制每页最大显示数量为100，防止浏览器卡死
+  const maxItemsPerPage = 100
+  const safeItemsPerPage = Math.min(options.itemsPerPage, maxItemsPerPage)
+
+  if (options.itemsPerPage > maxItemsPerPage) {
+    console.warn(`⚠️ 每页显示数量限制为${maxItemsPerPage}条，防止浏览器卡死`)
+  }
+
+  // 更新分页状态
+  currentPage.value = options.page
+  itemsPerPage.value = safeItemsPerPage
+  currentPageInput.value = options.page
+
+  // 重新加载数据
+  refreshData()
+}
+
+// 分页跳转方法
+const goToPage = (page) => {
+  if (page < 1 || page > totalPages.value) return
+
+  currentPage.value = page
+  currentPageInput.value = page
+
+  // 重新加载数据
+  refreshData()
 }
 
 

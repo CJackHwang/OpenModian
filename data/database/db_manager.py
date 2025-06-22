@@ -1158,6 +1158,15 @@ class DatabaseManager:
                     elif field == 'max_amount':
                         where_clauses.append("raised_amount <= ?")
                         params.append(float(value))
+                    elif field == 'time_period':
+                        # 处理时间筛选
+                        if value == 'day':
+                            where_clauses.append("DATE(crawl_time) = DATE('now')")
+                        elif value == 'week':
+                            where_clauses.append("strftime('%W', crawl_time) = strftime('%W', 'now') AND strftime('%Y', crawl_time) = strftime('%Y', 'now')")
+                        elif value == 'month':
+                            where_clauses.append("strftime('%Y-%m', crawl_time) = strftime('%Y-%m', 'now')")
+                        # 'all' 不添加条件
                     elif field == 'date_from':
                         where_clauses.append("DATE(crawl_time) >= ?")
                         params.append(value)
@@ -1270,6 +1279,15 @@ class DatabaseManager:
                     elif field == 'max_amount':
                         where_clauses.append("raised_amount <= ?")
                         params.append(float(value))
+                    elif field == 'time_period':
+                        # 处理时间筛选
+                        if value == 'day':
+                            where_clauses.append("DATE(crawl_time) = DATE('now')")
+                        elif value == 'week':
+                            where_clauses.append("strftime('%W', crawl_time) = strftime('%W', 'now') AND strftime('%Y', crawl_time) = strftime('%Y', 'now')")
+                        elif value == 'month':
+                            where_clauses.append("strftime('%Y-%m', crawl_time) = strftime('%Y-%m', 'now')")
+                        # 'all' 不添加条件
                     elif field == 'date_from':
                         where_clauses.append("DATE(crawl_time) >= ?")
                         params.append(value)

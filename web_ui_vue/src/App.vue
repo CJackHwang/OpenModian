@@ -24,7 +24,7 @@
           </v-avatar>
           <div class="title-text">
             <span class="text-h6 font-weight-medium d-none d-sm-inline">
-              摩点爬虫管理系统
+              摩点网爬虫管理系统
             </span>
             <span class="text-h6 font-weight-medium d-inline d-sm-none">
               摩点爬虫
@@ -98,8 +98,8 @@
             <v-icon icon="mdi-spider" />
           </v-avatar>
           <div class="drawer-title-container">
-            <div class="text-h6 font-weight-medium">摩点爬虫</div>
-            <div class="text-body-2 text-medium-emphasis">管理系统</div>
+            <div class="text-h6 font-weight-medium">外星武器</div>
+            <div class="text-body-2 text-medium-emphasis">摩点酱，你也不想你交易的数据让别人知道吧~</div>
           </div>
         </div>
       </div>
@@ -135,7 +135,7 @@
               版本 1.0.0
             </v-chip>
             <div class="text-caption text-medium-emphasis">
-              © 2024 摩点爬虫系统
+              © 2025 CJackHwang 数据已经完全变成开发者的形状了 ❤️
             </div>
           </div>
         </div>

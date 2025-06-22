@@ -319,6 +319,7 @@ const generatedSQL = ref('')
 
 // 字段选项
 const fieldOptions = [
+  { value: 'project_id', title: '项目ID' },
   { value: 'project_name', title: '项目名称' },
   { value: 'category', title: '分类' },
   { value: 'author_name', title: '作者' },

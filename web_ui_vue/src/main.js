@@ -262,7 +262,7 @@ const vuetify = createVuetify({
     VCard: {
       elevation: 0, // 移除阴影
       rounded: 'xl', // 大圆角
-      variant: 'outlined' // 使用描边而非阴影，保持原来的描边颜色
+      variant: 'outlined', // 使用描边而非阴影，保持原来的描边颜色
     },
 
     // MD3 卡片标题系统 - 文字颜色由Vuetify自动管理
@@ -449,7 +449,8 @@ const vuetify = createVuetify({
       maxWidth: '500px',
       persistent: false,
       scrollable: true,
-      elevation: 0 // 移除阴影，使用描边
+      elevation: 0, // 移除阴影，使用描边
+      scrim: 'rgb(0, 0, 0)' // 添加半透明遮罩层
     },
 
     // MD3 底部表单系统 - 大圆角扁平化设计

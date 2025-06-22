@@ -13,15 +13,6 @@
       </v-col>
       <v-col cols="auto">
         <v-btn
-          color="success"
-          prepend-icon="mdi-plus"
-          @click="showAddDialog = true"
-          variant="filled"
-          class="me-2"
-        >
-          新增项目
-        </v-btn>
-        <v-btn
           color="error"
           prepend-icon="mdi-delete-multiple"
           @click="batchDelete"
@@ -81,7 +72,18 @@
 
       <v-card-text>
         <v-row>
-          <v-col cols="12" md="4">
+          <v-col cols="12" md="3">
+            <v-text-field
+              v-model="searchConditions.project_id"
+              label="项目ID"
+              prepend-inner-icon="mdi-identifier"
+              variant="outlined"
+              density="compact"
+              clearable
+              hint="6位项目ID，精确匹配"
+            />
+          </v-col>
+          <v-col cols="12" md="3">
             <v-text-field
               v-model="searchConditions.project_name"
               label="项目名称"
@@ -92,7 +94,7 @@
               hint="支持模糊搜索"
             />
           </v-col>
-          <v-col cols="12" md="4">
+          <v-col cols="12" md="3">
             <v-text-field
               v-model="searchConditions.author_name"
               label="作者名称"
@@ -103,7 +105,7 @@
               hint="支持模糊搜索"
             />
           </v-col>
-          <v-col cols="12" md="4">
+          <v-col cols="12" md="3">
             <v-select
               v-model="searchConditions.category"
               :items="categoryOptions"
@@ -255,6 +257,7 @@
           item-value="id"
           show-select
           fixed-header
+          show-current-page
           :style="{ minWidth: '1200px' }"
           @update:options="onTableOptionsUpdate"
         >
@@ -420,11 +423,54 @@
         </template>
         </v-data-table-server>
       </div>
+
+      <!-- 自定义分页控制 -->
+      <v-card-actions v-if="totalCount > 0" class="justify-center">
+        <div class="d-flex align-center ga-4">
+          <v-btn
+            icon="mdi-chevron-left"
+            variant="outlined"
+            size="small"
+            :disabled="pagination.page <= 1"
+            @click="goToPage(pagination.page - 1)"
+          />
+
+          <div class="d-flex align-center ga-2">
+            <span class="text-body-2">第</span>
+            <v-text-field
+              v-model.number="currentPageInput"
+              type="number"
+              :min="1"
+              :max="totalPages"
+              variant="outlined"
+              density="compact"
+              style="width: 80px;"
+              @keyup.enter="goToPage(currentPageInput)"
+              @blur="goToPage(currentPageInput)"
+            />
+            <span class="text-body-2">页，共 {{ totalPages }} 页</span>
+          </div>
+
+          <v-btn
+            icon="mdi-chevron-right"
+            variant="outlined"
+            size="small"
+            :disabled="pagination.page >= totalPages"
+            @click="goToPage(pagination.page + 1)"
+          />
+
+          <v-divider vertical />
+
+          <div class="text-caption text-medium-emphasis">
+            共 {{ totalCount }} 条记录
+          </div>
+        </div>
+      </v-card-actions>
     </v-card>
 
     <!-- 项目详情对话框 -->
     <v-dialog v-model="showDetailDialog" max-width="800px">
-      <v-card>
+      <v-card color="surface" elevation="8">
         <v-card-title class="d-flex align-center">
           <v-icon icon="mdi-information" class="me-3" />
           项目详情
@@ -565,7 +611,7 @@
 
     <!-- 编辑对话框 -->
     <v-dialog v-model="showEditDialog" max-width="800px">
-      <v-card>
+      <v-card color="surface" elevation="8">
         <v-card-title class="d-flex align-center">
           <v-icon icon="mdi-pencil" class="me-3" />
           编辑项目
@@ -692,11 +738,13 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+
+
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
 import FilterBuilder from '@/components/FilterBuilder.vue'
@@ -713,11 +761,11 @@ const projects = ref([])
 const selectedItems = ref([])
 const totalCount = ref(0)
 const editFormValid = ref(false)
+const addFormValid = ref(false)
 
 // 对话框状态
 const showDetailDialog = ref(false)
 const showEditDialog = ref(false)
-const showAddDialog = ref(false)
 
 // 选中的项目
 const selectedProject = ref(null)
@@ -732,6 +780,7 @@ const filterHistoryRef = ref(null)
 
 // 搜索条件
 const searchConditions = reactive({
+  project_id: '',
   project_name: '',
   author_name: '',
   category: '',
@@ -746,6 +795,19 @@ const searchConditions = reactive({
 const pagination = reactive({
   page: 1,
   itemsPerPage: 25
+})
+
+// 分页相关的响应式数据
+const currentPageInput = ref(1)
+
+// 计算属性
+const totalPages = computed(() => {
+  return Math.ceil(totalCount.value / pagination.itemsPerPage)
+})
+
+// 监听分页变化，同步输入框
+watch(() => pagination.page, (newPage) => {
+  currentPageInput.value = newPage
 })
 
 // 🔧 动态选项数据
@@ -951,7 +1013,20 @@ const onTableOptionsUpdate = (options) => {
   }
 }
 
-// 分页处理函数现在通过VDataTable的内置事件处理
+// 分页处理函数
+const goToPage = (page) => {
+  if (page < 1 || page > totalPages.value) return
+
+  pagination.page = page
+  currentPageInput.value = page
+
+  // 根据当前模式调用相应的搜索方法
+  if (filterMode.value === 'simple') {
+    searchProjects()
+  } else {
+    searchProjectsAdvanced()
+  }
+}
 
 const onFilterModeChange = () => {
   // 切换筛选模式时重置搜索
