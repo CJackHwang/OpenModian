@@ -1,96 +1,117 @@
 <template>
   <div>
-    <!-- 页面标题 -->
-    <v-row class="mb-4">
-      <v-col>
-        <h1 class="text-h4 font-weight-bold text-primary">
-          <v-icon class="me-2">mdi-format-list-bulleted</v-icon>
-          任务管理
-        </h1>
-        <p class="text-subtitle-1 text-medium-emphasis">
-          统一管理普通任务和定时任务
-        </p>
+    <!-- 页面标题 - 统一设计 -->
+    <div class="app-section">
+      <div class="d-flex align-center">
+        <v-avatar
+          color="primary"
+          class="me-4"
+          size="64"
+        >
+          <v-icon icon="mdi-format-list-bulleted" size="32" />
+        </v-avatar>
+        <div>
+          <h1 class="text-h4 font-weight-medium mb-1">
+            任务管理
+          </h1>
+          <p class="text-subtitle-1 text-medium-emphasis">
+            统一管理普通任务和定时任务
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 任务统计卡片 - 统一设计 -->
+    <v-row class="app-section">
+      <v-col cols="12" md="3">
+        <v-card color="primary-container" class="app-card stats-card">
+          <v-card-text class="p-lg">
+            <div class="d-flex align-center">
+              <v-avatar color="primary" size="48" class="me-3">
+                <v-icon color="on-primary" size="24">mdi-play-circle</v-icon>
+              </v-avatar>
+              <div>
+                <div class="text-h4 font-weight-medium text-on-primary-container">{{ normalTasksCount }}</div>
+                <div class="text-subtitle-2 text-on-primary-container-variant">运行中任务</div>
+              </div>
+            </div>
+          </v-card-text>
+        </v-card>
+      </v-col>
+
+      <v-col cols="12" md="3">
+        <v-card color="success-container" class="app-card stats-card">
+          <v-card-text class="p-lg">
+            <div class="d-flex align-center">
+              <v-avatar color="success" size="48" class="me-3">
+                <v-icon color="on-success" size="24">mdi-clock-outline</v-icon>
+              </v-avatar>
+              <div>
+                <div class="text-h4 font-weight-medium text-on-success-container">{{ activeScheduledTasksCount }}</div>
+                <div class="text-subtitle-2 text-on-success-container-variant">活跃定时任务</div>
+              </div>
+            </div>
+          </v-card-text>
+        </v-card>
+      </v-col>
+
+      <v-col cols="12" md="3">
+        <v-card color="warning-container" class="app-card stats-card">
+          <v-card-text class="p-lg">
+            <div class="d-flex align-center">
+              <v-avatar color="warning" size="48" class="me-3">
+                <v-icon color="on-warning" size="24">mdi-pause-circle</v-icon>
+              </v-avatar>
+              <div>
+                <div class="text-h4 font-weight-medium text-on-warning-container">{{ pausedScheduledTasksCount }}</div>
+                <div class="text-subtitle-2 text-on-warning-container-variant">暂停定时任务</div>
+              </div>
+            </div>
+          </v-card-text>
+        </v-card>
+      </v-col>
+
+      <v-col cols="12" md="3">
+        <v-card color="info-container" class="app-card stats-card">
+          <v-card-text class="p-lg">
+            <div class="d-flex align-center">
+              <v-avatar color="info" size="48" class="me-3">
+                <v-icon color="on-info" size="24">mdi-format-list-bulleted</v-icon>
+              </v-avatar>
+              <div>
+                <div class="text-h4 font-weight-medium text-on-info-container">{{ totalTasksCount }}</div>
+                <div class="text-subtitle-2 text-on-info-container-variant">总任务数</div>
+              </div>
+            </div>
+          </v-card-text>
+        </v-card>
       </v-col>
     </v-row>
 
-    <!-- 任务统计卡片 -->
-    <v-row class="mb-4">
-      <v-col cols="12" md="3">
-        <v-card color="primary" variant="flat">
-          <v-card-text class="text-white">
-            <div class="d-flex align-center">
-              <v-icon size="40" class="me-3">mdi-play-circle</v-icon>
-              <div>
-                <div class="text-h5 font-weight-bold">{{ normalTasksCount }}</div>
-                <div class="text-subtitle-2">运行中任务</div>
-              </div>
-            </div>
-          </v-card-text>
-        </v-card>
-      </v-col>
-      
-      <v-col cols="12" md="3">
-        <v-card color="success" variant="flat">
-          <v-card-text class="text-white">
-            <div class="d-flex align-center">
-              <v-icon size="40" class="me-3">mdi-clock-outline</v-icon>
-              <div>
-                <div class="text-h5 font-weight-bold">{{ activeScheduledTasksCount }}</div>
-                <div class="text-subtitle-2">活跃定时任务</div>
-              </div>
-            </div>
-          </v-card-text>
-        </v-card>
-      </v-col>
-      
-      <v-col cols="12" md="3">
-        <v-card color="warning" variant="flat">
-          <v-card-text class="text-white">
-            <div class="d-flex align-center">
-              <v-icon size="40" class="me-3">mdi-pause-circle</v-icon>
-              <div>
-                <div class="text-h5 font-weight-bold">{{ pausedScheduledTasksCount }}</div>
-                <div class="text-subtitle-2">暂停定时任务</div>
-              </div>
-            </div>
-          </v-card-text>
-        </v-card>
-      </v-col>
-      
-      <v-col cols="12" md="3">
-        <v-card color="info" variant="flat">
-          <v-card-text class="text-white">
-            <div class="d-flex align-center">
-              <v-icon size="40" class="me-3">mdi-format-list-bulleted</v-icon>
-              <div>
-                <div class="text-h5 font-weight-bold">{{ totalTasksCount }}</div>
-                <div class="text-subtitle-2">总任务数</div>
-              </div>
-            </div>
-          </v-card-text>
-        </v-card>
-      </v-col>
-    </v-row>
+    <!-- 任务列表 - 统一设计 -->
+    <v-card class="app-card app-table">
+      <v-card-title class="p-lg">
+        <v-avatar color="primary" size="32" class="me-3">
+          <v-icon icon="mdi-format-list-bulleted" color="on-primary" size="18" />
+        </v-avatar>
+        <div class="flex-grow-1">
+          <div class="text-h6 font-weight-bold">任务列表</div>
+          <div class="text-body-2 text-medium-emphasis">管理所有任务</div>
+        </div>
 
-    <!-- 任务列表 -->
-    <v-card>
-      <v-card-title class="d-flex align-center">
-        <v-icon class="me-2">mdi-format-list-bulleted</v-icon>
-        任务列表
-        <v-spacer />
-        
         <!-- 任务类型筛选 -->
         <v-chip-group v-model="taskTypeFilter" class="me-4">
-          <v-chip value="all" variant="outlined">全部</v-chip>
-          <v-chip value="normal" variant="outlined">普通任务</v-chip>
-          <v-chip value="scheduled" variant="outlined">定时任务</v-chip>
+          <v-chip value="all" class="app-chip">全部</v-chip>
+          <v-chip value="normal" class="app-chip">普通任务</v-chip>
+          <v-chip value="scheduled" class="app-chip">定时任务</v-chip>
         </v-chip-group>
-        
+
         <v-btn
           color="primary"
           prepend-icon="mdi-refresh"
           @click="loadTasks"
           :loading="loading"
+          class="app-button"
         >
           刷新
         </v-btn>
@@ -136,13 +157,12 @@
         <template #item.status="{ item }">
           <div class="d-flex align-center">
             <div
-              :class="['status-indicator', `status-${item.stats.status}`]"
+              :class="['app-status', `status-${item.stats.status}`]"
             ></div>
             <v-chip
               :color="getStatusColor(item.stats.status)"
-              variant="flat"
               size="small"
-              class="ms-2"
+              class="ms-2 app-chip"
             >
               <v-icon start>{{ getStatusIcon(item.stats.status) }}</v-icon>
               <span class="status-text">{{ getStatusText(item.stats.status) }}</span>
@@ -409,7 +429,7 @@ const loadTasks = async () => {
   }
 }
 
-const selectTask = (event, { item }) => {
+const selectTask = (_, { item }) => {
   selectedTask.value = item
   detailDialog.value = true
 }
@@ -492,7 +512,7 @@ const getStatusColor = (status) => {
     'paused': 'warning',
     'starting': 'info'
   }
-  return statusColors[status] || 'grey'
+  return statusColors[status] || 'secondary'
 }
 
 const getStatusIcon = (status) => {
@@ -545,3 +565,50 @@ onMounted(() => {
   })
 })
 </script>
+
+<style scoped>
+/* TaskManagement MD3 标准样式 */
+.stats-card {
+  transition: background-color var(--md3-motion-duration-short) var(--md3-motion-easing-standard);
+}
+
+.stats-card .v-avatar {
+  transition: none; /* 移除头像动画 */
+}
+
+/* 移除头像缩放效果 */
+
+/* 透明度工具类 */
+.opacity-90 {
+  opacity: 0.9;
+}
+
+/* 状态指示器 */
+.status-running {
+  background-color: rgb(var(--v-theme-primary));
+}
+
+.status-completed {
+  background-color: rgb(var(--v-theme-success));
+}
+
+.status-failed {
+  background-color: rgb(var(--v-theme-error));
+}
+
+.status-stopped {
+  background-color: rgb(var(--v-theme-warning));
+}
+
+.status-scheduled {
+  background-color: rgb(var(--v-theme-success));
+}
+
+.status-paused {
+  background-color: rgb(var(--v-theme-warning));
+}
+
+.status-starting {
+  background-color: rgb(var(--v-theme-info));
+}
+</style>

@@ -129,7 +129,7 @@
       <!-- 屏幕尺寸信息 -->
       <v-row class="mt-4">
         <v-col cols="12">
-          <v-card elevation="1" color="surface-variant">
+          <v-card elevation="1">
             <v-card-text>
               <div class="text-caption">
                 <strong>当前屏幕信息:</strong>

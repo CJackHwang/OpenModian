@@ -1,22 +1,29 @@
 <template>
   <div>
-    <!-- 备份操作面板 -->
-    <v-card elevation="2" class="mb-6">
-      <v-card-title class="d-flex align-center">
-        <v-icon icon="mdi-backup-restore" class="me-3" />
-        备份操作
+    <!-- 备份操作面板 - 统一设计 -->
+    <v-card class="mb-6 app-card">
+      <v-card-title class="p-lg">
+        <v-avatar color="primary" size="32" class="me-3">
+          <v-icon icon="mdi-backup-restore" color="on-primary" size="18" />
+        </v-avatar>
+        <div>
+          <div class="text-h6 font-weight-bold">备份操作</div>
+          <div class="text-body-2 text-medium-emphasis">创建和导入数据备份</div>
+        </div>
       </v-card-title>
-      
-      <v-card-text>
+
+      <v-card-text class="p-lg pt-0">
         <v-row>
           <!-- 创建备份 -->
           <v-col cols="12" md="6">
-            <v-card variant="outlined" class="h-100">
-              <v-card-title class="text-h6">
-                <v-icon icon="mdi-database-export" class="me-2" />
+            <v-card variant="outlined" class="h-100 app-card">
+              <v-card-title class="text-h6 p-lg">
+                <v-avatar color="success" size="24" class="me-2">
+                  <v-icon icon="mdi-database-export" color="on-success" size="14" />
+                </v-avatar>
                 创建备份
               </v-card-title>
-              <v-card-text>
+              <v-card-text class="p-lg pt-0">
                 <v-select
                   v-model="backupFormat"
                   :items="formatOptions"
@@ -38,7 +45,7 @@
                   @click="createBackup"
                   :loading="creating"
                   block
-                  variant="elevated"
+                  class="app-button"
                 >
                   一键备份
                 </v-btn>
@@ -48,12 +55,14 @@
           
           <!-- 导入备份 -->
           <v-col cols="12" md="6">
-            <v-card variant="outlined" class="h-100">
-              <v-card-title class="text-h6">
-                <v-icon icon="mdi-database-import" class="me-2" />
+            <v-card variant="outlined" class="h-100 app-card">
+              <v-card-title class="text-h6 p-lg">
+                <v-avatar color="warning" size="24" class="me-2">
+                  <v-icon icon="mdi-database-import" color="on-warning" size="14" />
+                </v-avatar>
                 导入备份
               </v-card-title>
-              <v-card-text>
+              <v-card-text class="p-lg pt-0">
                 <v-file-input
                   v-model="uploadFile"
                   label="选择备份文件"
@@ -81,7 +90,7 @@
                   :loading="uploading"
                   :disabled="!uploadFile"
                   block
-                  variant="elevated"
+                  class="app-button"
                 >
                   上传并导入
                 </v-btn>
@@ -92,22 +101,27 @@
       </v-card-text>
     </v-card>
 
-    <!-- 备份文件列表 -->
-    <v-card elevation="2">
-      <v-card-title class="d-flex align-center">
-        <v-icon icon="mdi-folder-multiple" class="me-3" />
-        备份文件管理
-        <v-spacer />
+    <!-- 备份文件列表 - 统一设计 -->
+    <v-card class="app-card app-table">
+      <v-card-title class="p-lg">
+        <v-avatar color="info" size="32" class="me-3">
+          <v-icon icon="mdi-folder-multiple" color="on-info" size="18" />
+        </v-avatar>
+        <div class="flex-grow-1">
+          <div class="text-h6 font-weight-bold">备份文件管理</div>
+          <div class="text-body-2 text-medium-emphasis">管理所有备份文件</div>
+        </div>
         <v-btn
           icon="mdi-refresh"
           variant="text"
           @click="loadBackups"
           :loading="loading"
           title="刷新列表"
+          class="app-button"
         />
       </v-card-title>
-      
-      <v-card-text>
+
+      <v-card-text class="p-lg pt-0">
         <!-- 备份文件表格 -->
         <v-data-table
           :headers="headers"
@@ -135,7 +149,7 @@
 
           <!-- 大小列 -->
           <template #item.size_formatted="{ item }">
-            <v-chip size="small" variant="tonal" color="info">
+            <v-chip size="small" variant="tonal" color="info" class="app-chip">
               {{ item.size_formatted }}
             </v-chip>
           </template>
@@ -146,6 +160,7 @@
               size="small"
               :color="item.is_valid ? 'success' : 'error'"
               variant="tonal"
+              class="app-chip"
             >
               {{ item.is_valid ? '有效' : '无效' }}
             </v-chip>
@@ -273,7 +288,7 @@
     <!-- 确认恢复对话框 -->
     <v-dialog v-model="showRestoreDialog" max-width="500px">
       <v-card>
-        <v-card-title class="d-flex align-center text-warning">
+        <v-card-title class="d-flex align-center">
           <v-icon icon="mdi-alert" class="me-3" />
           确认恢复备份
         </v-card-title>
@@ -292,7 +307,6 @@
         <v-card-actions>
           <v-spacer />
           <v-btn
-            color="grey"
             variant="text"
             @click="showRestoreDialog = false"
           >
@@ -300,7 +314,7 @@
           </v-btn>
           <v-btn
             color="warning"
-            variant="elevated"
+            variant="filled"
             @click="restoreBackup"
             :loading="restoring"
           >
@@ -313,7 +327,7 @@
     <!-- 确认删除对话框 -->
     <v-dialog v-model="showDeleteDialog" max-width="400px">
       <v-card>
-        <v-card-title class="d-flex align-center text-error">
+        <v-card-title class="d-flex align-center">
           <v-icon icon="mdi-delete" class="me-3" />
           确认删除
         </v-card-title>
@@ -327,7 +341,6 @@
         <v-card-actions>
           <v-spacer />
           <v-btn
-            color="grey"
             variant="text"
             @click="showDeleteDialog = false"
           >
@@ -335,7 +348,7 @@
           </v-btn>
           <v-btn
             color="error"
-            variant="elevated"
+            variant="filled"
             @click="deleteBackup"
             :loading="deleting"
           >
@@ -348,7 +361,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import axios from 'axios'
 
 // 响应式数据
@@ -599,12 +612,20 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* 自定义样式 */
-.v-card {
-  transition: all 0.3s ease;
+/* BackupManager 统一设计样式 */
+.v-card.app-card {
+  transition: var(--transition-normal);
 }
 
-.v-card:hover {
+.v-card.app-card:hover {
   transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
 }
+
+/* 文件图标样式 */
+.v-icon {
+  transition: var(--transition-fast);
+}
+
+/* 操作按钮样式现在通过main.js的VBtn defaults配置管理 */
 </style>

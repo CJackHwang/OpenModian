@@ -84,6 +84,14 @@ const router = createRouter({
       }
     },
     {
+      path: '/button-test',
+      name: 'button-test',
+      component: () => import('@/views/ButtonTest.vue'),
+      meta: {
+        title: '按钮测试'
+      }
+    },
+    {
       path: '/:pathMatch(.*)*',
       name: 'not-found',
       component: () => import('@/views/NotFound.vue'),

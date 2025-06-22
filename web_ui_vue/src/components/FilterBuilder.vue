@@ -1,31 +1,43 @@
 <template>
-  <v-card elevation="2" class="mb-4">
-    <v-card-title class="d-flex align-center">
-      <v-icon icon="mdi-filter-cog" class="me-3" />
-      高级筛选构建器
-      <v-spacer />
-      <v-btn
-        icon="mdi-content-save"
-        variant="text"
-        @click="showSaveDialog = true"
-        :disabled="!hasActiveFilters"
-        title="保存筛选配置"
-      />
-      <v-btn
-        icon="mdi-folder-open"
-        variant="text"
-        @click="showLoadDialog = true"
-        title="加载筛选配置"
-      />
-      <v-btn
-        icon="mdi-refresh"
-        variant="text"
-        @click="resetFilters"
-        title="重置筛选"
-      />
+  <v-card class="mb-4 app-card">
+    <v-card-title class="p-lg">
+      <v-avatar color="tertiary" size="32" class="me-3">
+        <v-icon icon="mdi-filter-cog" color="on-tertiary" size="18" />
+      </v-avatar>
+      <div class="flex-grow-1">
+        <div class="text-h6 font-weight-bold">高级筛选构建器</div>
+        <div class="text-body-2 text-medium-emphasis">构建复杂的数据筛选条件</div>
+      </div>
+      <div class="d-flex ga-1">
+        <v-btn
+          icon="mdi-content-save"
+          variant="text"
+          color="primary"
+          @click="showSaveDialog = true"
+          :disabled="!hasActiveFilters"
+          title="保存筛选配置"
+          class="app-button"
+        />
+        <v-btn
+          icon="mdi-folder-open"
+          variant="text"
+          color="secondary"
+          @click="showLoadDialog = true"
+          title="加载筛选配置"
+          class="app-button"
+        />
+        <v-btn
+          icon="mdi-refresh"
+          variant="text"
+          color="tertiary"
+          @click="resetFilters"
+          title="重置筛选"
+          class="app-button"
+        />
+      </div>
     </v-card-title>
 
-    <v-card-text>
+    <v-card-text class="p-lg pt-0">
       <!-- 筛选条件列表 -->
       <div v-for="(filter, index) in filters" :key="index" class="mb-3">
         <v-row align="center">
@@ -98,6 +110,7 @@
               color="error"
               @click="removeFilter(index)"
               :disabled="filters.length === 1"
+              class="app-button"
             />
           </v-col>
         </v-row>
@@ -107,8 +120,9 @@
       <v-btn
         prepend-icon="mdi-plus"
         variant="outlined"
+        color="primary"
         @click="addFilter"
-        class="mb-4"
+        class="mb-4 app-button"
       >
         添加筛选条件
       </v-btn>
@@ -154,6 +168,7 @@
               color="error"
               @click="removeSortConfig(index)"
               :disabled="sortConfig.length === 1"
+              class="app-button"
             />
           </v-col>
         </v-row>
@@ -162,8 +177,9 @@
       <v-btn
         prepend-icon="mdi-plus"
         variant="outlined"
+        color="secondary"
         @click="addSortConfig"
-        class="mb-4"
+        class="mb-4 app-button"
       >
         添加排序字段
       </v-btn>
@@ -177,7 +193,7 @@
             prepend-icon="mdi-magnify"
             @click="applyFilters"
             :loading="loading"
-            variant="elevated"
+            class="app-button"
           >
             应用筛选
           </v-btn>
@@ -186,7 +202,7 @@
             prepend-icon="mdi-eye"
             @click="previewSQL"
             variant="outlined"
-            class="ml-2"
+            class="ml-2 app-button"
           >
             预览SQL
           </v-btn>
@@ -208,8 +224,8 @@
         </v-card-text>
         <v-card-actions>
           <v-spacer />
-          <v-btn @click="showSaveDialog = false">取消</v-btn>
-          <v-btn color="primary" @click="saveFilterConfig" :disabled="!saveConfigName">保存</v-btn>
+          <v-btn variant="text" color="secondary" @click="showSaveDialog = false">取消</v-btn>
+          <v-btn variant="filled" color="primary" @click="saveFilterConfig" :disabled="!saveConfigName">保存</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -233,6 +249,7 @@
                 <v-btn
                   icon="mdi-delete"
                   variant="text"
+                  color="error"
                   size="small"
                   @click.stop="deleteFilterConfig(config.id)"
                 />
@@ -245,7 +262,7 @@
         </v-card-text>
         <v-card-actions>
           <v-spacer />
-          <v-btn @click="showLoadDialog = false">关闭</v-btn>
+          <v-btn variant="text" color="secondary" @click="showLoadDialog = false">关闭</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -261,8 +278,8 @@
         </v-card-text>
         <v-card-actions>
           <v-spacer />
-          <v-btn @click="showSQLDialog = false">关闭</v-btn>
-          <v-btn color="primary" @click="copySQL">复制SQL</v-btn>
+          <v-btn variant="text" color="secondary" @click="showSQLDialog = false">关闭</v-btn>
+          <v-btn variant="filled" color="primary" @click="copySQL">复制SQL</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -270,7 +287,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import axios from 'axios'
 
 // Props
@@ -615,9 +632,25 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+/* FilterBuilder MD3 标准样式 */
 .sql-preview {
   font-family: 'Courier New', monospace;
   white-space: pre-wrap;
   word-break: break-all;
+  background-color: rgb(var(--v-theme-surface-variant));
+  padding: var(--md3-spacing-md);
+  border-radius: var(--md3-radius-sm);
 }
+
+/* MD3 筛选条件行样式 */
+.v-row {
+  transition: background-color var(--md3-motion-duration-short) var(--md3-motion-easing-standard);
+
+  &:hover {
+    background-color: rgba(var(--v-theme-primary), var(--md3-state-hover-opacity));
+    border-radius: var(--md3-radius-sm);
+  }
+}
+
+/* 样式现在完全由Vuetify defaults配置管理 - 遵循官方文档最佳实践 */
 </style>

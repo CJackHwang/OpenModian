@@ -1,119 +1,75 @@
 <template>
-  <v-card elevation="2" class="log-viewer d-flex flex-column">
-    <!-- 简化的头部 -->
-    <v-card-title class="d-flex align-center py-3">
-      <v-icon icon="mdi-console" class="me-2" />
-      <span class="text-subtitle-1">实时日志</span>
-      <v-chip
-        :color="connectionStatus ? 'success' : 'error'"
-        size="small"
-        class="ms-2"
-      >
-        {{ connectionStatus ? '已连接' : '未连接' }}
-      </v-chip>
-      <v-chip
-        color="info"
-        size="small"
-        variant="outlined"
-        class="ms-1"
-      >
-        {{ logs.length }} 条
-      </v-chip>
-      <v-spacer />
-
-      <!-- 紧凑模式下的核心控制 -->
-      <div class="d-flex align-center ga-1">
-        <!-- 日志级别过滤 - 核心功能 -->
-        <v-select
-          v-model="selectedLevel"
-          :items="logLevels"
-          item-title="label"
-          item-value="value"
-          density="compact"
+  <v-card
+    class="log-viewer d-flex flex-column app-card"
+  >
+    <!-- 统一设计头部 -->
+    <v-card-title class="d-flex align-center p-lg">
+      <v-avatar color="primary" size="32" class="me-3">
+        <v-icon icon="mdi-console" color="on-primary" size="18" />
+      </v-avatar>
+      <div class="flex-grow-1">
+        <div class="text-h6 font-weight-bold">实时日志</div>
+        <div class="text-body-2 text-medium-emphasis">系统运行日志监控</div>
+      </div>
+      <div class="d-flex align-center ga-2">
+        <v-chip
+          :color="connectionStatus ? 'success' : 'error'"
+          size="small"
+          :prepend-icon="connectionStatus ? 'mdi-wifi' : 'mdi-wifi-off'"
+          class="app-chip"
+        >
+          {{ connectionStatus ? '已连接' : '未连接' }}
+        </v-chip>
+        <v-chip
+          color="info"
+          size="small"
           variant="outlined"
-          hide-details
-          class="log-level-select"
-          @update:model-value="applyFilters"
-        />
+          class="app-chip"
+        >
+          {{ logs.length }} 条
+        </v-chip>
+      </div>
 
+      <!-- 简化的控制区域 -->
+      <div class="d-flex align-center ga-2">
         <!-- 自动滚动状态指示 -->
         <v-chip
           :color="props.autoScroll ? 'success' : 'warning'"
           size="small"
-          variant="outlined"
-          class="me-1"
+          :prepend-icon="props.autoScroll ? 'mdi-arrow-down-bold' : 'mdi-pause'"
+          class="app-chip"
         >
-          <v-icon
-            :icon="props.autoScroll ? 'mdi-arrow-down-bold' : 'mdi-pause'"
-            size="12"
-            class="me-1"
-          />
           {{ props.autoScroll ? '自动滚动' : '已暂停' }}
         </v-chip>
 
-        <!-- 展开/收缩控制 -->
-        <v-btn
-          :icon="isExpanded ? 'mdi-chevron-up' : 'mdi-chevron-down'"
-          variant="text"
-          size="small"
-          @click="toggleExpanded"
-        />
-
-        <!-- 操作按钮 -->
-        <v-btn
-          icon="mdi-refresh"
-          variant="text"
-          size="small"
-          @click="refreshLogs"
-          :disabled="!connectionStatus"
-        />
-        <v-btn
-          icon="mdi-delete"
-          variant="text"
-          size="small"
-          @click="clearLogs"
-          :disabled="!logs.length"
-        />
+        <!-- 操作按钮组 -->
+        <v-btn-group variant="outlined" density="compact" color="primary">
+          <v-btn
+            icon="mdi-refresh"
+            @click="refreshLogs"
+            :disabled="!connectionStatus"
+            size="small"
+            color="primary"
+            class="app-button"
+          />
+          <v-btn
+            icon="mdi-delete"
+            @click="clearLogs"
+            :disabled="!logs.length"
+            size="small"
+            color="error"
+            class="app-button"
+          />
+        </v-btn-group>
       </div>
     </v-card-title>
 
-    <!-- 展开时显示的额外控制 -->
-    <v-expand-transition>
-      <v-card-text v-show="isExpanded" class="py-2">
-        <v-row dense>
-          <v-col cols="12" sm="4">
-            <v-select
-              v-model="selectedLogType"
-              :items="logTypes"
-              item-title="label"
-              item-value="value"
-              density="compact"
-              variant="outlined"
-              hide-details
-              label="日志类型"
-              @update:model-value="changeLogType"
-            />
-          </v-col>
-          <v-col cols="12" sm="8">
-            <v-text-field
-              v-model="searchTerm"
-              placeholder="搜索日志内容..."
-              density="compact"
-              variant="outlined"
-              hide-details
-              prepend-inner-icon="mdi-magnify"
-              clearable
-              @update:model-value="applyFilters"
-            />
-          </v-col>
-        </v-row>
-      </v-card-text>
-    </v-expand-transition>
+
 
     <!-- 日志内容区域 -->
     <v-card-text class="pa-0 flex-grow-1 d-flex flex-column">
       <div class="log-container flex-grow-1" ref="logContainer">
-        <div v-if="filteredLogs.length === 0" class="empty-state">
+        <div v-if="logs.length === 0" class="empty-state">
           <v-icon icon="mdi-information-outline" size="32" class="mb-2 text-medium-emphasis" />
           <div class="text-body-2 text-medium-emphasis">
             {{ connectionStatus ? '暂无日志信息' : '等待连接...' }}
@@ -138,10 +94,11 @@
           <v-btn
             variant="text"
             size="small"
+            color="primary"
             @click="loadMoreLogs"
             :loading="loadingMore"
           >
-            加载更多 ({{ filteredLogs.length - displayedLogs.length }})
+            加载更多 ({{ logs.length - displayedLogs.length }})
           </v-btn>
         </div>
       </div>
@@ -188,38 +145,17 @@ const display = useDisplay()
 
 // 响应式数据
 const logs = ref([])
-const filteredLogs = ref([])
 const displayedLogs = ref([])
 const connectionStatus = ref(false)
-const selectedLogType = ref('all')
-const selectedLevel = ref('all')
-const searchTerm = ref('')
 const loadingMore = ref(false)
 const displayLimit = ref(100)
-const isExpanded = ref(false)
 
 // 日志容器引用
 const logContainer = ref(null)
 
-// 配置选项
-const logTypes = [
-  { label: '全部', value: 'all' },
-  { label: '系统', value: 'system' },
-  { label: '爬虫', value: 'spider' },
-  { label: 'Web界面', value: 'webui' }
-]
-
-const logLevels = [
-  { label: '全部', value: 'all' },
-  { label: 'DEBUG', value: 'debug' },
-  { label: 'INFO', value: 'info' },
-  { label: 'WARNING', value: 'warning' },
-  { label: 'ERROR', value: 'error' }
-]
-
 // 计算属性
 const hasMoreLogs = computed(() => {
-  return filteredLogs.value.length > displayedLogs.value.length
+  return logs.value.length > displayedLogs.value.length
 })
 
 // 响应式高度计算
@@ -250,48 +186,17 @@ const responsiveDisplayLimit = computed(() => {
 
 // 本地存储键名
 const STORAGE_KEY = 'realtime_logs_cache'
-const SETTINGS_KEY = 'log_viewer_settings'
 
 // 方法
 const initializeLogViewer = () => {
-  // 加载设置
-  loadSettings()
-  
   // 加载缓存的日志
   loadCachedLogs()
-  
+
   // 设置WebSocket监听
   setupWebSocketListeners()
-  
+
   // 订阅日志更新
   subscribeToLogs()
-}
-
-const loadSettings = () => {
-  try {
-    const settings = localStorage.getItem(SETTINGS_KEY)
-    if (settings) {
-      const parsed = JSON.parse(settings)
-      selectedLogType.value = parsed.logType || 'all'
-      selectedLevel.value = parsed.level || 'all'
-      searchTerm.value = parsed.search || ''
-    }
-  } catch (error) {
-    console.error('加载日志查看器设置失败:', error)
-  }
-}
-
-const saveSettings = () => {
-  try {
-    const settings = {
-      logType: selectedLogType.value,
-      level: selectedLevel.value,
-      search: searchTerm.value
-    }
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings))
-  } catch (error) {
-    console.error('保存日志查看器设置失败:', error)
-  }
 }
 
 const loadCachedLogs = () => {
@@ -300,7 +205,7 @@ const loadCachedLogs = () => {
     if (cached) {
       const parsedLogs = JSON.parse(cached)
       logs.value = parsedLogs.slice(-props.maxLogs) // 只保留最新的日志
-      applyFilters()
+      updateDisplayedLogs()
       console.log(`📝 加载缓存日志: ${logs.value.length} 条`)
     }
   } catch (error) {
@@ -375,22 +280,12 @@ const subscribeToLogs = () => {
     return
   }
 
-  // 订阅日志更新
+  // 订阅所有日志更新
   appStore.socket.emit('log_subscribe', {
-    log_type: selectedLogType.value
+    log_type: 'all'
   })
 
-  console.log(`📡 订阅日志类型: ${selectedLogType.value}`)
-}
-
-const unsubscribeFromLogs = (logType) => {
-  if (!appStore.socket || !appStore.socket.connected) {
-    return
-  }
-
-  appStore.socket.emit('log_unsubscribe', {
-    log_type: logType
-  })
+  console.log('📡 订阅所有日志类型')
 }
 
 const handleLogUpdate = (data) => {
@@ -404,37 +299,37 @@ const handleLogHistory = (data) => {
   if (data.logs && Array.isArray(data.logs)) {
     // 合并历史日志，避免重复
     const existingTimestamps = new Set(logs.value.map(log => `${log.timestamp}-${log.message}`))
-    const newLogs = data.logs.filter(log => 
+    const newLogs = data.logs.filter(log =>
       !existingTimestamps.has(`${log.timestamp}-${log.message}`)
     )
-    
+
     logs.value = [...newLogs, ...logs.value].slice(-props.maxLogs)
-    applyFilters()
+    updateDisplayedLogs()
     saveCachedLogs()
-    
+
     console.log(`📝 接收历史日志: ${newLogs.length} 条新日志`)
   }
 }
 
 const addLogEntry = (entry) => {
   // 检查是否已存在相同的日志条目
-  const exists = logs.value.some(log => 
-    log.timestamp === entry.timestamp && 
+  const exists = logs.value.some(log =>
+    log.timestamp === entry.timestamp &&
     log.message === entry.message &&
     log.level === entry.level
   )
-  
+
   if (!exists) {
     logs.value.push(entry)
-    
+
     // 限制日志数量
     if (logs.value.length > props.maxLogs) {
       logs.value = logs.value.slice(-props.maxLogs)
     }
-    
-    applyFilters()
+
+    updateDisplayedLogs()
     saveCachedLogs()
-    
+
     // 自动滚动到底部
     if (props.autoScroll) {
       // 使用双重 nextTick 确保 DOM 完全更新
@@ -447,54 +342,20 @@ const addLogEntry = (entry) => {
   }
 }
 
-const applyFilters = () => {
-  let filtered = [...logs.value]
-  
-  // 级别过滤
-  if (selectedLevel.value !== 'all') {
-    filtered = filtered.filter(log => 
-      log.level.toLowerCase() === selectedLevel.value.toLowerCase()
-    )
-  }
-  
-  // 搜索过滤
-  if (searchTerm.value) {
-    const search = searchTerm.value.toLowerCase()
-    filtered = filtered.filter(log => 
-      log.message.toLowerCase().includes(search) ||
-      log.level.toLowerCase().includes(search) ||
-      (log.source && log.source.toLowerCase().includes(search))
-    )
-  }
-  
-  filteredLogs.value = filtered
-  displayedLogs.value = filtered.slice(0, displayLimit.value)
-  
-  // 保存设置
-  saveSettings()
+const updateDisplayedLogs = () => {
+  // 简化版本：直接显示所有日志，不进行过滤
+  displayedLogs.value = logs.value.slice(0, displayLimit.value)
 }
 
 const loadMoreLogs = () => {
   loadingMore.value = true
-  
+
   setTimeout(() => {
     const currentLength = displayedLogs.value.length
-    const nextBatch = filteredLogs.value.slice(currentLength, currentLength + 50)
+    const nextBatch = logs.value.slice(currentLength, currentLength + 50)
     displayedLogs.value = [...displayedLogs.value, ...nextBatch]
     loadingMore.value = false
   }, 300)
-}
-
-const changeLogType = (newType) => {
-  // 取消订阅旧类型
-  unsubscribeFromLogs(selectedLogType.value)
-  
-  // 订阅新类型
-  selectedLogType.value = newType
-  subscribeToLogs()
-  
-  // 重新应用过滤器
-  applyFilters()
 }
 
 const refreshLogs = () => {
@@ -504,23 +365,20 @@ const refreshLogs = () => {
 
   // 请求最新日志
   appStore.socket.emit('log_request', {
-    log_type: selectedLogType.value,
-    limit: 100,
-    level: selectedLevel.value,
-    search: searchTerm.value
+    log_type: 'all',
+    limit: 100
   })
 }
 
 const clearLogs = () => {
   logs.value = []
-  filteredLogs.value = []
   displayedLogs.value = []
   saveCachedLogs()
-  
+
   // 通知服务器清空缓存
   if (appStore.socket && appStore.socket.connected) {
     appStore.socket.emit('log_clear', {
-      log_type: selectedLogType.value
+      log_type: 'all'
     })
   }
 }
@@ -534,12 +392,7 @@ const scrollToBottom = () => {
   }
 }
 
-// 新增方法
-const toggleExpanded = () => {
-  isExpanded.value = !isExpanded.value
-  // 保存展开状态
-  localStorage.setItem('log_viewer_expanded', isExpanded.value.toString())
-}
+
 
 const formatTimestamp = (timestamp) => {
   if (!timestamp) return ''
@@ -560,15 +413,6 @@ const formatTimestamp = (timestamp) => {
 const initializeResponsiveSettings = () => {
   // 根据屏幕尺寸调整初始设置
   displayLimit.value = responsiveDisplayLimit.value
-
-  // 在移动设备上默认收缩
-  if (display.xs.value || display.sm.value) {
-    isExpanded.value = false
-  } else {
-    // 加载保存的展开状态
-    const savedExpanded = localStorage.getItem('log_viewer_expanded')
-    isExpanded.value = savedExpanded === 'true'
-  }
 }
 
 // 监听器
@@ -583,7 +427,6 @@ watch(() => appStore.connectionStatus, (newStatus) => {
 watch(() => display.xs.value, (isXs) => {
   // 屏幕尺寸变化时调整设置
   if (isXs) {
-    isExpanded.value = false
     displayLimit.value = 50
   } else {
     displayLimit.value = responsiveDisplayLimit.value
@@ -593,18 +436,12 @@ watch(() => display.xs.value, (isXs) => {
 // 生命周期
 onMounted(() => {
   initializeResponsiveSettings()
-  setupWebSocketListeners()
+  initializeLogViewer()
 })
 
 onUnmounted(() => {
-  // 取消订阅
-  if (selectedLogType.value) {
-    unsubscribeFromLogs(selectedLogType.value)
-  }
-  
   // 保存最终状态
   saveCachedLogs()
-  saveSettings()
 })
 </script>
 
@@ -637,12 +474,15 @@ onUnmounted(() => {
   align-items: flex-start;
   gap: 8px;
   border-radius: 4px;
-  transition: all 0.2s ease;
+  transition: background-color var(--md3-motion-duration-short) var(--md3-motion-easing-standard),
+              border-left-color var(--md3-motion-duration-short) var(--md3-motion-easing-standard);
   border-left: 2px solid transparent;
+  background-color: rgb(var(--v-theme-surface-container-low));
+  color: rgb(var(--v-theme-on-surface));
 }
 
 .log-entry:hover {
-  background-color: rgba(var(--v-theme-primary), 0.06);
+  background-color: rgb(var(--v-theme-surface-container));
   border-left-color: rgba(var(--v-theme-primary), 0.3);
 }
 
@@ -685,24 +525,28 @@ onUnmounted(() => {
   background-color: rgba(var(--v-theme-secondary), 0.12);
   color: rgb(var(--v-theme-secondary));
   font-weight: 500;
+  border: 1px solid rgba(var(--v-theme-secondary), 0.2);
 }
 
 .log-level-info {
   background-color: rgba(var(--v-theme-info), 0.12);
   color: rgb(var(--v-theme-info));
   font-weight: 600;
+  border: 1px solid rgba(var(--v-theme-info), 0.2);
 }
 
 .log-level-warning {
   background-color: rgba(var(--v-theme-warning), 0.15);
   color: rgb(var(--v-theme-warning));
   font-weight: 600;
+  border: 1px solid rgba(var(--v-theme-warning), 0.3);
 }
 
 .log-level-error {
   background-color: rgba(var(--v-theme-error), 0.15);
   color: rgb(var(--v-theme-error));
   font-weight: 700;
+  border: 1px solid rgba(var(--v-theme-error), 0.3);
 }
 
 .log-source {

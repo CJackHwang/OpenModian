@@ -1,44 +1,313 @@
-// 简化的全局样式文件
+// Material Design 3 全局样式系统 - 现代简洁设计
 
-// 基础全局样式
+// 基础重置和字体
 * {
   box-sizing: border-box;
 }
 
 body {
-  font-family: 'Roboto', sans-serif;
+  font-family: 'Roboto', 'Helvetica Neue', Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  line-height: 1.6;
+  letter-spacing: 0.00938em;
 }
+
+// MD3 设计令牌系统
+:root {
+  // MD3 间距系统
+  --md3-spacing-xs: 4px;
+  --md3-spacing-sm: 8px;
+  --md3-spacing-md: 16px;
+  --md3-spacing-lg: 24px;
+  --md3-spacing-xl: 32px;
+  --md3-spacing-xxl: 48px;
+
+  // MD3 圆角系统
+  --md3-radius-xs: 4px;
+  --md3-radius-sm: 8px;
+  --md3-radius-md: 12px;
+  --md3-radius-lg: 16px;
+  --md3-radius-xl: 20px;
+  --md3-radius-xxl: 28px;
+
+  // MD3 动画系统 - 标准缓动
+  --md3-motion-easing-standard: cubic-bezier(0.2, 0, 0, 1);
+  --md3-motion-easing-emphasized: cubic-bezier(0.05, 0.7, 0.1, 1);
+  --md3-motion-duration-short: 150ms;
+  --md3-motion-duration-medium: 300ms;
+  --md3-motion-duration-long: 500ms;
+
+  // MD3 状态层透明度 - 使用Vuetify变量
+  --md3-state-hover-opacity: var(--v-hover-opacity);
+  --md3-state-focus-opacity: var(--v-focus-opacity);
+  --md3-state-pressed-opacity: var(--v-pressed-opacity);
+
+  // 兼容性变量 - 保持向后兼容
+  --spacing-xs: var(--md3-spacing-xs);
+  --spacing-sm: var(--md3-spacing-sm);
+  --spacing-md: var(--md3-spacing-md);
+  --spacing-lg: var(--md3-spacing-lg);
+  --spacing-xl: var(--md3-spacing-xl);
+  --spacing-xxl: var(--md3-spacing-xxl);
+
+  --radius-sm: var(--md3-radius-sm);
+  --radius-md: var(--md3-radius-md);
+  --radius-lg: var(--md3-radius-lg);
+  --radius-xl: var(--md3-radius-xl);
+
+  --transition-fast: var(--md3-motion-duration-short) var(--md3-motion-easing-standard);
+  --transition-normal: var(--md3-motion-duration-medium) var(--md3-motion-easing-standard);
+  --transition-slow: var(--md3-motion-duration-long) var(--md3-motion-easing-emphasized);
+}
+
+// MD3 应用级组件样式 - 现在通过Vuetify defaults配置管理
+// 保留少量必要的应用级样式类
+
+.app-card {
+  // 基础样式现在通过VCard defaults管理
+  transition: background-color var(--md3-motion-duration-short) var(--md3-motion-easing-standard);
+}
+
+.app-button {
+  // 基础样式现在通过VBtn defaults管理
+  transition: background-color var(--md3-motion-duration-short) var(--md3-motion-easing-standard);
+}
+
+.app-chip {
+  // 基础样式现在通过VChip defaults管理
+  transition: background-color var(--md3-motion-duration-short) var(--md3-motion-easing-standard);
+}
+
+// MD3 图标配色现在通过Vuetify defaults和主题系统管理
+
+// MD3 文字颜色工具类 - 移除!important，使用标准CSS优先级
+.text-on-surface {
+  color: rgb(var(--v-theme-on-surface));
+}
+
+.text-on-surface-variant {
+  color: rgb(var(--v-theme-on-surface-variant));
+}
+
+.text-on-primary {
+  color: rgb(var(--v-theme-on-primary));
+}
+
+.text-on-secondary {
+  color: rgb(var(--v-theme-on-secondary));
+}
+
+.text-on-tertiary {
+  color: rgb(var(--v-theme-on-tertiary));
+}
+
+.text-success {
+  color: rgb(var(--v-theme-success));
+}
+
+.text-error {
+  color: rgb(var(--v-theme-error));
+}
+
+.text-warning {
+  color: rgb(var(--v-theme-warning));
+}
+
+.text-info {
+  color: rgb(var(--v-theme-info));
+}
+
+// MD3 容器颜色工具类 - 移除!important
+.text-on-primary-container {
+  color: rgb(var(--v-theme-on-primary-container));
+}
+
+.text-on-secondary-container {
+  color: rgb(var(--v-theme-on-secondary-container));
+}
+
+.text-on-success-container {
+  color: rgb(var(--v-theme-on-success-container));
+}
+
+.text-on-info-container {
+  color: rgb(var(--v-theme-on-info-container));
+}
+
+.text-on-warning-container {
+  color: rgb(var(--v-theme-on-warning-container));
+}
+
+.text-on-primary-container-variant {
+  color: rgba(var(--v-theme-on-primary-container), 0.7);
+}
+
+.text-on-secondary-container-variant {
+  color: rgba(var(--v-theme-on-secondary-container), 0.7);
+}
+
+.text-on-success-container-variant {
+  color: rgba(var(--v-theme-on-success-container), 0.7);
+}
+
+.text-on-info-container-variant {
+  color: rgba(var(--v-theme-on-info-container), 0.7);
+}
+
+.text-on-warning-container-variant {
+  color: rgba(var(--v-theme-on-warning-container), 0.7);
+}
+
+// Vuetify组件文字颜色现在通过主题系统自动管理
+// MD3 文字强调类 - 移除!important
+.text-medium-emphasis {
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+}
+
+.text-high-emphasis {
+  color: rgba(var(--v-theme-on-surface), var(--v-high-emphasis-opacity));
+}
+
+// VCard文字颜色由Vuetify3自动管理，无需CSS覆盖
+
+// VListItem文字颜色和选中状态由Vuetify3自动管理，无需CSS覆盖
+
+// VAlert样式现在通过Vuetify defaults配置管理
+
+// VField和VSelect文字颜色由Vuetify3自动管理，无需CSS覆盖
+
+// MD3 VSelect和VMenu样式 - 优化背景对比度，文字颜色由Vuetify自动管理
+.v-select-menu,
+.v-menu-content {
+  background-color: rgb(var(--v-theme-surface-container-high)); // ✅ 修复：使用更高对比度的背景
+  border: 1px solid rgb(var(--v-theme-outline)); // ✅ 修复：使用outline提高边框对比度
+
+  .v-list {
+    background-color: transparent;
+  }
+}
+
+// MD3 VMenu覆盖层样式 - 优化背景对比度
+.v-menu > .v-overlay__content {
+  background-color: rgb(var(--v-theme-surface-container-high)); // ✅ 修复：使用更高对比度的背景
+  border: 1px solid rgb(var(--v-theme-outline)); // ✅ 修复：使用outline提高边框对比度
+}
+
+// .v-list 和 .v-list-item 样式现在通过Vuetify defaults配置管理
+
+// VBtn样式现在完全通过Vuetify3官方defaults配置管理
+
+// .v-chip 样式现在通过Vuetify defaults配置管理
 
 // 响应式工具类
-.mobile-only {
-  @media (min-width: 960px) {
-    display: none !important;
+// 使用Vuetify的响应式显示类替代自定义实现
+// 推荐使用: d-none d-md-block, d-block d-md-none 等Vuetify原生类
+
+// MD3 布局系统 - 响应式容器
+.app-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: var(--md3-spacing-md);
+
+  @media (min-width: 600px) {
+    padding: var(--md3-spacing-lg);
+  }
+
+  @media (min-width: 1280px) {
+    max-width: 1400px;
+    padding: var(--md3-spacing-xl);
+  }
+
+  @media (min-width: 1920px) {
+    max-width: 1600px;
   }
 }
 
-.desktop-only {
-  @media (max-width: 959px) {
-    display: none !important;
+.app-section {
+  margin-bottom: var(--md3-spacing-xl);
+
+  @media (min-width: 1280px) {
+    margin-bottom: var(--md3-spacing-xxl);
   }
 }
 
-// 基础动画类
+// MD3 间距工具类
+.spacing-xs { margin: var(--md3-spacing-xs); }
+.spacing-sm { margin: var(--md3-spacing-sm); }
+.spacing-md { margin: var(--md3-spacing-md); }
+.spacing-lg { margin: var(--md3-spacing-lg); }
+.spacing-xl { margin: var(--md3-spacing-xl); }
+
+.p-xs { padding: var(--md3-spacing-xs); }
+.p-sm { padding: var(--md3-spacing-sm); }
+.p-md { padding: var(--md3-spacing-md); }
+.p-lg { padding: var(--md3-spacing-lg); }
+.p-xl { padding: var(--md3-spacing-xl); }
+
+// MD3 动画类 - 使用标准缓动
 .fade-in {
-  animation: fadeIn 0.5s ease-in;
+  animation: fadeIn var(--md3-motion-duration-medium) var(--md3-motion-easing-standard);
 }
 
+.fade-in-up {
+  animation: fadeInUp var(--md3-motion-duration-medium) var(--md3-motion-easing-standard);
+}
+
+.slide-in-left {
+  animation: slideInLeft var(--md3-motion-duration-medium) var(--md3-motion-easing-standard);
+}
+
+.scale-in {
+  animation: scaleIn var(--md3-motion-duration-short) var(--md3-motion-easing-emphasized);
+}
+
+// 动画关键帧
 @keyframes fadeIn {
   from {
     opacity: 0;
-    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
   }
   to {
     opacity: 1;
     transform: translateY(0);
   }
 }
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+// MD3 表单和表格聚焦状态现在通过Vuetify defaults配置管理
+
+// MD3 文字颜色现在通过Vuetify主题配置管理
 
 // 工具类
 .text-truncate {
@@ -55,19 +324,36 @@ body {
   user-select: none;
 }
 
-// 状态指示器
-.status-indicator {
+// MD3 状态指示器系统
+.app-status {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  margin-right: 8px;
+  margin-right: var(--md3-spacing-sm);
+  transition: var(--transition-fast);
 }
 
 .status-running {
-  animation: pulse 2s ease-in-out infinite;
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.status-success {
+  background-color: rgb(var(--v-theme-success));
+}
+
+.status-error {
+  background-color: rgb(var(--v-theme-error));
+}
+
+.status-warning {
+  background-color: rgb(var(--v-theme-warning));
+}
+
+.status-info {
+  background-color: rgb(var(--v-theme-info));
 }
 
 @keyframes pulse {
@@ -76,31 +362,65 @@ body {
     transform: scale(1);
   }
   50% {
-    opacity: 0.7;
-    transform: scale(1.1);
+    opacity: 0.6;
+    transform: scale(1.15);
   }
 }
 
-// 响应式表格隐藏列
-.v-data-table {
-  @media (max-width: 959px) {
-    .d-none.d-md-table-cell,
-    .d-none.d-lg-table-cell,
-    .d-none.d-xl-table-cell {
-      display: none !important;
-    }
+// 空状态样式
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  text-align: center;
+
+  .empty-icon {
+    margin-bottom: 16px;
+    opacity: 0.6;
   }
 
-  @media (max-width: 1263px) {
-    .d-none.d-lg-table-cell,
-    .d-none.d-xl-table-cell {
-      display: none !important;
-    }
+  .empty-title {
+    font-size: 1.125rem;
+    font-weight: 500;
+    margin-bottom: 8px;
   }
 
-  @media (max-width: 1919px) {
-    .d-none.d-xl-table-cell {
-      display: none !important;
-    }
+  .empty-subtitle {
+    font-size: 0.875rem;
+    opacity: 0.7;
+    max-width: 400px;
+  }
+}
+
+// MD3 数据表格系统 - 基础样式现在通过Vuetify defaults管理
+.app-table {
+  // 保留必要的应用级样式
+  overflow: hidden;
+
+  // 响应式表格隐藏列 - 使用Vuetify原生响应式类，移除!important
+  // 推荐使用VDataTable的headers配置中的responsive属性
+
+  // 大屏幕高信息密度优化现在通过VDataTable的defaults配置管理
+}
+
+// 骨架屏加载效果
+.skeleton-loader {
+  background: linear-gradient(90deg,
+    rgba(var(--v-theme-surface), 1) 25%,
+    rgba(var(--v-theme-on-surface), 0.1) 50%,
+    rgba(var(--v-theme-surface), 1) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.5s infinite;
+  border-radius: 4px;
+}
+
+@keyframes skeleton-loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
   }
 }

@@ -1,29 +1,32 @@
 <template>
   <v-app>
-    <!-- 顶部应用栏 -->
+    <!-- 顶部应用栏 - 统一设计 -->
     <v-app-bar
-      elevation="1"
       class="app-bar"
       :height="appBarHeight"
     >
       <template #prepend>
         <v-app-bar-nav-icon
           @click="toggleLeftDrawer"
-          class="nav-icon"
+          class="nav-icon app-button"
           :size="navIconSize"
         />
       </template>
 
       <v-toolbar-title class="app-title">
         <div class="d-flex align-center">
-          <v-avatar color="primary" class="me-3" :size="titleIconSize">
-            <v-icon icon="mdi-bug" />
+          <v-avatar
+            color="primary"
+            class="me-3"
+            :size="titleIconSize"
+          >
+            <v-icon icon="mdi-spider" />
           </v-avatar>
           <div class="title-text">
-            <span class="font-weight-medium d-none d-sm-inline">
+            <span class="text-h6 font-weight-medium d-none d-sm-inline">
               摩点爬虫管理系统
             </span>
-            <span class="font-weight-medium d-inline d-sm-none">
+            <span class="text-h6 font-weight-medium d-inline d-sm-none">
               摩点爬虫
             </span>
           </div>
@@ -32,13 +35,13 @@
 
       <v-spacer />
 
-      <div class="d-flex align-center app-actions">
+      <div class="d-flex align-center app-actions ga-2">
         <!-- 连接状态 -->
         <v-chip
           :color="connectionStatus ? 'success' : 'error'"
           :prepend-icon="connectionStatus ? 'mdi-wifi' : 'mdi-wifi-off'"
           :text="connectionStatus ? '已连接' : '连接断开'"
-          class="me-2 status-chip"
+          class="app-chip"
           :size="chipSize"
         />
 
@@ -46,7 +49,8 @@
         <v-btn
           @click="toggleTheme"
           variant="text"
-          class="me-2 theme-toggle"
+          color="primary"
+          class="theme-toggle app-button"
           :size="actionButtonSize"
           icon
         >
@@ -61,9 +65,9 @@
           @click="smartRefresh"
           :loading="refreshing"
           variant="text"
-          class="refresh-button"
+          color="secondary"
+          class="refresh-button app-button"
           :size="actionButtonSize"
-          :color="connectionStatus ? 'primary' : 'error'"
           :disabled="refreshing"
           icon
         >
@@ -75,7 +79,7 @@
       </div>
     </v-app-bar>
 
-    <!-- 左侧导航抽屉 -->
+    <!-- 左侧导航抽屉 - 统一设计 -->
     <v-navigation-drawer
       v-model="leftDrawerOpen"
       :width="drawerWidth"
@@ -84,28 +88,31 @@
       :permanent="!isMobile"
     >
       <!-- 抽屉头部 -->
-      <div class="pa-6">
+      <div class="p-lg">
         <div class="d-flex align-center">
-          <v-avatar color="primary" class="me-4" :size="drawerIconSize">
-            <v-icon icon="mdi-bug" />
+          <v-avatar
+            color="primary"
+            class="me-4"
+            :size="drawerIconSize"
+          >
+            <v-icon icon="mdi-spider" />
           </v-avatar>
           <div class="drawer-title-container">
             <div class="text-h6 font-weight-medium">摩点爬虫</div>
-            <div class="text-body-2 opacity-80">管理系统</div>
+            <div class="text-body-2 text-medium-emphasis">管理系统</div>
           </div>
         </div>
       </div>
 
       <!-- 导航列表 -->
-      <v-list class="navigation-list" nav>
+      <v-list class="navigation-list px-2" nav>
         <v-list-item
           v-for="item in menuItems"
           :key="item.title"
           :to="item.to"
           :prepend-icon="item.icon"
           :title="item.title"
-          class="nav-item"
-          color="primary"
+          class="nav-item mb-1"
           :height="navItemHeight"
           @click="isMobile && (leftDrawerOpen = false)"
         >
@@ -119,11 +126,15 @@
       <template #append>
         <div class="drawer-footer">
           <v-divider class="mb-4" />
-          <div class="px-6 pb-4">
-            <div class="text-caption">
+          <div class="p-lg">
+            <v-chip
+              variant="outlined"
+              size="small"
+              class="mb-2 app-chip"
+            >
               版本 1.0.0
-            </div>
-            <div class="text-caption">
+            </v-chip>
+            <div class="text-caption text-medium-emphasis">
               © 2024 摩点爬虫系统
             </div>
           </div>
@@ -131,14 +142,18 @@
       </template>
     </v-navigation-drawer>
 
-    <!-- 主内容区域 -->
+    <!-- 主内容区域 - 统一设计 -->
     <v-main class="main-content">
-      <div class="content-wrapper">
-        <router-view />
+      <div class="app-container">
+        <router-view v-slot="{ Component }">
+          <transition name="fade" mode="out-in">
+            <component :is="Component" class="fade-in-up" />
+          </transition>
+        </router-view>
       </div>
     </v-main>
 
-    <!-- 全局Snackbar -->
+    <!-- 全局Snackbar - 统一设计 -->
     <v-snackbar
       v-model="snackbar.show"
       :color="snackbar.color"
@@ -150,7 +165,10 @@
       <template v-slot:actions>
         <v-btn
           variant="text"
+          color="secondary"
           @click="hideSnackbar"
+          size="small"
+          class="app-button"
         >
           关闭
         </v-btn>
@@ -164,6 +182,7 @@ import { ref, onMounted, computed } from 'vue'
 import { useTheme, useDisplay } from 'vuetify'
 import { useAppStore } from '@/stores/app'
 import { useSnackbar } from '@/composables/useSnackbar'
+import { cleanupMonetThemeData } from '@/utils/themeCleanup'
 
 const theme = useTheme()
 const display = useDisplay()
@@ -325,6 +344,9 @@ const smartRefresh = async () => {
 
 // 初始化主题
 const initializeTheme = () => {
+  // 清理Monet相关的localStorage数据
+  cleanupMonetThemeData()
+
   const savedTheme = localStorage.getItem('theme')
   if (savedTheme) {
     theme.global.name.value = savedTheme
@@ -346,11 +368,10 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* 基础布局样式 */
+/* MD3 应用布局样式 - 简洁现代 */
 .app-title {
   display: flex;
   align-items: center;
-  font-weight: 500;
 }
 
 .title-text {
@@ -358,20 +379,14 @@ onMounted(() => {
 }
 
 .app-actions {
-  gap: 8px;
+  gap: var(--md3-spacing-sm);
 }
 
 .drawer-title-container {
   flex: 1;
 }
 
-.navigation-list {
-  padding: 0 16px;
-}
-
-.nav-item {
-  margin-bottom: 8px;
-}
+/* nav-item样式现在由VListItem的defaults配置管理 */
 
 .drawer-footer {
   margin-top: auto;
@@ -381,18 +396,25 @@ onMounted(() => {
   min-height: 100vh;
 }
 
-.content-wrapper {
-  width: 100%;
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 24px;
-
-  @media (max-width: 960px) {
-    padding: 16px;
-  }
+/* MD3 页面过渡动画 - 更自然 */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity var(--md3-motion-duration-medium) var(--md3-motion-easing-standard);
 }
 
-.opacity-80 {
-  opacity: 0.8;
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
+
+/* MD3 按钮交互 - 移除旋转效果 */
+.theme-toggle {
+  transition: var(--md3-motion-duration-short) var(--md3-motion-easing-standard);
+}
+
+.refresh-button {
+  transition: var(--md3-motion-duration-short) var(--md3-motion-easing-standard);
+}
+
+/* 样式现在完全由Vuetify defaults配置管理 - 遵循官方文档最佳实践 */
 </style>

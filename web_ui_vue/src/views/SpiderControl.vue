@@ -1,28 +1,41 @@
 <template>
   <div>
-    <!-- 页面标题 -->
-    <v-row class="mb-6">
-      <v-col>
-        <h1 class="text-h4 font-weight-bold text-primary mb-2">
-          <v-icon icon="mdi-spider" class="me-3" size="large" />
-          爬虫控制
-        </h1>
-        <p class="text-h6">
-          配置和管理爬虫任务
-        </p>
-      </v-col>
-    </v-row>
+    <!-- 页面标题 - 统一设计 -->
+    <div class="app-section">
+      <div class="d-flex align-center">
+        <v-avatar
+          color="primary"
+          class="me-4"
+          size="64"
+        >
+          <v-icon icon="mdi-spider" size="32" />
+        </v-avatar>
+        <div>
+          <h1 class="text-h4 font-weight-medium mb-1">
+            爬虫控制
+          </h1>
+          <p class="text-subtitle-1 text-medium-emphasis">
+            配置和管理爬虫任务
+          </p>
+        </div>
+      </div>
+    </div>
 
     <v-row>
       <!-- 左侧配置面板 -->
       <v-col cols="12" lg="4">
-        <v-card elevation="2" class="mb-4">
-          <v-card-title>
-            <v-icon icon="mdi-cog" class="me-3" />
-            爬虫配置
+        <v-card class="mb-4 app-card">
+          <v-card-title class="p-lg">
+            <v-avatar color="accent" size="32" class="me-3">
+              <v-icon icon="mdi-cog" color="on-accent" size="18" />
+            </v-avatar>
+            <div>
+              <div class="text-h6 font-weight-bold">爬虫配置</div>
+              <div class="text-body-2 text-medium-emphasis">设置爬取参数</div>
+            </div>
           </v-card-title>
 
-          <v-card-text>
+          <v-card-text class="p-lg pt-0">
             <v-form ref="configForm" v-model="formValid">
               <!-- 页面范围 -->
               <div class="mb-4">
@@ -150,13 +163,18 @@
         </v-card>
 
         <!-- 操作按钮 -->
-        <v-card elevation="2">
-          <v-card-title>
-            <v-icon icon="mdi-play-circle" class="me-3" />
-            任务控制
+        <v-card class="app-card">
+          <v-card-title class="p-lg">
+            <v-avatar color="warning" size="32" class="me-3">
+              <v-icon icon="mdi-play-circle" color="on-warning" size="18" />
+            </v-avatar>
+            <div>
+              <div class="text-h6 font-weight-bold">任务控制</div>
+              <div class="text-body-2 text-medium-emphasis">启动和停止爬虫</div>
+            </div>
           </v-card-title>
 
-          <v-card-text>
+          <v-card-text class="p-lg pt-0">
             <v-btn
               v-if="!isRunning"
               block
@@ -166,8 +184,7 @@
               @click="startCrawling"
               :disabled="!formValid"
               :loading="starting"
-
-              class="mb-3"
+              class="mb-3 app-button"
             >
               开始爬取
             </v-btn>
@@ -180,8 +197,7 @@
               prepend-icon="mdi-stop"
               @click="stopCrawling"
               :loading="stopping"
-
-              class="mb-3"
+              class="mb-3 app-button"
             >
               停止爬取
             </v-btn>
@@ -192,6 +208,7 @@
               prepend-icon="mdi-refresh"
               @click="loadDefaultConfig"
               :disabled="isRunning"
+              class="app-button"
             >
               重置配置
             </v-btn>
@@ -202,21 +219,25 @@
       <!-- 右侧状态面板 -->
       <v-col cols="12" lg="8">
         <!-- 当前任务状态 -->
-        <v-card elevation="2" class="mb-4">
-          <v-card-title class="d-flex align-center">
-            <v-icon icon="mdi-information" class="me-3" />
-            当前任务状态
-            <v-spacer />
+        <v-card class="mb-4 app-card">
+          <v-card-title class="p-lg">
+            <v-avatar color="primary" size="32" class="me-3">
+              <v-icon icon="mdi-information" color="on-primary" size="18" />
+            </v-avatar>
+            <div class="flex-grow-1">
+              <div class="text-h6 font-weight-bold">当前任务状态</div>
+              <div class="text-body-2 text-medium-emphasis">实时监控爬虫进度</div>
+            </div>
             <v-chip
               v-if="currentTask"
               :color="getTaskStatusColor(currentTask.status)"
-
+              class="app-chip"
             >
               {{ getTaskStatusText(currentTask.status) }}
             </v-chip>
           </v-card-title>
 
-          <v-card-text>
+          <v-card-text class="p-lg pt-0">
             <div v-if="currentTask && currentTask.id">
               <!-- 任务信息 -->
               <v-row class="mb-4">

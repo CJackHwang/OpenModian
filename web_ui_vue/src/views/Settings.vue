@@ -1,28 +1,41 @@
 <template>
   <div>
-    <!-- 页面标题 -->
-    <v-row class="mb-4">
-      <v-col>
-        <h1 class="text-h4 font-weight-bold text-primary">
-          <v-icon class="me-2">mdi-cog</v-icon>
-          系统设置
-        </h1>
-        <p class="text-subtitle-1 text-medium-emphasis">
-          配置系统参数和用户偏好
-        </p>
-      </v-col>
-    </v-row>
+    <!-- 页面标题 - 统一设计 -->
+    <div class="app-section">
+      <div class="d-flex align-center">
+        <v-avatar
+          color="primary"
+          class="me-4"
+          size="64"
+        >
+          <v-icon icon="mdi-cog" size="32" />
+        </v-avatar>
+        <div>
+          <h1 class="text-h4 font-weight-medium mb-1">
+            系统设置
+          </h1>
+          <p class="text-subtitle-1 text-medium-emphasis">
+            配置系统参数和用户偏好
+          </p>
+        </div>
+      </div>
+    </div>
 
     <v-row>
       <!-- 外观设置 -->
       <v-col cols="12" md="6">
-        <v-card class="mb-4">
-          <v-card-title>
-            <v-icon class="me-2">mdi-palette</v-icon>
-            外观设置
+        <v-card class="mb-4 app-card">
+          <v-card-title class="p-lg">
+            <v-avatar color="tertiary" size="32" class="me-3">
+              <v-icon icon="mdi-palette" color="on-tertiary" size="18" />
+            </v-avatar>
+            <div>
+              <div class="text-h6 font-weight-bold">外观设置</div>
+              <div class="text-body-2 text-medium-emphasis">自定义界面外观</div>
+            </div>
           </v-card-title>
-          
-          <v-card-text>
+
+          <v-card-text class="p-lg pt-0">
             <v-row>
               <v-col cols="12">
                 <v-switch
@@ -32,18 +45,36 @@
                   @change="toggleTheme"
                 />
               </v-col>
+
+              <v-col cols="12">
+                <!-- 重置按钮 -->
+                <v-btn
+                  variant="outlined"
+                  color="secondary"
+                  @click="resetTheme"
+                  class="mt-2"
+                >
+                  <v-icon start>mdi-restore</v-icon>
+                  重置为默认主题
+                </v-btn>
+              </v-col>
             </v-row>
           </v-card-text>
         </v-card>
 
         <!-- 系统信息 -->
-        <v-card>
-          <v-card-title>
-            <v-icon class="me-2">mdi-information</v-icon>
-            系统信息
+        <v-card class="app-card">
+          <v-card-title class="p-lg">
+            <v-avatar color="info" size="32" class="me-3">
+              <v-icon icon="mdi-information" color="on-info" size="18" />
+            </v-avatar>
+            <div>
+              <div class="text-h6 font-weight-bold">系统信息</div>
+              <div class="text-body-2 text-medium-emphasis">查看系统版本信息</div>
+            </div>
           </v-card-title>
-          
-          <v-card-text>
+
+          <v-card-text class="p-lg pt-0">
             <v-list>
               <v-list-item>
                 <v-list-item-title>版本</v-list-item-title>
@@ -66,13 +97,18 @@
 
       <!-- 爬虫设置 -->
       <v-col cols="12" md="6">
-        <v-card>
-          <v-card-title>
-            <v-icon class="me-2">mdi-spider</v-icon>
-            爬虫默认设置
+        <v-card class="app-card">
+          <v-card-title class="p-lg">
+            <v-avatar color="warning" size="32" class="me-3">
+              <v-icon icon="mdi-spider" color="on-warning" size="18" />
+            </v-avatar>
+            <div>
+              <div class="text-h6 font-weight-bold">爬虫默认设置</div>
+              <div class="text-body-2 text-medium-emphasis">配置爬虫默认参数</div>
+            </div>
           </v-card-title>
-          
-          <v-card-text>
+
+          <v-card-text class="p-lg pt-0">
             <v-form>
               <v-text-field
                 v-model.number="defaultSettings.maxConcurrent"
@@ -117,6 +153,7 @@
                   @click="saveSettings"
                   :loading="saveLoading"
                   :disabled="loading"
+                  class="app-button"
                 >
                   {{ showSaveSuccess ? '已保存' : '保存设置' }}
                 </v-btn>
@@ -126,6 +163,7 @@
                   @click="resetSettings"
                   :loading="loading"
                   :disabled="saveLoading"
+                  class="app-button"
                 >
                   重置默认
                 </v-btn>
@@ -180,10 +218,18 @@ const categories = [
   { value: 'others', label: '其他' }
 ]
 
+
+
 // 方法
 const toggleTheme = () => {
   theme.global.name.value = darkMode.value ? 'dark' : 'light'
   localStorage.setItem('theme', theme.global.name.value)
+}
+
+const resetTheme = () => {
+  darkMode.value = false
+  theme.global.name.value = 'light'
+  localStorage.setItem('theme', 'light')
 }
 
 const saveSettings = async () => {
@@ -238,7 +284,7 @@ const resetSettings = async () => {
 const loadSettings = async () => {
   loading.value = true
   try {
-    // 加载主题设置（仍使用localStorage）
+    // 加载主题设置
     const savedTheme = localStorage.getItem('theme')
     if (savedTheme) {
       darkMode.value = savedTheme === 'dark'
@@ -274,3 +320,7 @@ onMounted(() => {
   loadSettings()
 })
 </script>
+
+<style scoped>
+/* 样式现在完全由Vuetify defaults配置管理 - 遵循官方文档最佳实践 */
+</style>

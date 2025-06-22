@@ -16,7 +16,7 @@
           color="success"
           prepend-icon="mdi-plus"
           @click="showAddDialog = true"
-          variant="elevated"
+          variant="filled"
           class="me-2"
         >
           新增项目
@@ -26,7 +26,7 @@
           prepend-icon="mdi-delete-multiple"
           @click="batchDelete"
           :disabled="!selectedItems.length"
-          variant="elevated"
+          variant="filled"
           class="me-2"
         >
           批量删除 ({{ selectedItems.length }})
@@ -36,7 +36,7 @@
           prepend-icon="mdi-download"
           @click="exportData"
           :loading="exporting"
-          variant="elevated"
+          variant="filled"
         >
           导出数据
         </v-btn>
@@ -951,29 +951,7 @@ const onTableOptionsUpdate = (options) => {
   }
 }
 
-// 🔧 保留原有方法以兼容其他地方的调用
-const onPageChange = (page) => {
-  console.log('📄 分页切换:', page, '当前模式:', filterMode.value)
-  pagination.page = page
-
-  if (filterMode.value === 'simple') {
-    searchProjects()
-  } else {
-    searchProjectsAdvanced()
-  }
-}
-
-const onItemsPerPageChange = (itemsPerPage) => {
-  console.log('📊 每页条数变更:', itemsPerPage, '当前模式:', filterMode.value)
-  pagination.itemsPerPage = itemsPerPage
-  pagination.page = 1  // 重置到第一页
-
-  if (filterMode.value === 'simple') {
-    searchProjects()
-  } else {
-    searchProjectsAdvanced()
-  }
-}
+// 分页处理函数现在通过VDataTable的内置事件处理
 
 const onFilterModeChange = () => {
   // 切换筛选模式时重置搜索

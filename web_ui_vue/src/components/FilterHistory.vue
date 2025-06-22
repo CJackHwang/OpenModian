@@ -1,19 +1,24 @@
 <template>
-  <v-card elevation="2" class="mb-4">
-    <v-card-title class="d-flex align-center">
-      <v-icon icon="mdi-history" class="me-3" />
-      筛选历史
-      <v-spacer />
+  <v-card class="mb-4 app-card">
+    <v-card-title class="p-lg">
+      <v-avatar color="info" size="32" class="me-3">
+        <v-icon icon="mdi-history" color="on-info" size="18" />
+      </v-avatar>
+      <div class="flex-grow-1">
+        <div class="text-h6 font-weight-bold">筛选历史</div>
+        <div class="text-body-2 text-medium-emphasis">最近使用的筛选条件</div>
+      </div>
       <v-btn
         icon="mdi-delete-sweep"
         variant="text"
         @click="clearHistory"
         :disabled="!filterHistory.length"
         title="清空历史"
+        class="app-button"
       />
     </v-card-title>
 
-    <v-card-text>
+    <v-card-text class="p-lg pt-0">
       <div v-if="!filterHistory.length" class="text-center pa-4 text-medium-emphasis">
         暂无筛选历史记录
       </div>
@@ -47,6 +52,7 @@
               size="small"
               @click.stop="saveAsFavorite(item)"
               title="保存为收藏"
+              class="app-button"
             />
             <v-btn
               icon="mdi-delete"
@@ -54,6 +60,7 @@
               size="small"
               @click.stop="removeHistoryItem(index)"
               title="删除"
+              class="app-button"
             />
           </template>
         </v-list-item>
@@ -223,7 +230,9 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* 样式现在完全由Vuetify defaults配置管理 - 遵循官方文档最佳实践 */
 .history-item {
   cursor: pointer;
+  /* 所有样式通过VListItem的defaults配置管理 */
 }
 </style>

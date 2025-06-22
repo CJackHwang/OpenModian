@@ -4,11 +4,15 @@
     <v-row class="mb-8">
       <v-col>
         <div class="d-flex align-center mb-4">
-          <v-avatar color="primary" class="me-4" size="64">
+          <v-avatar
+            color="primary"
+            class="me-4"
+            size="64"
+          >
             <v-icon icon="mdi-database" size="32" />
           </v-avatar>
           <div>
-            <h1 class="text-h4 font-weight-bold mb-1">
+            <h1 class="text-h4 font-weight-medium mb-1">
               数据管理
             </h1>
             <p class="text-subtitle-1 text-medium-emphasis">
@@ -17,15 +21,21 @@
           </div>
         </div>
       </v-col>
-      <v-col cols="auto" class="d-flex align-center gap-3">
+      <v-col cols="auto" class="d-flex align-center ga-3">
+        <v-chip
+          color="info"
+          prepend-icon="mdi-database"
+          class="app-chip"
+        >
+          {{ projects.length }} 个项目
+        </v-chip>
         <v-btn
           color="primary"
           prepend-icon="mdi-download"
           @click="exportData"
           :loading="exporting"
-          variant="elevated"
           size="large"
-          class="elevation-2"
+          class="app-button"
         >
           导出数据
         </v-btn>
@@ -34,9 +44,8 @@
           prepend-icon="mdi-refresh"
           @click="refreshData"
           :loading="loading"
-          variant="elevated"
           size="large"
-          class="elevation-2"
+          class="app-button"
         >
           刷新
         </v-btn>
@@ -46,64 +55,98 @@
     <!-- 数据统计 -->
     <v-row class="mb-8">
       <v-col cols="12" sm="6" md="3">
-        <v-card class="text-center" color="primary" elevation="2">
-          <v-card-text class="pa-6">
-            <v-avatar color="primary-container" size="80" class="mb-4">
-              <v-icon icon="mdi-database" size="40" color="on-primary-container" />
+        <v-card
+          class="text-center stats-card app-card"
+          color="primary-container"
+        >
+          <v-card-text class="p-lg">
+            <v-avatar
+              color="primary"
+              size="80"
+              class="mb-4"
+            >
+              <v-icon icon="mdi-database" size="40" color="on-primary" />
             </v-avatar>
-            <div class="text-h4 font-weight-bold text-white mb-2">{{ stats.total }}</div>
-            <div class="text-subtitle-1 text-white">总项目数</div>
+            <div class="text-h3 font-weight-medium text-on-primary-container mb-2">{{ stats.total }}</div>
+            <div class="text-subtitle-1 text-on-primary-container font-weight-medium">总项目数</div>
           </v-card-text>
         </v-card>
       </v-col>
       <v-col cols="12" sm="6" md="3">
-        <v-card class="text-center" color="secondary" elevation="2">
-          <v-card-text class="pa-6">
-            <v-avatar color="secondary-container" size="80" class="mb-4">
-              <v-icon icon="mdi-calendar-today" size="40" color="on-secondary-container" />
+        <v-card
+          class="text-center stats-card app-card"
+          color="secondary-container"
+        >
+          <v-card-text class="p-lg">
+            <v-avatar
+              color="secondary"
+              size="80"
+              class="mb-4"
+            >
+              <v-icon icon="mdi-calendar-today" size="40" color="on-secondary" />
             </v-avatar>
-            <div class="text-h4 font-weight-bold text-white mb-2">{{ stats.today }}</div>
-            <div class="text-subtitle-1 text-white">今日新增</div>
+            <div class="text-h3 font-weight-medium text-on-secondary-container mb-2">{{ stats.today }}</div>
+            <div class="text-subtitle-1 text-on-secondary-container font-weight-medium">今日新增</div>
           </v-card-text>
         </v-card>
       </v-col>
       <v-col cols="12" sm="6" md="3">
-        <v-card class="text-center" color="success" elevation="2">
-          <v-card-text class="pa-6">
-            <v-avatar color="success-container" size="80" class="mb-4">
-              <v-icon icon="mdi-calendar-week" size="40" color="on-success-container" />
+        <v-card
+          class="text-center stats-card app-card"
+          color="success-container"
+        >
+          <v-card-text class="p-lg">
+            <v-avatar
+              color="success"
+              size="80"
+              class="mb-4"
+            >
+              <v-icon icon="mdi-calendar-week" size="40" color="on-success" />
             </v-avatar>
-            <div class="text-h4 font-weight-bold text-white mb-2">{{ stats.week }}</div>
-            <div class="text-subtitle-1 text-white">本周新增</div>
+            <div class="text-h3 font-weight-medium text-on-success-container mb-2">{{ stats.week }}</div>
+            <div class="text-subtitle-1 text-on-success-container font-weight-medium">本周新增</div>
           </v-card-text>
         </v-card>
       </v-col>
       <v-col cols="12" sm="6" md="3">
-        <v-card class="text-center" color="info" elevation="2">
-          <v-card-text class="pa-6">
-            <v-avatar color="info-container" size="80" class="mb-4">
-              <v-icon icon="mdi-currency-cny" size="40" color="on-info-container" />
+        <v-card
+          class="text-center stats-card app-card"
+          color="info-container"
+        >
+          <v-card-text class="p-lg">
+            <v-avatar
+              color="info"
+              size="80"
+              class="mb-4"
+            >
+              <v-icon icon="mdi-currency-cny" size="40" color="on-info" />
             </v-avatar>
-            <div class="text-h4 font-weight-bold text-white mb-2">{{ formatCurrency(stats.totalAmount) }}</div>
-            <div class="text-subtitle-1 text-white">总筹款金额</div>
+            <div class="text-h3 font-weight-medium text-on-info-container mb-2">{{ formatCurrency(stats.totalAmount) }}</div>
+            <div class="text-subtitle-1 text-on-info-container font-weight-medium">总筹款金额</div>
           </v-card-text>
         </v-card>
       </v-col>
     </v-row>
 
-    <!-- 选项卡导航 -->
-    <v-card elevation="2" class="mb-6">
+    <!-- 选项卡导航 - MD3优化 -->
+    <v-card
+      elevation="0"
+      class="mb-6"
+      rounded="xl"
+
+    >
       <v-tabs
         v-model="activeTab"
         color="primary"
         align-tabs="start"
+        height="64"
       >
-        <v-tab value="data">
-          <v-icon icon="mdi-table" class="me-2 icon-medium-emphasis" />
+        <v-tab value="data" class="text-none">
+          <v-icon icon="mdi-table" class="me-2" />
           数据查看
         </v-tab>
-        <v-tab value="backup">
-          <v-icon icon="mdi-backup-restore" class="me-2 icon-medium-emphasis" />
+        <v-tab value="backup" class="text-none">
+          <v-icon icon="mdi-backup-restore" class="me-2" />
           备份管理
         </v-tab>
       </v-tabs>
@@ -113,14 +156,24 @@
     <v-window v-model="activeTab">
       <!-- 数据查看选项卡 -->
       <v-window-item value="data">
-        <!-- 筛选和搜索 -->
-    <v-card elevation="2" class="mb-6">
-      <v-card-title>
-        <v-icon icon="mdi-filter" class="me-3 icon-primary" />
-        数据筛选
+        <!-- 筛选和搜索 - MD3优化 -->
+    <v-card
+      elevation="0"
+      class="mb-6"
+      rounded="xl"
+
+    >
+      <v-card-title class="pa-6">
+        <v-avatar color="tertiary" size="32" class="me-3">
+          <v-icon icon="mdi-filter" color="on-tertiary" size="18" />
+        </v-avatar>
+        <div>
+          <div class="text-h6 font-weight-bold">数据筛选</div>
+          <div class="text-body-2 text-medium-emphasis">快速筛选和搜索项目数据</div>
+        </div>
       </v-card-title>
 
-      <v-card-text>
+      <v-card-text class="pa-6 pt-0">
         <v-row>
           <v-col cols="12" md="3">
             <v-select
@@ -128,7 +181,8 @@
               :items="periodOptions"
               label="时间范围"
               variant="outlined"
-              density="compact"
+              density="comfortable"
+              prepend-inner-icon="mdi-calendar"
               @update:model-value="applyFilters"
             />
           </v-col>
@@ -138,7 +192,8 @@
               :items="categoryOptions"
               label="项目分类"
               variant="outlined"
-              density="compact"
+              density="comfortable"
+              prepend-inner-icon="mdi-tag"
               @update:model-value="applyFilters"
             />
           </v-col>
@@ -148,7 +203,7 @@
               label="搜索项目名称"
               prepend-inner-icon="mdi-magnify"
               variant="outlined"
-              density="compact"
+              density="comfortable"
               clearable
               @update:model-value="debounceSearch"
             />
@@ -159,6 +214,8 @@
               color="primary"
               @click="applyFilters"
               :loading="loading"
+              variant="filled"
+              size="large"
             >
               搜索
             </v-btn>
@@ -167,13 +224,25 @@
       </v-card-text>
     </v-card>
 
-    <!-- 数据表格 -->
-    <v-card elevation="2">
-      <v-card-title>
-        <v-icon icon="mdi-table" class="me-3 icon-primary" />
-        项目数据
-        <v-spacer />
-        <v-chip variant="outlined">
+    <!-- 数据表格 - MD3优化 -->
+    <v-card
+      elevation="0"
+      rounded="xl"
+
+    >
+      <v-card-title class="pa-6">
+        <v-avatar color="primary" size="32" class="me-3">
+          <v-icon icon="mdi-table" color="on-primary" size="18" />
+        </v-avatar>
+        <div class="flex-grow-1">
+          <div class="text-h6 font-weight-bold">项目数据</div>
+          <div class="text-body-2 text-medium-emphasis">详细的项目信息列表</div>
+        </div>
+        <v-chip
+          variant="tonal"
+          color="info"
+          prepend-icon="mdi-database"
+        >
           共 {{ filteredProjects.length }} 条记录
         </v-chip>
       </v-card-title>
@@ -688,8 +757,21 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* 基础样式 */
-.opacity-80 {
-  opacity: 0.8;
+/* DataManagement MD3 标准样式 */
+/* 样式现在完全由Vuetify defaults配置管理 - 遵循官方文档最佳实践 */
+.stats-card {
+  transition: background-color var(--md3-motion-duration-short) var(--md3-motion-easing-standard);
 }
+
+.stats-card .v-avatar {
+  transition: none;
+}
+
+.v-avatar .v-img {
+  border-radius: 50%;
+}
+
+/* 按钮文本对齐现在通过内联样式处理，避免覆盖VBtn默认样式 */
+
+/* 响应式优化现在通过Vuetify defaults配置管理 */
 </style>
