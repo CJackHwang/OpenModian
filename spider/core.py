@@ -234,7 +234,8 @@ class SpiderCore:
         return self._is_running
 
     def start_crawling(self, start_page: int = 1, end_page: int = 50,
-                      category: str = "all", task_id: str = None) -> bool:
+                      category: str = "all", task_id: str = None,
+                      watched_project_ids: List[str] = None) -> bool:
         """开始爬取"""
         from core.logging import log_spider, log_system
 
@@ -262,6 +263,13 @@ class SpiderCore:
             # 爬取项目列表
             log_spider('info', '开始爬取项目列表页面...', 'spider-core')
             project_urls = self._crawl_project_lists(start_page, end_page, category)
+
+            # 如果有关注列表，添加关注项目
+            if watched_project_ids:
+                log_spider('info', f'添加关注列表项目: {len(watched_project_ids)}个', 'spider-core')
+                watched_urls = self._get_watched_project_urls(watched_project_ids)
+                project_urls.extend(watched_urls)
+                log_spider('info', f'总项目数（包含关注列表）: {len(project_urls)}个', 'spider-core')
 
             if self.is_stopped():
                 self._log("warning", "爬取已被用户停止")
@@ -380,6 +388,64 @@ class SpiderCore:
 
         log_spider('info', f'项目列表爬取完成: 处理{page-start_page+1}页，发现{len(project_urls)}个项目', 'spider-core')
         return project_urls
+
+    def _get_watched_project_urls(self, watched_project_ids: List[str]) -> List[Tuple[str, str, str, str, Dict[str, str]]]:
+        """获取关注项目的URL信息"""
+        from core.logging import log_spider
+
+        watched_urls = []
+
+        # 处理None或空列表
+        if not watched_project_ids:
+            return watched_urls
+
+        for project_id in watched_project_ids:
+            try:
+                # 从数据库获取项目信息
+                if self.db_manager:
+                    project = self.db_manager.get_project_by_project_id(project_id)
+                    if project:
+                        # 构造项目URL信息，格式与列表页面解析一致
+                        project_url = project.get('project_url', f'https://zhongchou.modian.com/item/{project_id}.html')
+                        project_name = project.get('project_name', '关注项目')
+                        project_image = project.get('project_image', '')
+                        category = project.get('category', '')
+
+                        # 构造列表数据，包含作者信息用于保护已有数据
+                        list_data = {
+                            'category': category,
+                            'list_author_name': project.get('author_name', ''),  # 🔧 使用list_前缀确保被识别
+                            'list_author_avatar': project.get('author_image', ''),  # 🔧 使用list_前缀确保被识别
+                            'author_link': project.get('author_link', ''),
+                            'start_time': project.get('start_time', ''),
+                            'end_time': project.get('end_time', ''),
+                            'raised_amount': project.get('raised_amount', 0),
+                            'target_amount': project.get('target_amount', 0),
+                            'completion_rate': project.get('completion_rate', 0),
+                            'backer_count': project.get('backer_count', 0)
+                        }
+
+                        watched_urls.append((project_url, project_id, project_name, project_image, list_data))
+                        log_spider('debug', f'添加关注项目: {project_name} (ID: {project_id})', 'spider-core')
+
+                        # 更新关注项目的最后爬取时间
+                        self.db_manager.update_watched_project_crawl_time(project_id)
+                    else:
+                        # 如果数据库中没有项目信息，构造基本URL
+                        project_url = f'https://zhongchou.modian.com/item/{project_id}.html'
+                        watched_urls.append((project_url, project_id, '关注项目', '', {}))
+                        log_spider('warning', f'关注项目 {project_id} 在数据库中未找到，使用基本信息', 'spider-core')
+                else:
+                    # 没有数据库管理器，构造基本URL
+                    project_url = f'https://zhongchou.modian.com/item/{project_id}.html'
+                    watched_urls.append((project_url, project_id, '关注项目', '', {}))
+
+            except Exception as e:
+                log_spider('error', f'处理关注项目 {project_id} 失败: {str(e)}', 'spider-core')
+                continue
+
+        log_spider('info', f'成功添加 {len(watched_urls)} 个关注项目到爬取列表', 'spider-core')
+        return watched_urls
 
     def _parse_project_list_page(self, url: str, page: int) -> List[Tuple[str, str, str, str, Dict[str, str]]]:
         """解析项目列表页面"""
@@ -684,22 +750,8 @@ class SpiderCore:
         """将API数据转换为数据库格式，使用列表数据补充作者信息"""
         from spider.config import FieldMapping
 
-        # 获取作者信息：优先使用列表数据，API数据作为备选
-        if list_data and list_data.get("list_author_name") and list_data.get("list_author_name") != "none":
-            author_name = list_data.get("list_author_name", "")
-        else:
-            author_name = api_data.get("author_name", "")
-
-        # 获取作者头像：优先使用列表数据，然后API数据，最后默认头像
-        author_image = ""
-        if list_data and list_data.get("list_author_avatar") and list_data.get("list_author_avatar") != "none":
-            author_image = list_data.get("list_author_avatar", "")
-        else:
-            author_image = api_data.get("author_image", "")
-
-        # 如果仍然没有头像，使用默认头像
-        if not author_image:
-            author_image = "https://s.moimg.net/new/images/headPic.png"
+        # 🔧 智能作者信息获取：保护已有作者信息，避免被覆盖
+        author_name, author_image = self._get_smart_author_info(project_id, list_data, api_data)
 
         # 按照数据库字段顺序构建数据
         project_data = [
@@ -747,21 +799,12 @@ class SpiderCore:
 
     def _create_basic_project_data(self, index: int, project_url: str,
                                   project_id: str, project_name: str, project_image: str, list_data: Dict[str, str] = None) -> List[Any]:
-        """创建基础项目数据（API获取失败时的后备方案），使用列表数据补充"""
+        """创建基础项目数据（API获取失败时的后备方案），使用智能作者信息保护"""
         from spider.config import FieldMapping
         expected_length = len(FieldMapping.EXCEL_COLUMNS)
 
-        # 获取作者信息
-        author_name = ""
-        if list_data and list_data.get("list_author_name") and list_data.get("list_author_name") != "none":
-            author_name = list_data.get("list_author_name", "")
-
-        # 获取作者头像：优先使用列表数据，否则使用默认头像
-        author_avatar = ""
-        if list_data and list_data.get("list_author_avatar") and list_data.get("list_author_avatar") != "none":
-            author_avatar = list_data.get("list_author_avatar", "")
-        else:
-            author_avatar = "https://s.moimg.net/new/images/headPic.png"
+        # 🔧 使用智能作者信息获取，保护已有数据
+        author_name, author_avatar = self._get_smart_author_info(project_id, list_data, None)
 
         # 创建基础数据，在第11位（用户名）和第9位（用户头像）填入作者信息
         basic_data = [index, project_url, project_id, project_name, project_image]
@@ -776,6 +819,57 @@ class SpiderCore:
                 basic_data.append("")
 
         return basic_data
+
+    def _get_smart_author_info(self, project_id: str, list_data: Dict[str, str] = None, api_data: dict = None) -> tuple:
+        """智能获取作者信息，保护已有数据避免被覆盖"""
+        author_name = ""
+        author_image = ""
+
+        # 1. 优先使用列表数据中的作者信息（首页解析得到的）
+        if list_data and list_data.get("list_author_name") and list_data.get("list_author_name") != "none":
+            author_name = list_data.get("list_author_name", "")
+            self._log("debug", f"项目 {project_id} 使用列表数据作者: {author_name}")
+
+        if list_data and list_data.get("list_author_avatar") and list_data.get("list_author_avatar") != "none":
+            author_image = list_data.get("list_author_avatar", "")
+            self._log("debug", f"项目 {project_id} 使用列表数据头像")
+
+        # 2. 如果列表数据没有作者信息，尝试从数据库获取已有的作者信息
+        if not author_name or not author_image:
+            existing_project = None
+            if self.db_manager:
+                existing_project = self.db_manager.get_project_by_project_id(project_id)
+
+            if existing_project:
+                # 保护已有的作者名称
+                if not author_name and existing_project.get('author_name') and existing_project.get('author_name') != "未知作者":
+                    author_name = existing_project.get('author_name', "")
+                    self._log("info", f"项目 {project_id} 保护已有作者信息: {author_name}")
+
+                # 保护已有的作者头像
+                if not author_image and existing_project.get('author_image') and existing_project.get('author_image') != "https://s.moimg.net/new/images/headPic.png":
+                    author_image = existing_project.get('author_image', "")
+                    self._log("info", f"项目 {project_id} 保护已有作者头像")
+
+        # 3. 如果仍然没有作者信息，使用API数据
+        if not author_name and api_data:
+            author_name = api_data.get("author_name", "")
+            if author_name:
+                self._log("debug", f"项目 {project_id} 使用API作者信息: {author_name}")
+
+        if not author_image and api_data:
+            author_image = api_data.get("author_image", "")
+            if author_image:
+                self._log("debug", f"项目 {project_id} 使用API头像信息")
+
+        # 4. 最后的默认值处理
+        if not author_name:
+            author_name = "未知作者"
+
+        if not author_image:
+            author_image = "https://s.moimg.net/new/images/headPic.png"
+
+        return author_name, author_image
 
     def _export_data(self):
         """导出数据（移除验证步骤，API数据无需验证）"""

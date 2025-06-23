@@ -38,6 +38,7 @@ from api.routes import (
     register_system_routes,
     register_settings_routes
 )
+from api.routes.watch_routes import register_watch_routes
 from api.websocket import register_websocket_handlers
 from data.database.db_manager import DatabaseManager
 from spider.scheduler import TaskScheduler
@@ -182,6 +183,7 @@ class RefactoredSpiderApp:
         register_task_routes(self.app, self.spider_service, self.task_scheduler, self.db_manager)
         register_system_routes(self.app, self.db_manager)
         register_settings_routes(self.app, self.db_manager)
+        register_watch_routes(self.app, self.db_manager)
     
     def _serve_vue_file(self, filename):
         """服务Vue文件"""
@@ -226,19 +228,35 @@ class RefactoredSpiderApp:
             log_system('error', f'应用启动失败: {str(e)}', 'app')
 
 
-def find_available_port(start_port=8080, max_port=8090):
-    """查找可用端口"""
-    import socket
-    
-    for port in range(start_port, max_port + 1):
+# 导入端口管理工具
+try:
+    from utils.port_manager import smart_port_management
+except ImportError:
+    # 如果导入失败，使用简化版本
+    def smart_port_management(preferred_port=8080, port_range=(8080, 8090)):
+        """简化版端口管理（备用）"""
+        import socket
+
+        start_port, max_port = port_range
+
+        # 检查首选端口
         try:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                s.bind(('localhost', port))
-                return port
+                s.bind(('localhost', preferred_port))
+                return preferred_port
         except OSError:
-            continue
-    
-    return None
+            pass
+
+        # 寻找备用端口
+        for port in range(start_port, max_port + 1):
+            try:
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                    s.bind(('localhost', port))
+                    return port
+            except OSError:
+                continue
+
+        return None
 
 
 # 创建应用实例
@@ -253,16 +271,27 @@ import sys
 sys.modules[__name__].socketio = socketio
 
 if __name__ == '__main__':
-    # 查找可用端口
-    port = find_available_port()
-    
+    print("🚀 摩点爬虫Web UI启动中...")
+    print("🔧 正在进行智能端口管理...")
+    print("-" * 50)
+
+    # 使用智能端口管理
+    port = smart_port_management(preferred_port=8080, port_range=(8080, 8090))
+
     if port is None:
         print("❌ 无法找到可用端口 (8080-8090)")
-        print("请手动停止占用端口的程序或使用其他端口")
+        print("💡 建议操作:")
+        print("   1. 手动停止占用端口的程序")
+        print("   2. 重启系统释放端口")
+        print("   3. 使用其他端口范围")
         exit(1)
-    
+
     if port != 8080:
-        print(f"⚠️  端口8080被占用，使用端口{port}")
-    
+        print(f"📍 使用端口: {port} (首选端口8080不可用)")
+    else:
+        print(f"📍 使用首选端口: {port}")
+
+    print("-" * 50)
+
     # 运行应用
     refactored_app.run(port=port)

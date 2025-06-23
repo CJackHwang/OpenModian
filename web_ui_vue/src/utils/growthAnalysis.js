@@ -13,11 +13,11 @@
  */
 export function calculateGrowthRate(currentValue, previousValue) {
   if (!previousValue || previousValue === 0) {
-    return currentValue > 0 ? 100 : 0
+    return currentValue > 0 ? 100 : 0;
   }
-  
-  const change = currentValue - previousValue
-  return (change / previousValue) * 100
+
+  const change = currentValue - previousValue;
+  return (change / previousValue) * 100;
 }
 
 /**
@@ -28,38 +28,40 @@ export function calculateGrowthRate(currentValue, previousValue) {
  */
 export function calculateDailyGrowth(historyData, field) {
   if (!historyData || historyData.length < 2) {
-    return { rate: 0, trend: 'stable', data: [] }
+    return { rate: 0, trend: "stable", data: [] };
   }
-  
+
   // 按日期分组数据
-  const dailyData = groupDataByDay(historyData, field)
-  const dailyGrowthRates = []
-  
+  const dailyData = groupDataByDay(historyData, field);
+  const dailyGrowthRates = [];
+
   for (let i = 1; i < dailyData.length; i++) {
-    const current = dailyData[i]
-    const previous = dailyData[i - 1]
-    const rate = calculateGrowthRate(current.value, previous.value)
-    
+    const current = dailyData[i];
+    const previous = dailyData[i - 1];
+    const rate = calculateGrowthRate(current.value, previous.value);
+
     dailyGrowthRates.push({
       date: current.date,
       value: current.value,
       previousValue: previous.value,
       rate: rate,
-      change: current.value - previous.value
-    })
+      change: current.value - previous.value,
+    });
   }
-  
+
   // 计算平均日增长率
-  const avgRate = dailyGrowthRates.length > 0 
-    ? dailyGrowthRates.reduce((sum, item) => sum + item.rate, 0) / dailyGrowthRates.length
-    : 0
-  
+  const avgRate =
+    dailyGrowthRates.length > 0
+      ? dailyGrowthRates.reduce((sum, item) => sum + item.rate, 0) /
+        dailyGrowthRates.length
+      : 0;
+
   return {
     rate: avgRate,
     trend: getTrend(avgRate),
     data: dailyGrowthRates,
-    latest: dailyGrowthRates[dailyGrowthRates.length - 1] || null
-  }
+    latest: dailyGrowthRates[dailyGrowthRates.length - 1] || null,
+  };
 }
 
 /**
@@ -70,38 +72,40 @@ export function calculateDailyGrowth(historyData, field) {
  */
 export function calculateWeeklyGrowth(historyData, field) {
   if (!historyData || historyData.length < 2) {
-    return { rate: 0, trend: 'stable', data: [] }
+    return { rate: 0, trend: "stable", data: [] };
   }
-  
+
   // 按周分组数据
-  const weeklyData = groupDataByWeek(historyData, field)
-  const weeklyGrowthRates = []
-  
+  const weeklyData = groupDataByWeek(historyData, field);
+  const weeklyGrowthRates = [];
+
   for (let i = 1; i < weeklyData.length; i++) {
-    const current = weeklyData[i]
-    const previous = weeklyData[i - 1]
-    const rate = calculateGrowthRate(current.value, previous.value)
-    
+    const current = weeklyData[i];
+    const previous = weeklyData[i - 1];
+    const rate = calculateGrowthRate(current.value, previous.value);
+
     weeklyGrowthRates.push({
       week: current.week,
       value: current.value,
       previousValue: previous.value,
       rate: rate,
-      change: current.value - previous.value
-    })
+      change: current.value - previous.value,
+    });
   }
-  
+
   // 计算平均周增长率
-  const avgRate = weeklyGrowthRates.length > 0 
-    ? weeklyGrowthRates.reduce((sum, item) => sum + item.rate, 0) / weeklyGrowthRates.length
-    : 0
-  
+  const avgRate =
+    weeklyGrowthRates.length > 0
+      ? weeklyGrowthRates.reduce((sum, item) => sum + item.rate, 0) /
+        weeklyGrowthRates.length
+      : 0;
+
   return {
     rate: avgRate,
     trend: getTrend(avgRate),
     data: weeklyGrowthRates,
-    latest: weeklyGrowthRates[weeklyGrowthRates.length - 1] || null
-  }
+    latest: weeklyGrowthRates[weeklyGrowthRates.length - 1] || null,
+  };
 }
 
 /**
@@ -112,38 +116,40 @@ export function calculateWeeklyGrowth(historyData, field) {
  */
 export function calculateMonthlyGrowth(historyData, field) {
   if (!historyData || historyData.length < 2) {
-    return { rate: 0, trend: 'stable', data: [] }
+    return { rate: 0, trend: "stable", data: [] };
   }
-  
+
   // 按月分组数据
-  const monthlyData = groupDataByMonth(historyData, field)
-  const monthlyGrowthRates = []
-  
+  const monthlyData = groupDataByMonth(historyData, field);
+  const monthlyGrowthRates = [];
+
   for (let i = 1; i < monthlyData.length; i++) {
-    const current = monthlyData[i]
-    const previous = monthlyData[i - 1]
-    const rate = calculateGrowthRate(current.value, previous.value)
-    
+    const current = monthlyData[i];
+    const previous = monthlyData[i - 1];
+    const rate = calculateGrowthRate(current.value, previous.value);
+
     monthlyGrowthRates.push({
       month: current.month,
       value: current.value,
       previousValue: previous.value,
       rate: rate,
-      change: current.value - previous.value
-    })
+      change: current.value - previous.value,
+    });
   }
-  
+
   // 计算平均月增长率
-  const avgRate = monthlyGrowthRates.length > 0 
-    ? monthlyGrowthRates.reduce((sum, item) => sum + item.rate, 0) / monthlyGrowthRates.length
-    : 0
-  
+  const avgRate =
+    monthlyGrowthRates.length > 0
+      ? monthlyGrowthRates.reduce((sum, item) => sum + item.rate, 0) /
+        monthlyGrowthRates.length
+      : 0;
+
   return {
     rate: avgRate,
     trend: getTrend(avgRate),
     data: monthlyGrowthRates,
-    latest: monthlyGrowthRates[monthlyGrowthRates.length - 1] || null
-  }
+    latest: monthlyGrowthRates[monthlyGrowthRates.length - 1] || null,
+  };
 }
 
 /**
@@ -153,20 +159,25 @@ export function calculateMonthlyGrowth(historyData, field) {
  * @returns {Array} 按日分组的数据
  */
 function groupDataByDay(historyData, field) {
-  const grouped = {}
+  const grouped = {};
 
-  historyData.forEach(item => {
-    const date = new Date(item.crawl_time).toISOString().split('T')[0] // YYYY-MM-DD
-    if (!grouped[date] || new Date(item.crawl_time) > new Date(grouped[date].crawl_time)) {
+  historyData.forEach((item) => {
+    const date = new Date(item.crawl_time).toISOString().split("T")[0]; // YYYY-MM-DD
+    if (
+      !grouped[date] ||
+      new Date(item.crawl_time) > new Date(grouped[date].crawl_time)
+    ) {
       grouped[date] = {
         date,
         value: item[field] || 0,
-        crawl_time: item.crawl_time
-      }
+        crawl_time: item.crawl_time,
+      };
     }
-  })
+  });
 
-  return Object.values(grouped).sort((a, b) => new Date(a.date) - new Date(b.date))
+  return Object.values(grouped).sort(
+    (a, b) => new Date(a.date) - new Date(b.date),
+  );
 }
 
 /**
@@ -176,33 +187,40 @@ function groupDataByDay(historyData, field) {
  * @returns {Array} 按周分组的数据
  */
 function groupDataByWeek(historyData, field) {
-  const grouped = {}
+  const grouped = {};
 
-  historyData.forEach(item => {
-    const date = new Date(item.crawl_time)
-    const year = date.getFullYear()
-    const week = getWeekNumber(date)
-    const weekKey = `${year}-W${week.toString().padStart(2, '0')}`
+  historyData.forEach((item) => {
+    const date = new Date(item.crawl_time);
+    const year = date.getFullYear();
+    const week = getWeekNumber(date);
+    const weekKey = `${year}-W${week.toString().padStart(2, "0")}`;
 
-    if (!grouped[weekKey] || new Date(item.crawl_time) > new Date(grouped[weekKey].crawl_time)) {
+    if (
+      !grouped[weekKey] ||
+      new Date(item.crawl_time) > new Date(grouped[weekKey].crawl_time)
+    ) {
       grouped[weekKey] = {
         week: weekKey,
         value: item[field] || 0,
-        crawl_time: item.crawl_time
-      }
+        crawl_time: item.crawl_time,
+      };
     }
-  })
+  });
 
-  return Object.values(grouped).sort((a, b) => new Date(a.crawl_time) - new Date(b.crawl_time))
+  return Object.values(grouped).sort(
+    (a, b) => new Date(a.crawl_time) - new Date(b.crawl_time),
+  );
 }
 
 // 获取周数的辅助函数
 function getWeekNumber(date) {
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
-  const dayNum = d.getUTCDay() || 7
-  d.setUTCDate(d.getUTCDate() + 4 - dayNum)
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1))
-  return Math.ceil((((d - yearStart) / 86400000) + 1) / 7)
+  const d = new Date(
+    Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()),
+  );
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil(((d - yearStart) / 86400000 + 1) / 7);
 }
 
 /**
@@ -212,22 +230,27 @@ function getWeekNumber(date) {
  * @returns {Array} 按月分组的数据
  */
 function groupDataByMonth(historyData, field) {
-  const grouped = {}
+  const grouped = {};
 
-  historyData.forEach(item => {
-    const date = new Date(item.crawl_time)
-    const month = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`
+  historyData.forEach((item) => {
+    const date = new Date(item.crawl_time);
+    const month = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, "0")}`;
 
-    if (!grouped[month] || new Date(item.crawl_time) > new Date(grouped[month].crawl_time)) {
+    if (
+      !grouped[month] ||
+      new Date(item.crawl_time) > new Date(grouped[month].crawl_time)
+    ) {
       grouped[month] = {
         month,
         value: item[field] || 0,
-        crawl_time: item.crawl_time
-      }
+        crawl_time: item.crawl_time,
+      };
     }
-  })
+  });
 
-  return Object.values(grouped).sort((a, b) => new Date(a.crawl_time) - new Date(b.crawl_time))
+  return Object.values(grouped).sort(
+    (a, b) => new Date(a.crawl_time) - new Date(b.crawl_time),
+  );
 }
 
 /**
@@ -236,9 +259,9 @@ function groupDataByMonth(historyData, field) {
  * @returns {string} 趋势类型
  */
 function getTrend(rate) {
-  if (rate > 5) return 'rising'
-  if (rate < -5) return 'falling'
-  return 'stable'
+  if (rate > 5) return "rising";
+  if (rate < -5) return "falling";
+  return "stable";
 }
 
 /**
@@ -248,11 +271,11 @@ function getTrend(rate) {
  */
 export function getTrendDescription(trend) {
   const descriptions = {
-    rising: '上升趋势',
-    falling: '下降趋势',
-    stable: '稳定趋势'
-  }
-  return descriptions[trend] || '未知趋势'
+    rising: "上升趋势",
+    falling: "下降趋势",
+    stable: "稳定趋势",
+  };
+  return descriptions[trend] || "未知趋势";
 }
 
 /**
@@ -262,11 +285,11 @@ export function getTrendDescription(trend) {
  */
 export function getTrendColorClass(trend) {
   const colorClasses = {
-    rising: 'text-success',
-    falling: 'text-error',
-    stable: 'text-on-surface-variant'
-  }
-  return colorClasses[trend] || 'text-on-surface-variant'
+    rising: "text-success",
+    falling: "text-error",
+    stable: "text-on-surface-variant",
+  };
+  return colorClasses[trend] || "text-on-surface-variant";
 }
 
 /**
@@ -276,7 +299,7 @@ export function getTrendColorClass(trend) {
  * @returns {string} 格式化后的增长率字符串
  */
 export function formatGrowthRate(rate, precision = 1) {
-  if (rate === undefined || rate === null || isNaN(rate)) return '0%'
-  const sign = rate >= 0 ? '+' : ''
-  return `${sign}${rate.toFixed(precision)}%`
+  if (rate === undefined || rate === null || isNaN(rate)) return "0%";
+  const sign = rate >= 0 ? "+" : "";
+  return `${sign}${rate.toFixed(precision)}%`;
 }

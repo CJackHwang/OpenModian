@@ -8,18 +8,22 @@
  * @returns {boolean} - 是否有效
  */
 export function isValidImageUrl(url) {
-  if (!url || typeof url !== 'string') return false
-  
+  if (!url || typeof url !== "string") return false;
+
   // 排除明显无效的值
-  const invalidValues = ['none', 'null', 'undefined', '', ' ', 'N/A', 'n/a']
-  if (invalidValues.includes(url.toLowerCase().trim())) return false
-  
+  const invalidValues = ["none", "null", "undefined", "", " ", "N/A", "n/a"];
+  if (invalidValues.includes(url.toLowerCase().trim())) return false;
+
   // 检查是否是有效的URL格式
   try {
-    const urlObj = new URL(url, window.location.origin)
-    return urlObj.protocol === 'http:' || urlObj.protocol === 'https:' || urlObj.protocol === 'data:'
+    const urlObj = new URL(url, window.location.origin);
+    return (
+      urlObj.protocol === "http:" ||
+      urlObj.protocol === "https:" ||
+      urlObj.protocol === "data:"
+    );
   } catch {
-    return false
+    return false;
   }
 }
 
@@ -29,8 +33,8 @@ export function isValidImageUrl(url) {
  * @param {string} fallback - 默认图片URL
  * @returns {string} - 安全的图片URL
  */
-export function getSafeImageUrl(url, fallback = '/placeholder-image.jpg') {
-  return isValidImageUrl(url) ? url : fallback
+export function getSafeImageUrl(url, fallback = "/placeholder-image.jpg") {
+  return isValidImageUrl(url) ? url : fallback;
 }
 
 /**
@@ -39,7 +43,7 @@ export function getSafeImageUrl(url, fallback = '/placeholder-image.jpg') {
  * @returns {string} - 安全的头像URL
  */
 export function getSafeAvatarUrl(url) {
-  return getSafeImageUrl(url, '/placeholder-avatar.jpg')
+  return getSafeImageUrl(url, "/placeholder-avatar.jpg");
 }
 
 /**
@@ -50,15 +54,15 @@ export function getSafeAvatarUrl(url) {
 export function preloadImage(url) {
   return new Promise((resolve, reject) => {
     if (!isValidImageUrl(url)) {
-      reject(new Error('Invalid image URL'))
-      return
+      reject(new Error("Invalid image URL"));
+      return;
     }
-    
-    const img = new Image()
-    img.onload = () => resolve(img)
-    img.onerror = () => reject(new Error('Failed to load image'))
-    img.src = url
-  })
+
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("Failed to load image"));
+    img.src = url;
+  });
 }
 
 /**
@@ -68,9 +72,9 @@ export function preloadImage(url) {
  */
 export async function canLoadImage(url) {
   try {
-    await preloadImage(url)
-    return true
+    await preloadImage(url);
+    return true;
   } catch {
-    return false
+    return false;
   }
 }

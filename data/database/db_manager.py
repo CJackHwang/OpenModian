@@ -174,6 +174,22 @@ class DatabaseManager:
                     created_time TIMESTAMP DEFAULT (datetime('now', 'localtime'))
                 )
             ''')
+
+            # 🔧 新增：创建关注项目表
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS watched_projects (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    project_id TEXT UNIQUE NOT NULL,
+                    project_name TEXT NOT NULL,
+                    project_url TEXT NOT NULL,
+                    category TEXT,
+                    author_name TEXT,
+                    added_time TIMESTAMP DEFAULT (datetime('now', 'localtime')),
+                    last_crawl_time TIMESTAMP,
+                    is_active INTEGER DEFAULT 1,
+                    notes TEXT
+                )
+            ''')
             
             # 创建时间分类视图
             cursor.execute('''
@@ -1518,6 +1534,154 @@ class DatabaseManager:
         # 写入JSON文件
         with open(backup_path, 'w', encoding='utf-8') as f:
             json.dump(backup_data, f, ensure_ascii=False, indent=2, default=str)
+
+    # ==================== 关注项目管理方法 ====================
+
+    def add_watched_project(self, project_id: str, project_name: str, project_url: str,
+                           category: str = None, author_name: str = None, notes: str = None) -> bool:
+        """添加项目到关注列表"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute('''
+                    INSERT OR REPLACE INTO watched_projects
+                    (project_id, project_name, project_url, category, author_name, notes, added_time)
+                    VALUES (?, ?, ?, ?, ?, ?, datetime('now', 'localtime'))
+                ''', (project_id, project_name, project_url, category, author_name, notes))
+                conn.commit()
+                return True
+        except Exception as e:
+            print(f"❌ 添加关注项目失败: {e}")
+            return False
+
+    def remove_watched_project(self, project_id: str) -> bool:
+        """从关注列表移除项目"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute('DELETE FROM watched_projects WHERE project_id = ?', (project_id,))
+                conn.commit()
+                return cursor.rowcount > 0
+        except Exception as e:
+            print(f"❌ 移除关注项目失败: {e}")
+            return False
+
+    def get_watched_projects(self, active_only: bool = True) -> List[Dict[str, Any]]:
+        """获取关注项目列表"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+
+                query = 'SELECT * FROM watched_projects'
+                if active_only:
+                    query += ' WHERE is_active = 1'
+                query += ' ORDER BY added_time DESC'
+
+                cursor.execute(query)
+                return [dict(row) for row in cursor.fetchall()]
+        except Exception as e:
+            print(f"❌ 获取关注项目列表失败: {e}")
+            return []
+
+    def is_project_watched(self, project_id: str) -> bool:
+        """检查项目是否已被关注"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    'SELECT 1 FROM watched_projects WHERE project_id = ? AND is_active = 1',
+                    (project_id,)
+                )
+                return cursor.fetchone() is not None
+        except Exception as e:
+            print(f"❌ 检查项目关注状态失败: {e}")
+            return False
+
+    def batch_add_watched_projects(self, projects: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """批量添加关注项目"""
+        try:
+            added_count = 0
+            skipped_count = 0
+            error_count = 0
+
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+
+                for project in projects:
+                    try:
+                        project_id = project.get('project_id')
+                        if not project_id:
+                            error_count += 1
+                            continue
+
+                        # 检查是否已存在
+                        cursor.execute(
+                            'SELECT 1 FROM watched_projects WHERE project_id = ?',
+                            (project_id,)
+                        )
+                        if cursor.fetchone():
+                            skipped_count += 1
+                            continue
+
+                        # 添加新项目
+                        cursor.execute('''
+                            INSERT INTO watched_projects
+                            (project_id, project_name, project_url, category, author_name, added_time)
+                            VALUES (?, ?, ?, ?, ?, datetime('now', 'localtime'))
+                        ''', (
+                            project_id,
+                            project.get('project_name', ''),
+                            project.get('project_url', ''),
+                            project.get('category', ''),
+                            project.get('author_name', '')
+                        ))
+                        added_count += 1
+
+                    except Exception as e:
+                        print(f"❌ 批量添加项目 {project.get('project_id', 'unknown')} 失败: {e}")
+                        error_count += 1
+
+                conn.commit()
+
+            return {
+                'added': added_count,
+                'skipped': skipped_count,
+                'errors': error_count,
+                'total': len(projects)
+            }
+
+        except Exception as e:
+            print(f"❌ 批量添加关注项目失败: {e}")
+            return {'added': 0, 'skipped': 0, 'errors': len(projects), 'total': len(projects)}
+
+    def clear_watched_projects(self) -> bool:
+        """清空关注列表"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute('DELETE FROM watched_projects')
+                conn.commit()
+                return True
+        except Exception as e:
+            print(f"❌ 清空关注列表失败: {e}")
+            return False
+
+    def update_watched_project_crawl_time(self, project_id: str) -> bool:
+        """更新关注项目的最后爬取时间"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute('''
+                    UPDATE watched_projects
+                    SET last_crawl_time = datetime('now', 'localtime')
+                    WHERE project_id = ?
+                ''', (project_id,))
+                conn.commit()
+                return cursor.rowcount > 0
+        except Exception as e:
+            print(f"❌ 更新关注项目爬取时间失败: {e}")
+            return False
 
         # 获取备份文件信息
         file_size = backup_path.stat().st_size

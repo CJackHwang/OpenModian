@@ -1,0 +1,100 @@
+// Vuetify SASS变量配置 - Material Design 3优化
+
+// 基础变量配置
+$md3-radius-xs: 4px !default;
+$md3-radius-sm: 8px !default;
+$md3-radius-md: 12px !default;
+$md3-radius-lg: 16px !default;
+$md3-radius-xl: 20px !default;
+$md3-radius-xxl: 28px !default;
+
+// 动画时长
+$md3-motion-duration-short: 200ms !default;
+$md3-motion-duration-medium: 300ms !default;
+$md3-motion-duration-long: 500ms !default;
+
+// 动画缓动
+$md3-motion-easing-standard: cubic-bezier(0.4, 0, 0.2, 1) !default;
+$md3-motion-easing-emphasized: cubic-bezier(0.2, 0, 0, 1) !default;
+
+// 扁平化阴影 - 移除所有阴影效果
+$shadow-key-umbra: (
+  0: (
+    0px 0px 0px 0px rgba(0, 0, 0, 0),
+  ),
+  1: (
+    0px 0px 0px 0px rgba(0, 0, 0, 0),
+  ),
+  2: (
+    0px 0px 0px 0px rgba(0, 0, 0, 0),
+  ),
+  3: (
+    0px 0px 0px 0px rgba(0, 0, 0, 0),
+  ),
+  4: (
+    0px 0px 0px 0px rgba(0, 0, 0, 0),
+  ),
+  5: (
+    0px 0px 0px 0px rgba(0, 0, 0, 0),
+  ),
+  6: (
+    0px 0px 0px 0px rgba(0, 0, 0, 0),
+  ),
+  7: (
+    0px 0px 0px 0px rgba(0, 0, 0, 0),
+  ),
+  8: (
+    0px 0px 0px 0px rgba(0, 0, 0, 0),
+  ),
+  9: (
+    0px 0px 0px 0px rgba(0, 0, 0, 0),
+  ),
+  10: (
+    0px 0px 0px 0px rgba(0, 0, 0, 0),
+  ),
+  11: (
+    0px 0px 0px 0px rgba(0, 0, 0, 0),
+  ),
+  12: (
+    0px 0px 0px 0px rgba(0, 0, 0, 0),
+  ),
+  13: (
+    0px 0px 0px 0px rgba(0, 0, 0, 0),
+  ),
+  14: (
+    0px 0px 0px 0px rgba(0, 0, 0, 0),
+  ),
+  15: (
+    0px 0px 0px 0px rgba(0, 0, 0, 0),
+  ),
+  16: (
+    0px 0px 0px 0px rgba(0, 0, 0, 0),
+  ),
+  17: (
+    0px 0px 0px 0px rgba(0, 0, 0, 0),
+  ),
+  18: (
+    0px 0px 0px 0px rgba(0, 0, 0, 0),
+  ),
+  19: (
+    0px 0px 0px 0px rgba(0, 0, 0, 0),
+  ),
+  20: (
+    0px 0px 0px 0px rgba(0, 0, 0, 0),
+  ),
+  21: (
+    0px 0px 0px 0px rgba(0, 0, 0, 0),
+  ),
+  22: (
+    0px 0px 0px 0px rgba(0, 0, 0, 0),
+  ),
+  23: (
+    0px 0px 0px 0px rgba(0, 0, 0, 0),
+  ),
+  24: (
+    0px 0px 0px 0px rgba(0, 0, 0, 0),
+  ),
+) !default;
+
+$shadow-key-penumbra: $shadow-key-umbra !default;
+$shadow-key-ambient: $shadow-key-umbra !default;

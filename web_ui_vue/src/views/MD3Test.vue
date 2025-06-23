@@ -1,9 +1,13 @@
 <template>
-  <div class="pa-6">
+  <v-container class="pa-6" fluid>
     <!-- 页面标题 -->
     <div class="mb-8">
-      <h1 class="text-h3 font-weight-medium mb-2">Material Design 3 测试页面</h1>
-      <p class="text-subtitle-1 text-medium-emphasis">验证MD3大圆角扁平化设计 - 无阴影 + 描边效果</p>
+      <h1 class="text-h3 font-weight-medium mb-2">
+        Material Design 3 测试页面
+      </h1>
+      <p class="text-subtitle-1 text-medium-emphasis">
+        验证MD3大圆角扁平化设计 - 无阴影 + 描边效果
+      </p>
     </div>
 
     <!-- 主题切换 -->
@@ -67,10 +71,7 @@
     <!-- 卡片系统测试 -->
     <v-row class="mb-8">
       <v-col cols="12" md="4">
-        <v-card
-          color="primary-container"
-          variant="flat"
-        >
+        <v-card color="primary-container" variant="flat">
           <v-card-title>Primary Container</v-card-title>
           <v-card-text>
             这是使用primary-container颜色的卡片，展示MD3的tonal elevation效果。
@@ -78,21 +79,13 @@
         </v-card>
       </v-col>
       <v-col cols="12" md="4">
-        <v-card
-          color="secondary-container"
-          variant="flat"
-        >
+        <v-card color="secondary-container" variant="flat">
           <v-card-title>Secondary Container</v-card-title>
-          <v-card-text>
-            这是使用secondary-container颜色的卡片。
-          </v-card-text>
+          <v-card-text> 这是使用secondary-container颜色的卡片。 </v-card-text>
         </v-card>
       </v-col>
       <v-col cols="12" md="4">
-        <v-card
-          color="surface-container-high"
-          variant="flat"
-        >
+        <v-card color="surface-container-high" variant="flat">
           <v-card-title>Surface Container High</v-card-title>
           <v-card-text>
             这是使用surface-container-high的卡片，展示表面层次。
@@ -132,47 +125,23 @@
             <h4 class="mb-3">现代化开关组件</h4>
             <p class="text-caption mb-4">应用了完整的现代化样式规范</p>
 
-            <v-switch
-              label="主要开关"
-              color="primary"
-              class="mb-3"
-            />
+            <v-switch label="主要开关" color="primary" class="mb-3" />
             <v-switch
               label="次要开关"
               color="secondary"
               :model-value="true"
               class="mb-3"
             />
-            <v-switch
-              label="成功开关"
-              color="success"
-              class="mb-3"
-            />
-            <v-switch
-              label="禁用开关"
-              disabled
-              class="mb-4"
-            />
+            <v-switch label="成功开关" color="success" class="mb-3" />
+            <v-switch label="禁用开关" disabled class="mb-4" />
 
             <v-divider class="my-4" />
 
             <h4 class="mb-3">其他控制组件</h4>
-            <v-checkbox
-              label="复选框"
-              color="primary"
-              class="mb-4"
-            />
+            <v-checkbox label="复选框" color="primary" class="mb-4" />
             <v-radio-group>
-              <v-radio
-                label="单选项1"
-                value="1"
-                color="primary"
-              />
-              <v-radio
-                label="单选项2"
-                value="2"
-                color="primary"
-              />
+              <v-radio label="单选项1" value="1" color="primary" />
+              <v-radio label="单选项2" value="2" color="primary" />
             </v-radio-group>
           </v-card-text>
         </v-card>
@@ -210,29 +179,16 @@
         <v-card>
           <v-card-title>MD3 警告和消息</v-card-title>
           <v-card-text>
-            <v-alert
-              type="success"
-              class="mb-4"
-            >
+            <v-alert type="success" class="mb-4">
               这是一个成功消息，使用MD3的tonal variant。
             </v-alert>
-            <v-alert
-              type="warning"
-              class="mb-4"
-            >
+            <v-alert type="warning" class="mb-4">
               这是一个警告消息，展示MD3的颜色系统。
             </v-alert>
-            <v-alert
-              type="error"
-              class="mb-4"
-            >
+            <v-alert type="error" class="mb-4">
               这是一个错误消息，符合WCAG 2.1 AA对比度标准。
             </v-alert>
-            <v-alert
-              type="info"
-            >
-              这是一个信息消息，使用扁平化设计。
-            </v-alert>
+            <v-alert type="info"> 这是一个信息消息，使用扁平化设计。 </v-alert>
           </v-card-text>
         </v-card>
       </v-col>
@@ -263,12 +219,12 @@
               :headers="[
                 { title: '名称', key: 'name' },
                 { title: '类型', key: 'type' },
-                { title: '状态', key: 'status' }
+                { title: '状态', key: 'status' },
               ]"
               :items="[
                 { name: '项目A', type: '大组件', status: '扁平化' },
                 { name: '项目B', type: '大圆角', status: '无阴影' },
-                { name: '项目C', type: '描边设计', status: '现代化' }
+                { name: '项目C', type: '描边设计', status: '现代化' },
               ]"
               class="mb-4"
             />
@@ -289,34 +245,49 @@
         <v-card>
           <v-card-title>WCAG 2.1 AA 对比度测试</v-card-title>
           <v-card-text>
-            <div class="d-flex flex-wrap ga-4">
-              <div class="pa-4 rounded-xl" style="background-color: rgb(var(--v-theme-primary));">
-                <span style="color: rgb(var(--v-theme-on-primary));">Primary背景上的文字</span>
-              </div>
-              <div class="pa-4 rounded-xl" style="background-color: rgb(var(--v-theme-primary-container));">
-                <span style="color: rgb(var(--v-theme-on-primary-container));">Primary Container背景上的文字</span>
-              </div>
-              <div class="pa-4 rounded-xl" style="background-color: rgb(var(--v-theme-surface-container));">
-                <span style="color: rgb(var(--v-theme-on-surface));">Surface Container背景上的文字</span>
-              </div>
-            </div>
+            <v-sheet class="d-flex flex-wrap ga-4" color="transparent">
+              <v-sheet
+                class="pa-4 rounded-xl"
+                style="background-color: rgb(var(--v-theme-primary))"
+              >
+                <v-chip style="color: rgb(var(--v-theme-on-primary))" variant="text"
+                  >Primary背景上的文字</v-chip
+                >
+              </v-sheet>
+              <v-sheet
+                class="pa-4 rounded-xl"
+                style="background-color: rgb(var(--v-theme-primary-container))"
+              >
+                <v-chip style="color: rgb(var(--v-theme-on-primary-container))" variant="text"
+                  >Primary Container背景上的文字</v-chip
+                >
+              </v-sheet>
+              <v-sheet
+                class="pa-4 rounded-xl"
+                style="background-color: rgb(var(--v-theme-surface-container))"
+              >
+                <v-chip style="color: rgb(var(--v-theme-on-surface))" variant="text"
+                  >Surface Container背景上的文字</v-chip
+                >
+              </v-sheet>
+            </v-sheet>
           </v-card-text>
         </v-card>
       </v-col>
     </v-row>
-  </div>
+  </v-container>
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import { useTheme } from 'vuetify'
+import { ref } from "vue";
+import { useTheme } from "vuetify";
 
-const theme = useTheme()
-const currentTheme = ref(theme.global.name.value)
+const theme = useTheme();
+const currentTheme = ref(theme.global.name.value);
 
 const toggleTheme = (value) => {
-  theme.global.name.value = value
-}
+  theme.global.name.value = value;
+};
 </script>
 
 <style scoped>

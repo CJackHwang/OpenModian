@@ -7,7 +7,8 @@
   padding: 0;
 }
 
-html, body {
+html,
+body {
   -webkit-text-size-adjust: 100%;
   word-break: normal;
   tab-size: 4;
@@ -40,14 +41,14 @@ html, body {
   --md3-spacing-xxl: 48px;
 
   // MD3 圆角系统 - 官方标准（基于Android开发者文档）
-  --md3-radius-none: 0px;        // 无圆角
-  --md3-radius-xs: 4px;          // 小组件（文本框）
-  --md3-radius-sm: 8px;          // 芯片
-  --md3-radius-md: 12px;         // 卡片
-  --md3-radius-lg: 16px;         // FAB
-  --md3-radius-xl: 20px;         // 按钮
-  --md3-radius-xxl: 28px;        // 大型容器
-  --md3-radius-full: 50%;        // 完全圆形
+  --md3-radius-none: 0px; // 无圆角
+  --md3-radius-xs: 4px; // 小组件（文本框）
+  --md3-radius-sm: 8px; // 芯片
+  --md3-radius-md: 12px; // 卡片
+  --md3-radius-lg: 16px; // FAB
+  --md3-radius-xl: 20px; // 按钮
+  --md3-radius-xxl: 28px; // 大型容器
+  --md3-radius-full: 50%; // 完全圆形
 
   // MD3 动画系统 - 官方标准缓动
   --md3-motion-easing-standard: cubic-bezier(0.2, 0, 0, 1);
@@ -62,12 +63,12 @@ html, body {
   --md3-state-pressed-opacity: 0.16;
 
   // MD3 elevation系统 - 强制扁平化，所有阴影设为0
-  --md3-elevation-level0: 0dp;    // 表面
-  --md3-elevation-level1: 0dp;    // 强制扁平化
-  --md3-elevation-level2: 0dp;    // 强制扁平化
-  --md3-elevation-level3: 0dp;    // 强制扁平化
-  --md3-elevation-level4: 0dp;    // 强制扁平化
-  --md3-elevation-level5: 0dp;    // 强制扁平化
+  --md3-elevation-level0: 0dp; // 表面
+  --md3-elevation-level1: 0dp; // 强制扁平化
+  --md3-elevation-level2: 0dp; // 强制扁平化
+  --md3-elevation-level3: 0dp; // 强制扁平化
+  --md3-elevation-level4: 0dp; // 强制扁平化
+  --md3-elevation-level5: 0dp; // 强制扁平化
 
   // MD3 tonal elevation透明度
   --md3-tonal-elevation-1: 0.05;
@@ -111,17 +112,20 @@ html, body {
 
 .app-card {
   // 基础样式现在通过VCard defaults管理
-  transition: background-color var(--md3-motion-duration-short) var(--md3-motion-easing-standard);
+  transition: background-color var(--md3-motion-duration-short)
+    var(--md3-motion-easing-standard);
 }
 
 .app-button {
   // 基础样式现在通过VBtn defaults管理
-  transition: background-color var(--md3-motion-duration-short) var(--md3-motion-easing-standard);
+  transition: background-color var(--md3-motion-duration-short)
+    var(--md3-motion-easing-standard);
 }
 
 .app-chip {
   // 基础样式现在通过VChip defaults管理
-  transition: background-color var(--md3-motion-duration-short) var(--md3-motion-easing-standard);
+  transition: background-color var(--md3-motion-duration-short)
+    var(--md3-motion-easing-standard);
 }
 
 // MD3 图标配色现在通过Vuetify defaults和主题系统管理
@@ -284,33 +288,57 @@ html, body {
 }
 
 // MD3 间距工具类
-.spacing-xs { margin: var(--md3-spacing-xs); }
-.spacing-sm { margin: var(--md3-spacing-sm); }
-.spacing-md { margin: var(--md3-spacing-md); }
-.spacing-lg { margin: var(--md3-spacing-lg); }
-.spacing-xl { margin: var(--md3-spacing-xl); }
+.spacing-xs {
+  margin: var(--md3-spacing-xs);
+}
+.spacing-sm {
+  margin: var(--md3-spacing-sm);
+}
+.spacing-md {
+  margin: var(--md3-spacing-md);
+}
+.spacing-lg {
+  margin: var(--md3-spacing-lg);
+}
+.spacing-xl {
+  margin: var(--md3-spacing-xl);
+}
 
-.p-xs { padding: var(--md3-spacing-xs); }
-.p-sm { padding: var(--md3-spacing-sm); }
-.p-md { padding: var(--md3-spacing-md); }
-.p-lg { padding: var(--md3-spacing-lg); }
-.p-xl { padding: var(--md3-spacing-xl); }
+.p-xs {
+  padding: var(--md3-spacing-xs);
+}
+.p-sm {
+  padding: var(--md3-spacing-sm);
+}
+.p-md {
+  padding: var(--md3-spacing-md);
+}
+.p-lg {
+  padding: var(--md3-spacing-lg);
+}
+.p-xl {
+  padding: var(--md3-spacing-xl);
+}
 
 // MD3 动画类 - 使用标准缓动
 .fade-in {
-  animation: fadeIn var(--md3-motion-duration-medium) var(--md3-motion-easing-standard);
+  animation: fadeIn var(--md3-motion-duration-medium)
+    var(--md3-motion-easing-standard);
 }
 
 .fade-in-up {
-  animation: fadeInUp var(--md3-motion-duration-medium) var(--md3-motion-easing-standard);
+  animation: fadeInUp var(--md3-motion-duration-medium)
+    var(--md3-motion-easing-standard);
 }
 
 .slide-in-left {
-  animation: slideInLeft var(--md3-motion-duration-medium) var(--md3-motion-easing-standard);
+  animation: slideInLeft var(--md3-motion-duration-medium)
+    var(--md3-motion-easing-standard);
 }
 
 .scale-in {
-  animation: scaleIn var(--md3-motion-duration-short) var(--md3-motion-easing-emphasized);
+  animation: scaleIn var(--md3-motion-duration-short)
+    var(--md3-motion-easing-emphasized);
 }
 
 // 动画关键帧
@@ -408,7 +436,8 @@ html, body {
 }
 
 @keyframes pulse {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 1;
     transform: scale(1);
   }
@@ -458,10 +487,12 @@ html, body {
 
 // 骨架屏加载效果
 .skeleton-loader {
-  background: linear-gradient(90deg,
+  background: linear-gradient(
+    90deg,
     rgba(var(--v-theme-surface), 1) 25%,
     rgba(var(--v-theme-on-surface), 0.1) 50%,
-    rgba(var(--v-theme-surface), 1) 75%);
+    rgba(var(--v-theme-surface), 1) 75%
+  );
   background-size: 200% 100%;
   animation: skeleton-loading 1.5s infinite;
   border-radius: 4px;

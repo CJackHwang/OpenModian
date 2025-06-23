@@ -19,7 +19,11 @@
             <v-card variant="outlined" class="h-100 app-card">
               <v-card-title class="text-h6 p-lg">
                 <v-avatar color="success" size="24" class="me-2">
-                  <v-icon icon="mdi-database-export" color="on-success" size="14" />
+                  <v-icon
+                    icon="mdi-database-export"
+                    color="on-success"
+                    size="14"
+                  />
                 </v-avatar>
                 创建备份
               </v-card-title>
@@ -52,13 +56,17 @@
               </v-card-actions>
             </v-card>
           </v-col>
-          
+
           <!-- 导入备份 -->
           <v-col cols="12" md="6">
             <v-card variant="outlined" class="h-100 app-card">
               <v-card-title class="text-h6 p-lg">
                 <v-avatar color="warning" size="24" class="me-2">
-                  <v-icon icon="mdi-database-import" color="on-warning" size="14" />
+                  <v-icon
+                    icon="mdi-database-import"
+                    color="on-warning"
+                    size="14"
+                  />
                 </v-avatar>
                 导入备份
               </v-card-title>
@@ -162,7 +170,7 @@
               variant="tonal"
               class="app-chip"
             >
-              {{ item.is_valid ? '有效' : '无效' }}
+              {{ item.is_valid ? "有效" : "无效" }}
             </v-chip>
           </template>
 
@@ -207,7 +215,9 @@
           <!-- 无数据状态 -->
           <template #no-data>
             <div class="text-center pa-8">
-              <v-icon size="64" class="mb-4 text-medium-emphasis">mdi-folder-open</v-icon>
+              <v-icon size="64" class="mb-4 text-medium-emphasis"
+                >mdi-folder-open</v-icon
+              >
               <div class="text-h6 text-medium-emphasis">暂无备份文件</div>
               <div class="text-subtitle-2 text-medium-emphasis mb-4">
                 点击上方"一键备份"按钮创建第一个备份
@@ -231,7 +241,7 @@
             @click="showInfoDialog = false"
           />
         </v-card-title>
-        
+
         <v-card-text v-if="selectedBackup">
           <v-row>
             <v-col cols="12" md="6">
@@ -292,24 +302,22 @@
           <v-icon icon="mdi-alert" class="me-3" />
           确认恢复备份
         </v-card-title>
-        
+
         <v-card-text>
           <v-alert type="warning" variant="tonal" class="mb-4">
-            <strong>警告：</strong>恢复备份将完全覆盖当前数据库中的所有数据，此操作不可撤销！
+            <strong>警告：</strong
+            >恢复备份将完全覆盖当前数据库中的所有数据，此操作不可撤销！
           </v-alert>
-          
-          <p>您确定要恢复以下备份文件吗？</p>
-          <p><strong>文件名：</strong>{{ restoreTarget?.filename }}</p>
-          <p><strong>创建时间：</strong>{{ restoreTarget?.created_time }}</p>
-          <p><strong>文件大小：</strong>{{ restoreTarget?.size_formatted }}</p>
+
+          <v-card-text class="pa-0">您确定要恢复以下备份文件吗？</v-card-text>
+          <v-card-text class="pa-0"><strong>文件名：</strong>{{ restoreTarget?.filename }}</v-card-text>
+          <v-card-text class="pa-0"><strong>创建时间：</strong>{{ restoreTarget?.created_time }}</v-card-text>
+          <v-card-text class="pa-0"><strong>文件大小：</strong>{{ restoreTarget?.size_formatted }}</v-card-text>
         </v-card-text>
-        
+
         <v-card-actions>
           <v-spacer />
-          <v-btn
-            variant="text"
-            @click="showRestoreDialog = false"
-          >
+          <v-btn variant="text" @click="showRestoreDialog = false">
             取消
           </v-btn>
           <v-btn
@@ -331,21 +339,18 @@
           <v-icon icon="mdi-delete" class="me-3" />
           确认删除
         </v-card-title>
-        
+
         <v-card-text>
-          <p>您确定要删除备份文件吗？</p>
-          <p><strong>{{ deleteTarget?.filename }}</strong></p>
-          <p class="text-caption text-medium-emphasis">此操作不可撤销</p>
+          <v-card-text class="pa-0">您确定要删除备份文件吗？</v-card-text>
+          <v-card-text class="pa-0">
+            <strong>{{ deleteTarget?.filename }}</strong>
+          </v-card-text>
+          <v-card-text class="text-caption text-medium-emphasis pa-0">此操作不可撤销</v-card-text>
         </v-card-text>
-        
+
         <v-card-actions>
           <v-spacer />
-          <v-btn
-            variant="text"
-            @click="showDeleteDialog = false"
-          >
-            取消
-          </v-btn>
+          <v-btn variant="text" @click="showDeleteDialog = false"> 取消 </v-btn>
           <v-btn
             color="error"
             variant="filled"
@@ -361,254 +366,256 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import axios from 'axios'
+import { ref, onMounted } from "vue";
+import axios from "axios";
 
 // 响应式数据
-const loading = ref(false)
-const creating = ref(false)
-const uploading = ref(false)
-const restoring = ref(false)
-const deleting = ref(false)
+const loading = ref(false);
+const creating = ref(false);
+const uploading = ref(false);
+const restoring = ref(false);
+const deleting = ref(false);
 
-const backups = ref([])
-const backupFormat = ref('sql')
-const includeMetadata = ref(true)
-const uploadFile = ref(null)
+const backups = ref([]);
+const backupFormat = ref("sql");
+const includeMetadata = ref(true);
+const uploadFile = ref(null);
 
-const showInfoDialog = ref(false)
-const showRestoreDialog = ref(false)
-const showDeleteDialog = ref(false)
+const showInfoDialog = ref(false);
+const showRestoreDialog = ref(false);
+const showDeleteDialog = ref(false);
 
-const selectedBackup = ref(null)
-const restoreTarget = ref(null)
-const deleteTarget = ref(null)
+const selectedBackup = ref(null);
+const restoreTarget = ref(null);
+const deleteTarget = ref(null);
 
 // 配置选项
 const formatOptions = [
-  { value: 'sql', title: 'SQL 格式 (.sql)' },
-  { value: 'json', title: 'JSON 格式 (.json)' }
-]
+  { value: "sql", title: "SQL 格式 (.sql)" },
+  { value: "json", title: "JSON 格式 (.json)" },
+];
 
 // 表格头部
 const headers = [
-  { title: '文件名', key: 'filename', sortable: true },
-  { title: '大小', key: 'size_formatted', sortable: false },
-  { title: '创建时间', key: 'created_time', sortable: true },
-  { title: '修改时间', key: 'modified_time', sortable: true },
-  { title: '状态', key: 'is_valid', sortable: false },
-  { title: '操作', key: 'actions', sortable: false, width: '200px' }
-]
+  { title: "文件名", key: "filename", sortable: true },
+  { title: "大小", key: "size_formatted", sortable: false },
+  { title: "创建时间", key: "created_time", sortable: true },
+  { title: "修改时间", key: "modified_time", sortable: true },
+  { title: "状态", key: "is_valid", sortable: false },
+  { title: "操作", key: "actions", sortable: false, width: "200px" },
+];
 
 // 方法
 const loadBackups = async () => {
   try {
-    loading.value = true
-    const response = await axios.get('/api/backup/list')
+    loading.value = true;
+    const response = await axios.get("/api/backup/list");
 
     if (response.data.success) {
-      backups.value = response.data.backups
+      backups.value = response.data.backups;
     } else {
-      throw new Error(response.data.message)
+      throw new Error(response.data.message);
     }
   } catch (error) {
-    console.error('加载备份列表失败:', error)
+    console.error("加载备份列表失败:", error);
     // 这里可以添加错误提示
   } finally {
-    loading.value = false
+    loading.value = false;
   }
-}
+};
 
 const createBackup = async () => {
   try {
-    creating.value = true
+    creating.value = true;
 
-    const response = await axios.post('/api/backup/create', {
+    const response = await axios.post("/api/backup/create", {
       format: backupFormat.value,
-      include_metadata: includeMetadata.value
-    })
+      include_metadata: includeMetadata.value,
+    });
 
     if (response.data.success) {
       // 显示成功消息
-      console.log('备份创建成功:', response.data.message)
+      console.log("备份创建成功:", response.data.message);
 
       // 刷新备份列表
-      await loadBackups()
+      await loadBackups();
     } else {
-      throw new Error(response.data.message)
+      throw new Error(response.data.message);
     }
   } catch (error) {
-    console.error('创建备份失败:', error)
+    console.error("创建备份失败:", error);
     // 这里可以添加错误提示
   } finally {
-    creating.value = false
+    creating.value = false;
   }
-}
+};
 
 const uploadBackup = async () => {
-  if (!uploadFile.value) return
+  if (!uploadFile.value) return;
 
   try {
-    uploading.value = true
+    uploading.value = true;
 
     // 上传文件
-    const formData = new FormData()
-    formData.append('file', uploadFile.value[0])
+    const formData = new FormData();
+    formData.append("file", uploadFile.value[0]);
 
-    const uploadResponse = await axios.post('/api/backup/upload', formData, {
+    const uploadResponse = await axios.post("/api/backup/upload", formData, {
       headers: {
-        'Content-Type': 'multipart/form-data'
-      }
-    })
+        "Content-Type": "multipart/form-data",
+      },
+    });
 
     if (uploadResponse.data.success) {
       // 自动恢复上传的备份
-      const restoreResponse = await axios.post('/api/backup/restore', {
-        backup_filename: uploadResponse.data.filename
-      })
+      const restoreResponse = await axios.post("/api/backup/restore", {
+        backup_filename: uploadResponse.data.filename,
+      });
 
       if (restoreResponse.data.success) {
-        console.log('备份恢复成功:', restoreResponse.data.message)
+        console.log("备份恢复成功:", restoreResponse.data.message);
 
         // 清空文件选择
-        uploadFile.value = null
+        uploadFile.value = null;
 
         // 刷新备份列表
-        await loadBackups()
+        await loadBackups();
       } else {
-        throw new Error(restoreResponse.data.message)
+        throw new Error(restoreResponse.data.message);
       }
     } else {
-      throw new Error(uploadResponse.data.message)
+      throw new Error(uploadResponse.data.message);
     }
   } catch (error) {
-    console.error('上传并导入备份失败:', error)
+    console.error("上传并导入备份失败:", error);
     // 这里可以添加错误提示
   } finally {
-    uploading.value = false
+    uploading.value = false;
   }
-}
+};
 
 const showBackupInfo = async (backup) => {
   try {
-    const response = await axios.get(`/api/backup/info/${backup.filename}`)
+    const response = await axios.get(`/api/backup/info/${backup.filename}`);
 
     if (response.data.success) {
-      selectedBackup.value = response.data
-      showInfoDialog.value = true
+      selectedBackup.value = response.data;
+      showInfoDialog.value = true;
     } else {
-      throw new Error(response.data.message)
+      throw new Error(response.data.message);
     }
   } catch (error) {
-    console.error('获取备份信息失败:', error)
+    console.error("获取备份信息失败:", error);
     // 这里可以添加错误提示
   }
-}
+};
 
 const downloadBackup = (filename) => {
-  const url = `/api/backup/download/${filename}`
-  const link = document.createElement('a')
-  link.href = url
-  link.download = filename
-  document.body.appendChild(link)
-  link.click()
-  document.body.removeChild(link)
-}
+  const url = `/api/backup/download/${filename}`;
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+};
 
 const confirmRestore = (backup) => {
-  restoreTarget.value = backup
-  showRestoreDialog.value = true
-}
+  restoreTarget.value = backup;
+  showRestoreDialog.value = true;
+};
 
 const restoreBackup = async () => {
-  if (!restoreTarget.value) return
+  if (!restoreTarget.value) return;
 
   try {
-    restoring.value = true
+    restoring.value = true;
 
-    const response = await axios.post('/api/backup/restore', {
-      backup_filename: restoreTarget.value.filename
-    })
+    const response = await axios.post("/api/backup/restore", {
+      backup_filename: restoreTarget.value.filename,
+    });
 
     if (response.data.success) {
-      console.log('备份恢复成功:', response.data.message)
+      console.log("备份恢复成功:", response.data.message);
 
       // 关闭对话框
-      showRestoreDialog.value = false
-      restoreTarget.value = null
+      showRestoreDialog.value = false;
+      restoreTarget.value = null;
 
       // 刷新备份列表
-      await loadBackups()
+      await loadBackups();
     } else {
-      throw new Error(response.data.message)
+      throw new Error(response.data.message);
     }
   } catch (error) {
-    console.error('恢复备份失败:', error)
+    console.error("恢复备份失败:", error);
     // 这里可以添加错误提示
   } finally {
-    restoring.value = false
+    restoring.value = false;
   }
-}
+};
 
 const confirmDelete = (backup) => {
-  deleteTarget.value = backup
-  showDeleteDialog.value = true
-}
+  deleteTarget.value = backup;
+  showDeleteDialog.value = true;
+};
 
 const deleteBackup = async () => {
-  if (!deleteTarget.value) return
+  if (!deleteTarget.value) return;
 
   try {
-    deleting.value = true
+    deleting.value = true;
 
-    const response = await axios.delete(`/api/backup/delete/${deleteTarget.value.filename}`)
+    const response = await axios.delete(
+      `/api/backup/delete/${deleteTarget.value.filename}`,
+    );
 
     if (response.data.success) {
-      console.log('备份删除成功:', response.data.message)
+      console.log("备份删除成功:", response.data.message);
 
       // 关闭对话框
-      showDeleteDialog.value = false
-      deleteTarget.value = null
+      showDeleteDialog.value = false;
+      deleteTarget.value = null;
 
       // 刷新备份列表
-      await loadBackups()
+      await loadBackups();
     } else {
-      throw new Error(response.data.message)
+      throw new Error(response.data.message);
     }
   } catch (error) {
-    console.error('删除备份失败:', error)
+    console.error("删除备份失败:", error);
     // 这里可以添加错误提示
   } finally {
-    deleting.value = false
+    deleting.value = false;
   }
-}
+};
 
 const getFileIcon = (format) => {
   switch (format?.toLowerCase()) {
-    case 'sql':
-      return 'mdi-database'
-    case 'json':
-      return 'mdi-code-json'
+    case "sql":
+      return "mdi-database";
+    case "json":
+      return "mdi-code-json";
     default:
-      return 'mdi-file'
+      return "mdi-file";
   }
-}
+};
 
 const getFileColor = (format) => {
   switch (format?.toLowerCase()) {
-    case 'sql':
-      return 'blue'
-    case 'json':
-      return 'green'
+    case "sql":
+      return "blue";
+    case "json":
+      return "green";
     default:
-      return 'grey'
+      return "grey";
   }
-}
+};
 
 // 生命周期
 onMounted(() => {
-  loadBackups()
-})
+  loadBackups();
+});
 </script>
 
 <style scoped>

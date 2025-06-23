@@ -160,11 +160,18 @@ class SpiderService:
 
             # 启动爬虫
             log_spider('info', f'启动爬虫核心引擎: {task_id}', 'spider-task')
+
+            # 检查是否包含关注列表
+            watched_project_ids = config.get('watched_project_ids', [])
+            if config.get('include_watch_list', False) and watched_project_ids:
+                log_spider('info', f'包含关注列表项目: {len(watched_project_ids)}个', 'spider-task')
+
             success = spider.start_crawling(
                 start_page=int(config.get('start_page', 1)),
                 end_page=int(config.get('end_page', 10)),
                 category=config.get('category', 'all'),
-                task_id=task_id
+                task_id=task_id,
+                watched_project_ids=watched_project_ids if config.get('include_watch_list', False) else None
             )
 
             log_spider('info', f'爬虫引擎执行完成: {task_id}, 成功={success}', 'spider-task')

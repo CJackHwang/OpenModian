@@ -8,31 +8,27 @@
               <v-icon icon="mdi-console-line" class="me-3" />
               实时日志监控
               <v-spacer />
-              
+
               <!-- 连接状态指示器 -->
-              <v-chip 
-                :color="connectionStatus ? 'success' : 'error'" 
-                size="small" 
+              <v-chip
+                :color="connectionStatus ? 'success' : 'error'"
+                size="small"
                 class="me-3"
               >
-                <v-icon 
-                  :icon="connectionStatus ? 'mdi-wifi' : 'mdi-wifi-off'" 
-                  size="small" 
+                <v-icon
+                  :icon="connectionStatus ? 'mdi-wifi' : 'mdi-wifi-off'"
+                  size="small"
                   class="me-1"
                 />
-                {{ connectionStatus ? '实时连接' : '连接断开' }}
+                {{ connectionStatus ? "实时连接" : "连接断开" }}
               </v-chip>
-              
+
               <!-- 日志统计 -->
-              <v-chip 
-                color="primary" 
-                size="small" 
-                class="me-2"
-              >
+              <v-chip color="primary" size="small" class="me-2">
                 总计: {{ totalLogs }}
               </v-chip>
             </v-card-title>
-            
+
             <v-card-text>
               <v-row>
                 <v-col cols="12" md="3">
@@ -47,7 +43,7 @@
                     @update:model-value="changeLogType"
                   />
                 </v-col>
-                
+
                 <v-col cols="12" md="2">
                   <v-select
                     v-model="selectedLevel"
@@ -60,7 +56,7 @@
                     @update:model-value="applyFilters"
                   />
                 </v-col>
-                
+
                 <v-col cols="12" md="4">
                   <v-text-field
                     v-model="searchTerm"
@@ -72,7 +68,7 @@
                     @update:model-value="applyFilters"
                   />
                 </v-col>
-                
+
                 <v-col cols="12" md="3">
                   <div class="d-flex gap-2">
                     <v-btn
@@ -84,7 +80,7 @@
                       <v-icon icon="mdi-refresh" class="me-1" />
                       刷新
                     </v-btn>
-                    
+
                     <v-btn
                       color="warning"
                       variant="outlined"
@@ -94,7 +90,7 @@
                       <v-icon icon="mdi-delete" class="me-1" />
                       清空
                     </v-btn>
-                    
+
                     <v-btn
                       color="success"
                       variant="outlined"
@@ -111,7 +107,7 @@
           </v-card>
         </v-col>
       </v-row>
-      
+
       <v-row>
         <v-col cols="12">
           <RealTimeLogViewer
@@ -125,7 +121,7 @@
           />
         </v-col>
       </v-row>
-      
+
       <!-- 浮动操作按钮 -->
       <v-fab
         v-model="autoScroll"
@@ -135,7 +131,7 @@
         :color="autoScroll ? 'success' : 'warning'"
         @click="toggleAutoScroll"
       />
-      
+
       <!-- 测试日志按钮 -->
       <v-speed-dial
         v-model="testDialOpen"
@@ -150,28 +146,28 @@
             size="small"
           />
         </template>
-        
+
         <v-fab
           icon="mdi-information"
           size="x-small"
           color="info"
           @click="sendTestLog('info')"
         />
-        
+
         <v-fab
           icon="mdi-alert"
           size="x-small"
           color="warning"
           @click="sendTestLog('warning')"
         />
-        
+
         <v-fab
           icon="mdi-close-circle"
           size="x-small"
           color="error"
           @click="sendTestLog('error')"
         />
-        
+
         <v-fab
           icon="mdi-bug"
           size="x-small"
@@ -184,167 +180,171 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useAppStore } from '@/stores/app'
-import { useDisplay } from 'vuetify'
-import RealTimeLogViewer from '@/components/RealTimeLogViewer.vue'
+import { ref, computed, onMounted, onUnmounted } from "vue";
+import { useAppStore } from "@/stores/app";
+import { useDisplay } from "vuetify";
+import RealTimeLogViewer from "@/components/RealTimeLogViewer.vue";
 
 // Store
-const appStore = useAppStore()
-const display = useDisplay()
+const appStore = useAppStore();
+const display = useDisplay();
 
 // 响应式数据
-const connectionStatus = ref(false)
-const selectedLogType = ref('all')
-const selectedLevel = ref('all')
-const searchTerm = ref('')
-const autoScroll = ref(true)
-const testDialOpen = ref(false)
-const logs = ref([])
-const filteredLogs = ref([])
-const logViewer = ref(null)
+const connectionStatus = ref(false);
+const selectedLogType = ref("all");
+const selectedLevel = ref("all");
+const searchTerm = ref("");
+const autoScroll = ref(true);
+const testDialOpen = ref(false);
+const logs = ref([]);
+const filteredLogs = ref([]);
+const logViewer = ref(null);
 
 // 配置选项
 const logTypes = [
-  { label: '全部日志', value: 'all' },
-  { label: '系统日志', value: 'system' },
-  { label: '爬虫日志', value: 'spider' },
-  { label: 'Web界面日志', value: 'webui' }
-]
+  { label: "全部日志", value: "all" },
+  { label: "系统日志", value: "system" },
+  { label: "爬虫日志", value: "spider" },
+  { label: "Web界面日志", value: "webui" },
+];
 
 const logLevels = [
-  { label: '全部级别', value: 'all' },
-  { label: 'DEBUG', value: 'debug' },
-  { label: 'INFO', value: 'info' },
-  { label: 'WARNING', value: 'warning' },
-  { label: 'ERROR', value: 'error' }
-]
+  { label: "全部级别", value: "all" },
+  { label: "DEBUG", value: "debug" },
+  { label: "INFO", value: "info" },
+  { label: "WARNING", value: "warning" },
+  { label: "ERROR", value: "error" },
+];
 
 // 计算属性
 const totalLogs = computed(() => {
-  return filteredLogs.value.length
-})
+  return filteredLogs.value.length;
+});
 
 // 日志查看器高度计算
 const logViewerHeight = computed(() => {
-  if (display.xs.value) return '400px'
-  if (display.sm.value) return '500px'
-  return 'calc(100vh - 300px)'
-})
+  if (display.xs.value) return "400px";
+  if (display.sm.value) return "500px";
+  return "calc(100vh - 300px)";
+});
 
 // 方法
 const changeLogType = (newType) => {
-  selectedLogType.value = newType
+  selectedLogType.value = newType;
   if (logViewer.value) {
-    logViewer.value.changeLogType(newType)
+    logViewer.value.changeLogType(newType);
   }
-}
+};
 
 const applyFilters = () => {
   if (logViewer.value) {
-    logViewer.value.applyFilters()
+    logViewer.value.applyFilters();
   }
-}
+};
 
 const refreshLogs = () => {
   if (logViewer.value) {
-    logViewer.value.refreshLogs()
+    logViewer.value.refreshLogs();
   }
-}
+};
 
 const clearLogs = () => {
   if (logViewer.value) {
-    logViewer.value.clearLogs()
+    logViewer.value.clearLogs();
   }
-}
+};
 
 const toggleAutoScroll = () => {
-  autoScroll.value = !autoScroll.value
-}
+  autoScroll.value = !autoScroll.value;
+};
 
 const sendTestLog = (level) => {
   if (!appStore.socket || !appStore.socket.connected) {
-    return
+    return;
   }
 
   const messages = {
-    info: '这是一条测试信息日志',
-    warning: '这是一条测试警告日志',
-    error: '这是一条测试错误日志',
-    debug: '这是一条测试调试日志'
-  }
+    info: "这是一条测试信息日志",
+    warning: "这是一条测试警告日志",
+    error: "这是一条测试错误日志",
+    debug: "这是一条测试调试日志",
+  };
 
-  appStore.socket.emit('log_manual', {
-    log_type: selectedLogType.value === 'all' ? 'system' : selectedLogType.value,
+  appStore.socket.emit("log_manual", {
+    log_type:
+      selectedLogType.value === "all" ? "system" : selectedLogType.value,
     level: level,
     message: `${messages[level]} - ${new Date().toLocaleTimeString()}`,
-    source: 'log-viewer-test'
-  })
+    source: "log-viewer-test",
+  });
 
-  testDialOpen.value = false
-}
+  testDialOpen.value = false;
+};
 
 const exportLogs = () => {
   if (!filteredLogs.value.length) {
-    return
+    return;
   }
 
   // 准备导出数据
-  const exportData = filteredLogs.value.map(log => ({
+  const exportData = filteredLogs.value.map((log) => ({
     时间: log.timestamp,
     级别: log.level,
-    来源: log.source || '',
-    消息: log.message
-  }))
+    来源: log.source || "",
+    消息: log.message,
+  }));
 
   // 转换为CSV格式
-  const headers = ['时间', '级别', '来源', '消息']
+  const headers = ["时间", "级别", "来源", "消息"];
   const csvContent = [
-    headers.join(','),
-    ...exportData.map(row => 
-      headers.map(header => `"${row[header] || ''}"`).join(',')
-    )
-  ].join('\n')
+    headers.join(","),
+    ...exportData.map((row) =>
+      headers.map((header) => `"${row[header] || ""}"`).join(","),
+    ),
+  ].join("\n");
 
   // 下载文件
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-  const link = document.createElement('a')
-  const url = URL.createObjectURL(blob)
-  link.setAttribute('href', url)
-  link.setAttribute('download', `logs_${selectedLogType.value}_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.csv`)
-  link.style.visibility = 'hidden'
-  document.body.appendChild(link)
-  link.click()
-  document.body.removeChild(link)
-}
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const link = document.createElement("a");
+  const url = URL.createObjectURL(blob);
+  link.setAttribute("href", url);
+  link.setAttribute(
+    "download",
+    `logs_${selectedLogType.value}_${new Date().toISOString().slice(0, 19).replace(/:/g, "-")}.csv`,
+  );
+  link.style.visibility = "hidden";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+};
 
 // 监听连接状态
 const setupConnectionMonitor = () => {
   if (appStore.socket) {
-    connectionStatus.value = appStore.socket.connected
+    connectionStatus.value = appStore.socket.connected;
 
-    appStore.socket.on('connect', () => {
-      connectionStatus.value = true
-    })
+    appStore.socket.on("connect", () => {
+      connectionStatus.value = true;
+    });
 
-    appStore.socket.on('disconnect', () => {
-      connectionStatus.value = false
-    })
+    appStore.socket.on("disconnect", () => {
+      connectionStatus.value = false;
+    });
   }
-}
+};
 
 // 生命周期
 onMounted(() => {
-  setupConnectionMonitor()
-})
+  setupConnectionMonitor();
+});
 
 onUnmounted(() => {
   // 清理监听器
   if (appStore.socket) {
-    appStore.socket.off('connect')
-    appStore.socket.off('disconnect')
+    appStore.socket.off("connect");
+    appStore.socket.off("disconnect");
   }
-})
+});
 </script>
 
 <style scoped>

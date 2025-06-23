@@ -210,6 +210,44 @@ def find_backend_port():
 
     return 8080  # 默认端口
 
+
+def check_port_and_suggest_action(port):
+    """检查端口状态并提供建议"""
+    try:
+        from utils.port_manager import PortManager
+
+        manager = PortManager(verbose=True)
+
+        if manager.is_port_available(port):
+            print(f"✅ 端口{port}可用")
+            return True
+        else:
+            print(f"⚠️  端口{port}被占用")
+
+            # 获取占用进程信息
+            pids = manager.get_process_using_port(port)
+            if pids:
+                print(f"🔍 占用进程: {', '.join(pids)}")
+                print("💡 建议操作:")
+                print(f"   1. 运行 'python3 app.py' 让系统自动处理端口冲突")
+                print(f"   2. 手动停止进程: kill {' '.join(pids)}")
+                print(f"   3. 使用其他端口")
+
+            return False
+
+    except ImportError:
+        # 如果端口管理模块不可用，使用简单检查
+        import socket
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.bind(('localhost', port))
+                print(f"✅ 端口{port}可用")
+                return True
+        except OSError:
+            print(f"⚠️  端口{port}被占用")
+            print("💡 建议运行 'python3 app.py' 让系统自动处理端口冲突")
+            return False
+
 def start_frontend_dev():
     """启动Vue前端开发服务器"""
     print("🚀 启动Vue前端开发服务器...")
@@ -373,6 +411,11 @@ def main():
         version_text = "重构版" if use_refactored else "原版（即将弃用）"
         print("\n" + "=" * 50)
         print(f"🚀 启动单端口模式（{version_text}）...")
+        print("🔧 正在检查端口状态...")
+
+        # 检查端口状态
+        check_port_and_suggest_action(8080)
+
         print("📱 访问地址: http://localhost:8080")
         print("✨ 前后端整合在同一端口")
         if use_refactored:

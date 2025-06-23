@@ -1,7 +1,5 @@
 <template>
-  <v-card
-    class="log-viewer d-flex flex-column app-card"
-  >
+  <v-card class="log-viewer d-flex flex-column app-card">
     <!-- 统一设计头部 -->
     <v-card-title class="d-flex align-center p-lg">
       <v-avatar color="primary" size="32" class="me-3">
@@ -18,14 +16,9 @@
           :prepend-icon="connectionStatus ? 'mdi-wifi' : 'mdi-wifi-off'"
           class="app-chip"
         >
-          {{ connectionStatus ? '已连接' : '未连接' }}
+          {{ connectionStatus ? "已连接" : "未连接" }}
         </v-chip>
-        <v-chip
-          color="info"
-          size="small"
-          variant="outlined"
-          class="app-chip"
-        >
+        <v-chip color="info" size="small" variant="outlined" class="app-chip">
           {{ logs.length }} 条
         </v-chip>
       </div>
@@ -39,7 +32,7 @@
           :prepend-icon="props.autoScroll ? 'mdi-arrow-down-bold' : 'mdi-pause'"
           class="app-chip"
         >
-          {{ props.autoScroll ? '自动滚动' : '已暂停' }}
+          {{ props.autoScroll ? "自动滚动" : "已暂停" }}
         </v-chip>
 
         <!-- 操作按钮组 -->
@@ -64,15 +57,17 @@
       </div>
     </v-card-title>
 
-
-
     <!-- 日志内容区域 -->
     <v-card-text class="pa-0 flex-grow-1 d-flex flex-column">
       <div class="log-container flex-grow-1" ref="logContainer">
         <div v-if="logs.length === 0" class="empty-state">
-          <v-icon icon="mdi-information-outline" size="32" class="mb-2 text-medium-emphasis" />
+          <v-icon
+            icon="mdi-information-outline"
+            size="32"
+            class="mb-2 text-medium-emphasis"
+          />
           <div class="text-body-2 text-medium-emphasis">
-            {{ connectionStatus ? '暂无日志信息' : '等待连接...' }}
+            {{ connectionStatus ? "暂无日志信息" : "等待连接..." }}
           </div>
         </div>
 
@@ -81,7 +76,9 @@
           :key="`${log.timestamp}-${index}`"
           :class="['log-entry', `log-${log.level.toLowerCase()}`]"
         >
-          <span class="log-timestamp">[{{ formatTimestamp(log.timestamp) }}]</span>
+          <span class="log-timestamp"
+            >[{{ formatTimestamp(log.timestamp) }}]</span
+          >
           <span :class="['log-level', `log-level-${log.level.toLowerCase()}`]">
             [{{ log.level.toUpperCase() }}]
           </span>
@@ -107,342 +104,351 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
-import { useAppStore } from '@/stores/app'
-import { useDisplay } from 'vuetify'
+import { ref, computed, onMounted, onUnmounted, nextTick, watch } from "vue";
+import { useAppStore } from "@/stores/app";
+import { useDisplay } from "vuetify";
 
 // Props
 const props = defineProps({
   height: {
     type: [String, Number],
-    default: 'auto'
+    default: "auto",
   },
   minHeight: {
     type: [String, Number],
-    default: '300px'
+    default: "300px",
   },
   maxHeight: {
     type: [String, Number],
-    default: '600px'
+    default: "600px",
   },
   maxLogs: {
     type: Number,
-    default: 500
+    default: 500,
   },
   autoScroll: {
     type: Boolean,
-    default: true
+    default: true,
   },
   compact: {
     type: Boolean,
-    default: false
-  }
-})
+    default: false,
+  },
+});
 
 // Composables
-const appStore = useAppStore()
-const display = useDisplay()
+const appStore = useAppStore();
+const display = useDisplay();
 
 // 响应式数据
-const logs = ref([])
-const displayedLogs = ref([])
-const connectionStatus = ref(false)
-const loadingMore = ref(false)
-const displayLimit = ref(100)
+const logs = ref([]);
+const displayedLogs = ref([]);
+const connectionStatus = ref(false);
+const loadingMore = ref(false);
+const displayLimit = ref(100);
 
 // 日志容器引用
-const logContainer = ref(null)
+const logContainer = ref(null);
 
 // 计算属性
 const hasMoreLogs = computed(() => {
-  return logs.value.length > displayedLogs.value.length
-})
+  return logs.value.length > displayedLogs.value.length;
+});
 
 // 响应式高度计算
 const containerHeight = computed(() => {
-  if (props.height === 'auto') {
+  if (props.height === "auto") {
     // 自动高度模式：根据屏幕尺寸和内容调整
     if (display.xs.value) {
-      return '250px'
+      return "250px";
     } else if (display.sm.value) {
-      return '300px'
+      return "300px";
     } else if (display.md.value) {
-      return '350px'
+      return "350px";
     } else {
-      return '400px'
+      return "400px";
     }
   }
 
   // 固定高度模式
-  return typeof props.height === 'number' ? `${props.height}px` : props.height
-})
+  return typeof props.height === "number" ? `${props.height}px` : props.height;
+});
 
 // 响应式显示限制
 const responsiveDisplayLimit = computed(() => {
-  if (display.xs.value) return 50
-  if (display.sm.value) return 75
-  return 100
-})
+  if (display.xs.value) return 50;
+  if (display.sm.value) return 75;
+  return 100;
+});
 
 // 本地存储键名
-const STORAGE_KEY = 'realtime_logs_cache'
+const STORAGE_KEY = "realtime_logs_cache";
 
 // 方法
 const initializeLogViewer = () => {
   // 加载缓存的日志
-  loadCachedLogs()
+  loadCachedLogs();
 
   // 设置WebSocket监听
-  setupWebSocketListeners()
+  setupWebSocketListeners();
 
   // 订阅日志更新
-  subscribeToLogs()
-}
+  subscribeToLogs();
+};
 
 const loadCachedLogs = () => {
   try {
-    const cached = localStorage.getItem(STORAGE_KEY)
+    const cached = localStorage.getItem(STORAGE_KEY);
     if (cached) {
-      const parsedLogs = JSON.parse(cached)
-      logs.value = parsedLogs.slice(-props.maxLogs) // 只保留最新的日志
-      updateDisplayedLogs()
-      console.log(`📝 加载缓存日志: ${logs.value.length} 条`)
+      const parsedLogs = JSON.parse(cached);
+      logs.value = parsedLogs.slice(-props.maxLogs); // 只保留最新的日志
+      updateDisplayedLogs();
+      console.log(`📝 加载缓存日志: ${logs.value.length} 条`);
     }
   } catch (error) {
-    console.error('加载缓存日志失败:', error)
-    logs.value = []
+    console.error("加载缓存日志失败:", error);
+    logs.value = [];
   }
-}
+};
 
 const saveCachedLogs = () => {
   try {
     // 只缓存最新的日志，避免存储过大
-    const logsToCache = logs.value.slice(-props.maxLogs)
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(logsToCache))
+    const logsToCache = logs.value.slice(-props.maxLogs);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(logsToCache));
   } catch (error) {
-    console.error('保存日志缓存失败:', error)
+    console.error("保存日志缓存失败:", error);
     // 如果存储失败，可能是因为存储空间不足，清理旧数据
     try {
-      localStorage.removeItem(STORAGE_KEY)
-      const reducedLogs = logs.value.slice(-Math.floor(props.maxLogs / 2))
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(reducedLogs))
+      localStorage.removeItem(STORAGE_KEY);
+      const reducedLogs = logs.value.slice(-Math.floor(props.maxLogs / 2));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(reducedLogs));
     } catch (retryError) {
-      console.error('重试保存日志缓存也失败:', retryError)
+      console.error("重试保存日志缓存也失败:", retryError);
     }
   }
-}
+};
 
 const setupWebSocketListeners = () => {
   if (!appStore.socket) {
-    console.warn('WebSocket未初始化')
-    return
+    console.warn("WebSocket未初始化");
+    return;
   }
 
   // 连接状态监听
-  appStore.socket.on('connect', () => {
-    connectionStatus.value = true
-    console.log('✅ 日志查看器WebSocket已连接')
-    subscribeToLogs()
-  })
+  appStore.socket.on("connect", () => {
+    connectionStatus.value = true;
+    console.log("✅ 日志查看器WebSocket已连接");
+    subscribeToLogs();
+  });
 
-  appStore.socket.on('disconnect', () => {
-    connectionStatus.value = false
-    console.log('❌ 日志查看器WebSocket已断开')
-  })
+  appStore.socket.on("disconnect", () => {
+    connectionStatus.value = false;
+    console.log("❌ 日志查看器WebSocket已断开");
+  });
 
   // 日志更新监听
-  appStore.socket.on('log_update', (data) => {
-    console.log('📡 日志查看器收到log_update:', data)
-    handleLogUpdate(data)
-  })
+  appStore.socket.on("log_update", (data) => {
+    console.log("📡 日志查看器收到log_update:", data);
+    handleLogUpdate(data);
+  });
 
   // 日志历史监听
-  appStore.socket.on('log_history', (data) => {
-    console.log('📝 日志查看器收到log_history:', data)
-    handleLogHistory(data)
-  })
+  appStore.socket.on("log_history", (data) => {
+    console.log("📝 日志查看器收到log_history:", data);
+    handleLogHistory(data);
+  });
 
   // 日志清空监听
-  appStore.socket.on('log_cleared', (data) => {
-    if (data.log_type === selectedLogType.value || data.log_type === 'all') {
-      logs.value = []
-      applyFilters()
-      saveCachedLogs()
+  appStore.socket.on("log_cleared", (data) => {
+    if (data.log_type === "all") {
+      logs.value = [];
+      updateDisplayedLogs();
+      saveCachedLogs();
     }
-  })
+  });
 
   // 设置初始连接状态
-  connectionStatus.value = appStore.socket.connected
-}
+  connectionStatus.value = appStore.socket.connected;
+};
 
 const subscribeToLogs = () => {
   if (!appStore.socket || !appStore.socket.connected) {
-    return
+    return;
   }
 
   // 订阅所有日志更新
-  appStore.socket.emit('log_subscribe', {
-    log_type: 'all'
-  })
+  appStore.socket.emit("log_subscribe", {
+    log_type: "all",
+  });
 
-  console.log('📡 订阅所有日志类型')
-}
+  console.log("📡 订阅所有日志类型");
+};
 
 const handleLogUpdate = (data) => {
   if (data.entry) {
-    console.log(`📡 收到实时日志: [${data.entry.level}] ${data.entry.message.substring(0, 50)}...`)
-    addLogEntry(data.entry)
+    console.log(
+      `📡 收到实时日志: [${data.entry.level}] ${data.entry.message.substring(0, 50)}...`,
+    );
+    addLogEntry(data.entry);
   }
-}
+};
 
 const handleLogHistory = (data) => {
   if (data.logs && Array.isArray(data.logs)) {
     // 合并历史日志，避免重复
-    const existingTimestamps = new Set(logs.value.map(log => `${log.timestamp}-${log.message}`))
-    const newLogs = data.logs.filter(log =>
-      !existingTimestamps.has(`${log.timestamp}-${log.message}`)
-    )
+    const existingTimestamps = new Set(
+      logs.value.map((log) => `${log.timestamp}-${log.message}`),
+    );
+    const newLogs = data.logs.filter(
+      (log) => !existingTimestamps.has(`${log.timestamp}-${log.message}`),
+    );
 
-    logs.value = [...newLogs, ...logs.value].slice(-props.maxLogs)
-    updateDisplayedLogs()
-    saveCachedLogs()
+    logs.value = [...newLogs, ...logs.value].slice(-props.maxLogs);
+    updateDisplayedLogs();
+    saveCachedLogs();
 
-    console.log(`📝 接收历史日志: ${newLogs.length} 条新日志`)
+    console.log(`📝 接收历史日志: ${newLogs.length} 条新日志`);
   }
-}
+};
 
 const addLogEntry = (entry) => {
   // 检查是否已存在相同的日志条目
-  const exists = logs.value.some(log =>
-    log.timestamp === entry.timestamp &&
-    log.message === entry.message &&
-    log.level === entry.level
-  )
+  const exists = logs.value.some(
+    (log) =>
+      log.timestamp === entry.timestamp &&
+      log.message === entry.message &&
+      log.level === entry.level,
+  );
 
   if (!exists) {
-    logs.value.push(entry)
+    logs.value.push(entry);
 
     // 限制日志数量
     if (logs.value.length > props.maxLogs) {
-      logs.value = logs.value.slice(-props.maxLogs)
+      logs.value = logs.value.slice(-props.maxLogs);
     }
 
-    updateDisplayedLogs()
-    saveCachedLogs()
+    updateDisplayedLogs();
+    saveCachedLogs();
 
     // 自动滚动到底部
     if (props.autoScroll) {
       // 使用双重 nextTick 确保 DOM 完全更新
       nextTick(() => {
         nextTick(() => {
-          scrollToBottom()
-        })
-      })
+          scrollToBottom();
+        });
+      });
     }
   }
-}
+};
 
 const updateDisplayedLogs = () => {
   // 简化版本：直接显示所有日志，不进行过滤
-  displayedLogs.value = logs.value.slice(0, displayLimit.value)
-}
+  displayedLogs.value = logs.value.slice(0, displayLimit.value);
+};
 
 const loadMoreLogs = () => {
-  loadingMore.value = true
+  loadingMore.value = true;
 
   setTimeout(() => {
-    const currentLength = displayedLogs.value.length
-    const nextBatch = logs.value.slice(currentLength, currentLength + 50)
-    displayedLogs.value = [...displayedLogs.value, ...nextBatch]
-    loadingMore.value = false
-  }, 300)
-}
+    const currentLength = displayedLogs.value.length;
+    const nextBatch = logs.value.slice(currentLength, currentLength + 50);
+    displayedLogs.value = [...displayedLogs.value, ...nextBatch];
+    loadingMore.value = false;
+  }, 300);
+};
 
 const refreshLogs = () => {
   if (!appStore.socket || !appStore.socket.connected) {
-    return
+    return;
   }
 
   // 请求最新日志
-  appStore.socket.emit('log_request', {
-    log_type: 'all',
-    limit: 100
-  })
-}
+  appStore.socket.emit("log_request", {
+    log_type: "all",
+    limit: 100,
+  });
+};
 
 const clearLogs = () => {
-  logs.value = []
-  displayedLogs.value = []
-  saveCachedLogs()
+  logs.value = [];
+  displayedLogs.value = [];
+  saveCachedLogs();
 
   // 通知服务器清空缓存
   if (appStore.socket && appStore.socket.connected) {
-    appStore.socket.emit('log_clear', {
-      log_type: 'all'
-    })
+    appStore.socket.emit("log_clear", {
+      log_type: "all",
+    });
   }
-}
+};
 
 const scrollToBottom = () => {
   if (logContainer.value) {
     // 使用 requestAnimationFrame 确保 DOM 更新完成后再滚动
     requestAnimationFrame(() => {
-      logContainer.value.scrollTop = logContainer.value.scrollHeight
-    })
+      logContainer.value.scrollTop = logContainer.value.scrollHeight;
+    });
   }
-}
-
-
+};
 
 const formatTimestamp = (timestamp) => {
-  if (!timestamp) return ''
+  if (!timestamp) return "";
   try {
     // 如果是完整的时间戳，只显示时分秒
-    const date = new Date(timestamp)
-    return date.toLocaleTimeString('zh-CN', {
+    const date = new Date(timestamp);
+    return date.toLocaleTimeString("zh-CN", {
       hour12: false,
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
-    })
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
   } catch {
-    return timestamp
+    return timestamp;
   }
-}
+};
 
 const initializeResponsiveSettings = () => {
   // 根据屏幕尺寸调整初始设置
-  displayLimit.value = responsiveDisplayLimit.value
-}
+  displayLimit.value = responsiveDisplayLimit.value;
+};
 
 // 监听器
-watch(() => appStore.connectionStatus, (newStatus) => {
-  connectionStatus.value = newStatus
-  if (newStatus) {
-    subscribeToLogs()
-  }
-})
+watch(
+  () => appStore.connectionStatus,
+  (newStatus) => {
+    connectionStatus.value = newStatus;
+    if (newStatus) {
+      subscribeToLogs();
+    }
+  },
+);
 
 // 监听器
-watch(() => display.xs.value, (isXs) => {
-  // 屏幕尺寸变化时调整设置
-  if (isXs) {
-    displayLimit.value = 50
-  } else {
-    displayLimit.value = responsiveDisplayLimit.value
-  }
-})
+watch(
+  () => display.xs.value,
+  (isXs) => {
+    // 屏幕尺寸变化时调整设置
+    if (isXs) {
+      displayLimit.value = 50;
+    } else {
+      displayLimit.value = responsiveDisplayLimit.value;
+    }
+  },
+);
 
 // 生命周期
 onMounted(() => {
-  initializeResponsiveSettings()
-  initializeLogViewer()
-})
+  initializeResponsiveSettings();
+  initializeLogViewer();
+});
 
 onUnmounted(() => {
   // 保存最终状态
-  saveCachedLogs()
-})
+  saveCachedLogs();
+});
 </script>
 
 <style scoped>
@@ -455,7 +461,9 @@ onUnmounted(() => {
 .log-container {
   height: v-bind(containerHeight);
   overflow-y: auto;
-  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-family:
+    "JetBrains Mono", "Fira Code", "Consolas", "Monaco", "Courier New",
+    monospace;
   font-size: 13px;
   line-height: 1.4;
   padding: 12px 16px;
@@ -474,8 +482,11 @@ onUnmounted(() => {
   align-items: flex-start;
   gap: 8px;
   border-radius: 4px;
-  transition: background-color var(--md3-motion-duration-short) var(--md3-motion-easing-standard),
-              border-left-color var(--md3-motion-duration-short) var(--md3-motion-easing-standard);
+  transition:
+    background-color var(--md3-motion-duration-short)
+      var(--md3-motion-easing-standard),
+    border-left-color var(--md3-motion-duration-short)
+      var(--md3-motion-easing-standard);
   border-left: 2px solid transparent;
   background-color: rgb(var(--v-theme-surface-container-low));
   color: rgb(var(--v-theme-on-surface));

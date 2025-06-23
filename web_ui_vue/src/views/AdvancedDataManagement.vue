@@ -13,6 +13,17 @@
       </v-col>
       <v-col cols="auto">
         <v-btn
+          color="warning"
+          prepend-icon="mdi-heart-plus"
+          @click="batchAddToWatchList"
+          :disabled="!selectedItems.length"
+          variant="filled"
+          class="me-2"
+          :loading="addingToWatchList"
+        >
+          添加到关注列表 ({{ selectedItems.length }})
+        </v-btn>
+        <v-btn
           color="error"
           prepend-icon="mdi-delete-multiple"
           @click="batchDelete"
@@ -243,7 +254,7 @@
       </v-card-title>
 
       <!-- 表格容器，支持水平滚动 -->
-      <div class="table-container" style="overflow-x: auto; width: 100%;">
+      <div class="table-container" style="overflow-x: auto; width: 100%">
         <!-- 🔧 修复：使用 v-data-table-server 实现服务器端分页 -->
         <v-data-table-server
           v-model="selectedItems"
@@ -261,166 +272,172 @@
           :style="{ minWidth: '1200px' }"
           @update:options="onTableOptionsUpdate"
         >
-        <!-- 项目名称列 -->
-        <template #item.project_name="{ item }">
-          <div class="d-flex align-center">
-            <div>
-              <div class="font-weight-medium">{{ item.project_name || '未知项目' }}</div>
-              <div class="text-caption text-medium-emphasis">
-                ID: {{ item.project_id || '-' }}
+          <!-- 项目名称列 -->
+          <template #item.project_name="{ item }">
+            <div class="d-flex align-center">
+              <div>
+                <div class="font-weight-medium">
+                  {{ item.project_name || "未知项目" }}
+                </div>
+                <div class="text-caption text-medium-emphasis">
+                  ID: {{ item.project_id || "-" }}
+                </div>
               </div>
             </div>
-          </div>
-        </template>
+          </template>
 
-        <!-- 分类列 -->
-        <template #item.category="{ item }">
-          <v-chip
-            size="small"
-            variant="tonal"
-            :color="getCategoryColor(item.category)"
-          >
-            {{ getCategoryDisplayName(item.category) }}
-          </v-chip>
-        </template>
-
-        <!-- 作者列 -->
-        <template #item.author_name="{ item }">
-          <div class="d-flex align-center">
-            <v-avatar size="20" class="me-2">
-              <v-img
-                v-if="isValidImageUrl(item.author_image)"
-                :src="item.author_image"
-                :alt="item.author_name"
-              >
-                <template v-slot:error>
-                  <v-icon icon="mdi-account" size="12" />
-                </template>
-              </v-img>
-              <v-icon v-else icon="mdi-account" size="12" />
-            </v-avatar>
-            <span class="text-truncate text-caption">{{ item.author_name || '未知' }}</span>
-          </div>
-        </template>
-
-        <!-- 金额列 -->
-        <template #item.raised_amount="{ item }">
-          <div class="text-right">
-            <div class="font-weight-bold text-success text-caption">
-              ¥{{ formatNumber(item.raised_amount || 0) }}
-            </div>
-            <div class="text-caption text-medium-emphasis">
-              {{ formatPercentage(item.completion_rate) }}
-            </div>
-          </div>
-        </template>
-
-        <!-- 支持者数列 -->
-        <template #item.backer_count="{ item }">
-          <div class="text-center">
-            <v-chip size="x-small" color="primary" variant="tonal">
-              {{ formatNumber(item.backer_count || 0) }}
+          <!-- 分类列 -->
+          <template #item.category="{ item }">
+            <v-chip
+              size="small"
+              variant="tonal"
+              :color="getCategoryColor(item.category)"
+            >
+              {{ getCategoryDisplayName(item.category) }}
             </v-chip>
-          </div>
-        </template>
+          </template>
 
-        <!-- 评论数列 -->
-        <template #item.comment_count="{ item }">
-          <div class="text-center">
-            <v-chip size="x-small" color="info" variant="tonal">
-              {{ formatNumber(item.comment_count || 0) }}
-            </v-chip>
-          </div>
-        </template>
-
-        <!-- 看好数列 -->
-        <template #item.supporter_count="{ item }">
-          <div class="text-center">
-            <v-chip size="x-small" color="success" variant="tonal">
-              {{ formatNumber(item.supporter_count || 0) }}
-            </v-chip>
-          </div>
-        </template>
-
-        <!-- 状态列 -->
-        <template #item.project_status="{ item }">
-          <v-chip
-            size="small"
-            :color="getStatusColor(item.project_status)"
-            variant="tonal"
-          >
-            {{ item.project_status || '未知' }}
-          </v-chip>
-        </template>
-
-        <!-- 操作列 -->
-        <template #item.actions="{ item }">
-          <div class="d-flex ga-1">
-            <v-btn
-              icon="mdi-eye"
-              size="small"
-              variant="text"
-              @click="viewProject(item)"
-              title="快速查看"
-            />
-            <v-btn
-              icon="mdi-open-in-new"
-              size="small"
-              variant="text"
-              color="info"
-              @click="goToProjectDetail(item.project_id)"
-              title="详情页面"
-            />
-            <v-btn
-              icon="mdi-pencil"
-              size="small"
-              variant="text"
-              color="primary"
-              @click="editProject(item)"
-              title="编辑"
-            />
-            <v-btn
-              icon="mdi-delete"
-              size="small"
-              variant="text"
-              color="error"
-              @click="deleteProject(item)"
-              title="删除"
-            />
-          </div>
-        </template>
-
-        <!-- 无数据状态 -->
-        <template #no-data>
-          <div class="text-center pa-8">
-            <v-icon size="64" class="mb-4 text-medium-emphasis">mdi-database-search</v-icon>
-            <div class="text-h6 text-medium-emphasis">没有找到匹配的数据</div>
-            <div class="text-subtitle-2 text-medium-emphasis mb-4">
-              当前搜索条件没有匹配的项目，请尝试以下操作：
+          <!-- 作者列 -->
+          <template #item.author_name="{ item }">
+            <div class="d-flex align-center">
+              <v-avatar size="20" class="me-2">
+                <v-img
+                  v-if="isValidImageUrl(item.author_image)"
+                  :src="item.author_image"
+                  :alt="item.author_name"
+                >
+                  <template v-slot:error>
+                    <v-icon icon="mdi-account" size="12" />
+                  </template>
+                </v-img>
+                <v-icon v-else icon="mdi-account" size="12" />
+              </v-avatar>
+              <span class="text-truncate text-caption">{{
+                item.author_name || "未知"
+              }}</span>
             </div>
-            <div class="d-flex justify-center ga-2 mb-4">
+          </template>
+
+          <!-- 金额列 -->
+          <template #item.raised_amount="{ item }">
+            <div class="text-right">
+              <div class="font-weight-bold text-success text-caption">
+                ¥{{ formatNumber(item.raised_amount || 0) }}
+              </div>
+              <div class="text-caption text-medium-emphasis">
+                {{ formatPercentage(item.completion_rate) }}
+              </div>
+            </div>
+          </template>
+
+          <!-- 支持者数列 -->
+          <template #item.backer_count="{ item }">
+            <div class="text-center">
+              <v-chip size="x-small" color="primary" variant="tonal">
+                {{ formatNumber(item.backer_count || 0) }}
+              </v-chip>
+            </div>
+          </template>
+
+          <!-- 评论数列 -->
+          <template #item.comment_count="{ item }">
+            <div class="text-center">
+              <v-chip size="x-small" color="info" variant="tonal">
+                {{ formatNumber(item.comment_count || 0) }}
+              </v-chip>
+            </div>
+          </template>
+
+          <!-- 看好数列 -->
+          <template #item.supporter_count="{ item }">
+            <div class="text-center">
+              <v-chip size="x-small" color="success" variant="tonal">
+                {{ formatNumber(item.supporter_count || 0) }}
+              </v-chip>
+            </div>
+          </template>
+
+          <!-- 状态列 -->
+          <template #item.project_status="{ item }">
+            <v-chip
+              size="small"
+              :color="getStatusColor(item.project_status)"
+              variant="tonal"
+            >
+              {{ item.project_status || "未知" }}
+            </v-chip>
+          </template>
+
+          <!-- 操作列 -->
+          <template #item.actions="{ item }">
+            <div class="d-flex ga-1">
               <v-btn
-                color="primary"
-                prepend-icon="mdi-refresh"
-                @click="resetSearch"
-                variant="outlined"
-              >
-                重置搜索
-              </v-btn>
+                icon="mdi-eye"
+                size="small"
+                variant="text"
+                @click="viewProject(item)"
+                title="快速查看"
+              />
               <v-btn
+                icon="mdi-open-in-new"
+                size="small"
+                variant="text"
                 color="info"
-                prepend-icon="mdi-view-list"
-                @click="showAllProjects"
-                variant="tonal"
+                @click="goToProjectDetail(item.project_id)"
+                title="详情页面"
+              />
+              <v-btn
+                icon="mdi-pencil"
+                size="small"
+                variant="text"
+                color="primary"
+                @click="editProject(item)"
+                title="编辑"
+              />
+              <v-btn
+                icon="mdi-delete"
+                size="small"
+                variant="text"
+                color="error"
+                @click="deleteProject(item)"
+                title="删除"
+              />
+            </div>
+          </template>
+
+          <!-- 无数据状态 -->
+          <template #no-data>
+            <div class="text-center pa-8">
+              <v-icon size="64" class="mb-4 text-medium-emphasis"
+                >mdi-database-search</v-icon
               >
-                显示全部
-              </v-btn>
+              <div class="text-h6 text-medium-emphasis">没有找到匹配的数据</div>
+              <div class="text-subtitle-2 text-medium-emphasis mb-4">
+                当前搜索条件没有匹配的项目，请尝试以下操作：
+              </div>
+              <div class="d-flex justify-center ga-2 mb-4">
+                <v-btn
+                  color="primary"
+                  prepend-icon="mdi-refresh"
+                  @click="resetSearch"
+                  variant="outlined"
+                >
+                  重置搜索
+                </v-btn>
+                <v-btn
+                  color="info"
+                  prepend-icon="mdi-view-list"
+                  @click="showAllProjects"
+                  variant="tonal"
+                >
+                  显示全部
+                </v-btn>
+              </div>
+              <div class="text-caption text-medium-emphasis">
+                或者调整上方的搜索条件后重新搜索
+              </div>
             </div>
-            <div class="text-caption text-medium-emphasis">
-              或者调整上方的搜索条件后重新搜索
-            </div>
-          </div>
-        </template>
+          </template>
         </v-data-table-server>
       </div>
 
@@ -444,7 +461,7 @@
               :max="totalPages"
               variant="outlined"
               density="compact"
-              style="width: 80px;"
+              style="width: 80px"
               @keyup.enter="goToPage(currentPageInput)"
               @blur="goToPage(currentPageInput)"
             />
@@ -481,7 +498,7 @@
             @click="showDetailDialog = false"
           />
         </v-card-title>
-        
+
         <v-card-text v-if="selectedProject">
           <v-row>
             <v-col cols="12" md="6">
@@ -524,7 +541,9 @@
           <v-row>
             <v-col cols="12" md="4">
               <v-text-field
-                :model-value="'¥' + formatNumber(selectedProject.raised_amount || 0)"
+                :model-value="
+                  '¥' + formatNumber(selectedProject.raised_amount || 0)
+                "
                 label="已筹金额"
                 readonly
                 variant="outlined"
@@ -532,7 +551,9 @@
             </v-col>
             <v-col cols="12" md="4">
               <v-text-field
-                :model-value="'¥' + formatNumber(selectedProject.target_amount || 0)"
+                :model-value="
+                  '¥' + formatNumber(selectedProject.target_amount || 0)
+                "
                 label="目标金额"
                 readonly
                 variant="outlined"
@@ -567,13 +588,14 @@
             </v-col>
             <v-col cols="12" md="3">
               <v-text-field
-                :model-value="formatNumber(selectedProject.supporter_count || 0)"
+                :model-value="
+                  formatNumber(selectedProject.supporter_count || 0)
+                "
                 label="看好数"
                 readonly
                 variant="outlined"
               />
             </v-col>
-
           </v-row>
 
           <v-row>
@@ -622,7 +644,7 @@
             @click="showEditDialog = false"
           />
         </v-card-title>
-        
+
         <v-card-text v-if="editingProject">
           <v-form ref="editForm" v-model="editFormValid">
             <v-row>
@@ -630,7 +652,7 @@
                 <v-text-field
                   v-model="editingProject.project_name"
                   label="项目名称"
-                  :rules="[v => !!v || '项目名称不能为空']"
+                  :rules="[(v) => !!v || '项目名称不能为空']"
                   variant="outlined"
                 />
               </v-col>
@@ -714,19 +736,13 @@
                   variant="outlined"
                 />
               </v-col>
-
             </v-row>
           </v-form>
         </v-card-text>
-        
+
         <v-card-actions>
           <v-spacer />
-          <v-btn
-            color="grey"
-            @click="showEditDialog = false"
-          >
-            取消
-          </v-btn>
+          <v-btn color="grey" @click="showEditDialog = false"> 取消 </v-btn>
           <v-btn
             color="primary"
             @click="saveProject"
@@ -738,605 +754,688 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
-
-
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, computed, watch, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
-import axios from 'axios'
-import FilterBuilder from '@/components/FilterBuilder.vue'
-import FilterHistory from '@/components/FilterHistory.vue'
-import { isValidImageUrl } from '@/utils/imageUtils'
+import { ref, reactive, computed, watch, onMounted } from "vue";
+import { useRouter } from "vue-router";
+import axios from "axios";
+import FilterBuilder from "@/components/FilterBuilder.vue";
+import FilterHistory from "@/components/FilterHistory.vue";
+import { isValidImageUrl } from "@/utils/imageUtils";
 
-const router = useRouter()
+const router = useRouter();
 
 // 响应式数据
-const loading = ref(false)
-const saving = ref(false)
-const exporting = ref(false)
-const projects = ref([])
-const selectedItems = ref([])
-const totalCount = ref(0)
-const editFormValid = ref(false)
-const addFormValid = ref(false)
+const loading = ref(false);
+const saving = ref(false);
+const exporting = ref(false);
+const addingToWatchList = ref(false);
+const projects = ref([]);
+const selectedItems = ref([]);
+const totalCount = ref(0);
+const editFormValid = ref(false);
+const addFormValid = ref(false);
 
 // 对话框状态
-const showDetailDialog = ref(false)
-const showEditDialog = ref(false)
+const showDetailDialog = ref(false);
+const showEditDialog = ref(false);
 
 // 选中的项目
-const selectedProject = ref(null)
-const editingProject = ref(null)
+const selectedProject = ref(null);
+const editingProject = ref(null);
 
 // 筛选模式
-const filterMode = ref('simple')
-const currentAdvancedFilters = ref({ filters: [], sort: [] })
+const filterMode = ref("simple");
+const currentAdvancedFilters = ref({ filters: [], sort: [] });
 
 // 筛选历史引用
-const filterHistoryRef = ref(null)
+const filterHistoryRef = ref(null);
 
 // 搜索条件
 const searchConditions = reactive({
-  project_id: '',
-  project_name: '',
-  author_name: '',
-  category: '',
+  project_id: "",
+  project_name: "",
+  author_name: "",
+  category: "",
   min_amount: null,
   max_amount: null,
-  status: '',
-  date_from: '',
-  date_to: ''
-})
+  status: "",
+  date_from: "",
+  date_to: "",
+});
 
 // 分页
 const pagination = reactive({
   page: 1,
-  itemsPerPage: 25
-})
+  itemsPerPage: 25,
+});
 
 // 分页相关的响应式数据
-const currentPageInput = ref(1)
+const currentPageInput = ref(1);
 
 // 计算属性
 const totalPages = computed(() => {
-  return Math.ceil(totalCount.value / pagination.itemsPerPage)
-})
+  return Math.ceil(totalCount.value / pagination.itemsPerPage);
+});
 
 // 监听分页变化，同步输入框
-watch(() => pagination.page, (newPage) => {
-  currentPageInput.value = newPage
-})
+watch(
+  () => pagination.page,
+  (newPage) => {
+    currentPageInput.value = newPage;
+  },
+);
 
 // 🔧 动态选项数据
-const categoryOptions = ref([])
-const statusOptions = ref([])
-const authorOptions = ref([])
+const categoryOptions = ref([]);
+const statusOptions = ref([]);
+const authorOptions = ref([]);
 
 // 加载动态筛选选项
 const loadFilterOptions = async () => {
   try {
-    const response = await axios.get('/api/database/filter_options')
+    const response = await axios.get("/api/database/filter_options");
     if (response.data.success) {
-      const options = response.data.filter_options
+      const options = response.data.filter_options;
 
       // 更新分类选项
-      categoryOptions.value = options.categories.map(cat => ({
-        value: cat.value === 'all' ? '' : cat.value,
-        title: cat.label + (cat.count ? ` (${cat.count})` : '')
-      })).filter(cat => cat.value !== '') // 移除"全部"选项
+      categoryOptions.value = options.categories
+        .map((cat) => ({
+          value: cat.value === "all" ? "" : cat.value,
+          title: cat.label + (cat.count ? ` (${cat.count})` : ""),
+        }))
+        .filter((cat) => cat.value !== ""); // 移除"全部"选项
 
       // 更新状态选项
-      statusOptions.value = options.statuses.map(status => ({
-        value: status.value === 'all' ? '' : status.value,
-        title: status.label + (status.count ? ` (${status.count})` : '')
-      })).filter(status => status.value !== '') // 移除"全部"选项
+      statusOptions.value = options.statuses
+        .map((status) => ({
+          value: status.value === "all" ? "" : status.value,
+          title: status.label + (status.count ? ` (${status.count})` : ""),
+        }))
+        .filter((status) => status.value !== ""); // 移除"全部"选项
 
       // 更新作者选项（限制前50个）
-      authorOptions.value = options.authors.slice(0, 50).map(author => ({
-        value: author.value === 'all' ? '' : author.value,
-        title: author.label + (author.count ? ` (${author.count})` : '')
-      })).filter(author => author.value !== '') // 移除"全部"选项
+      authorOptions.value = options.authors
+        .slice(0, 50)
+        .map((author) => ({
+          value: author.value === "all" ? "" : author.value,
+          title: author.label + (author.count ? ` (${author.count})` : ""),
+        }))
+        .filter((author) => author.value !== ""); // 移除"全部"选项
 
-      console.log('✅ 动态筛选选项加载成功:', {
+      console.log("✅ 动态筛选选项加载成功:", {
         categories: categoryOptions.value.length,
         statuses: statusOptions.value.length,
-        authors: authorOptions.value.length
-      })
+        authors: authorOptions.value.length,
+      });
     }
   } catch (error) {
-    console.error('❌ 加载筛选选项失败:', error)
+    console.error("❌ 加载筛选选项失败:", error);
     // 使用默认选项作为后备
     categoryOptions.value = [
-      { value: 'games', title: '游戏' },
-      { value: 'publishing', title: '出版' },
-      { value: 'tablegames', title: '桌游' },
-      { value: 'toys', title: '潮玩模型' },
-      { value: 'cards', title: '卡牌' },
-      { value: 'technology', title: '科技' },
-      { value: 'others', title: '其他' }
-    ]
+      { value: "games", title: "游戏" },
+      { value: "publishing", title: "出版" },
+      { value: "tablegames", title: "桌游" },
+      { value: "toys", title: "潮玩模型" },
+      { value: "cards", title: "卡牌" },
+      { value: "technology", title: "科技" },
+      { value: "others", title: "其他" },
+    ];
 
     statusOptions.value = [
-      { value: '创意', title: '创意' },
-      { value: '预热', title: '预热' },
-      { value: '众筹中', title: '众筹中' },
-      { value: '众筹成功', title: '众筹成功' },
-      { value: '项目终止', title: '项目终止' },
-      { value: '众筹失败', title: '众筹失败' },
-      { value: '众筹取消', title: '众筹取消' },
-      { value: '发起者众筹取消', title: '发起者众筹取消' },
-      { value: '未知情况', title: '未知情况' }
-    ]
+      { value: "创意", title: "创意" },
+      { value: "预热", title: "预热" },
+      { value: "众筹中", title: "众筹中" },
+      { value: "众筹成功", title: "众筹成功" },
+      { value: "项目终止", title: "项目终止" },
+      { value: "众筹失败", title: "众筹失败" },
+      { value: "众筹取消", title: "众筹取消" },
+      { value: "发起者众筹取消", title: "发起者众筹取消" },
+      { value: "未知情况", title: "未知情况" },
+    ];
   }
-}
+};
 
 // 表格列定义
 const headers = [
-  { title: '项目名称', key: 'project_name', sortable: true, width: '200px' },
-  { title: '分类', key: 'category', sortable: true, width: '100px' },
-  { title: '作者', key: 'author_name', sortable: true, width: '120px' },
-  { title: '筹款金额', key: 'raised_amount', sortable: true, width: '120px' },
-  { title: '支持者', key: 'backer_count', sortable: true, width: '80px' },
-  { title: '评论', key: 'comment_count', sortable: true, width: '70px' },
-  { title: '看好数', key: 'supporter_count', sortable: true, width: '70px' },
-  { title: '状态', key: 'project_status', sortable: true, width: '90px' },
-  { title: '操作', key: 'actions', sortable: false, width: '120px' }
-]
+  { title: "项目名称", key: "project_name", sortable: true, width: "200px" },
+  { title: "分类", key: "category", sortable: true, width: "100px" },
+  { title: "作者", key: "author_name", sortable: true, width: "120px" },
+  { title: "筹款金额", key: "raised_amount", sortable: true, width: "120px" },
+  { title: "支持者", key: "backer_count", sortable: true, width: "80px" },
+  { title: "评论", key: "comment_count", sortable: true, width: "70px" },
+  { title: "看好数", key: "supporter_count", sortable: true, width: "70px" },
+  { title: "状态", key: "project_status", sortable: true, width: "90px" },
+  { title: "操作", key: "actions", sortable: false, width: "120px" },
+];
 
 // 方法
 const searchProjects = async () => {
   try {
-    loading.value = true
-    console.log('🔍 开始搜索项目...')
+    loading.value = true;
+    console.log("🔍 开始搜索项目...");
 
     // 清理空值
-    const conditions = {}
-    Object.keys(searchConditions).forEach(key => {
-      if (searchConditions[key] !== '' && searchConditions[key] !== null) {
-        conditions[key] = searchConditions[key]
+    const conditions = {};
+    Object.keys(searchConditions).forEach((key) => {
+      if (searchConditions[key] !== "" && searchConditions[key] !== null) {
+        conditions[key] = searchConditions[key];
       }
-    })
+    });
 
-    const offset = (pagination.page - 1) * pagination.itemsPerPage
-    const hasSearchConditions = Object.keys(conditions).length > 0
+    const offset = (pagination.page - 1) * pagination.itemsPerPage;
+    const hasSearchConditions = Object.keys(conditions).length > 0;
 
-    console.log('📊 搜索参数:', {
+    console.log("📊 搜索参数:", {
       conditions,
       limit: pagination.itemsPerPage,
       offset,
-      hasSearchConditions
-    })
+      hasSearchConditions,
+    });
 
-    const response = await axios.post('/api/database/projects/search', {
+    const response = await axios.post("/api/database/projects/search", {
       conditions,
       limit: pagination.itemsPerPage,
-      offset
-    })
+      offset,
+    });
 
-    console.log('📡 API响应:', response.data)
+    console.log("📡 API响应:", response.data);
 
     if (response.data.success) {
-      projects.value = response.data.projects || []
-      totalCount.value = response.data.total_count || 0
-      console.log('✅ 搜索成功:', projects.value.length, '条，总计:', totalCount.value)
+      projects.value = response.data.projects || [];
+      totalCount.value = response.data.total_count || 0;
+      console.log(
+        "✅ 搜索成功:",
+        projects.value.length,
+        "条，总计:",
+        totalCount.value,
+      );
 
       // 只有在有搜索条件时才添加到筛选历史
       if (hasSearchConditions && filterHistoryRef.value) {
         filterHistoryRef.value.addToHistory({
-          type: 'simple',
+          type: "simple",
           searchConditions: { ...searchConditions },
           conditions,
-          resultCount: totalCount.value
-        })
+          resultCount: totalCount.value,
+        });
       }
     } else {
-      console.error('❌ 搜索失败:', response.data.message)
-      projects.value = []
-      totalCount.value = 0
+      console.error("❌ 搜索失败:", response.data.message);
+      projects.value = [];
+      totalCount.value = 0;
       // 可以在这里添加用户提示
     }
   } catch (error) {
-    console.error('❌ 搜索请求失败:', error)
-    projects.value = []
-    totalCount.value = 0
+    console.error("❌ 搜索请求失败:", error);
+    projects.value = [];
+    totalCount.value = 0;
     // 可以在这里添加用户提示
   } finally {
-    loading.value = false
+    loading.value = false;
   }
-}
+};
 
 const resetSearch = () => {
-  console.log('🔄 重置搜索条件...')
+  console.log("🔄 重置搜索条件...");
 
   // 清空所有搜索条件
-  Object.keys(searchConditions).forEach(key => {
-    searchConditions[key] = ''
-  })
+  Object.keys(searchConditions).forEach((key) => {
+    searchConditions[key] = "";
+  });
 
   // 重置分页
-  pagination.page = 1
+  pagination.page = 1;
 
   // 重置高级筛选
-  if (filterMode.value === 'advanced') {
+  if (filterMode.value === "advanced") {
     currentAdvancedFilters.value = {
       filters: [],
-      sort: []
-    }
+      sort: [],
+    };
   }
 
   // 重新搜索（这时会显示所有数据）
-  if (filterMode.value === 'simple') {
-    searchProjects()
+  if (filterMode.value === "simple") {
+    searchProjects();
   } else {
-    searchProjectsAdvanced()
+    searchProjectsAdvanced();
   }
-}
+};
 
 const showAllProjects = () => {
-  console.log('📋 显示所有项目...')
+  console.log("📋 显示所有项目...");
 
   // 确保所有搜索条件都为空
-  Object.keys(searchConditions).forEach(key => {
-    searchConditions[key] = ''
-  })
+  Object.keys(searchConditions).forEach((key) => {
+    searchConditions[key] = "";
+  });
 
   // 重置分页到第一页
-  pagination.page = 1
+  pagination.page = 1;
 
   // 重置高级筛选
   currentAdvancedFilters.value = {
     filters: [],
-    sort: []
-  }
+    sort: [],
+  };
 
   // 切换到简单搜索模式并执行搜索
-  filterMode.value = 'simple'
-  searchProjects()
-}
+  filterMode.value = "simple";
+  searchProjects();
+};
 
 // 🔧 修复：使用服务器端分页的统一事件处理
 const onTableOptionsUpdate = (options) => {
-  console.log('📊 表格选项更新:', options, '当前模式:', filterMode.value)
+  console.log("📊 表格选项更新:", options, "当前模式:", filterMode.value);
 
   // 更新分页状态
-  pagination.page = options.page
-  pagination.itemsPerPage = options.itemsPerPage
+  pagination.page = options.page;
+  pagination.itemsPerPage = options.itemsPerPage;
 
   // 根据当前模式调用相应的搜索方法
-  if (filterMode.value === 'simple') {
-    searchProjects()
+  if (filterMode.value === "simple") {
+    searchProjects();
   } else {
-    searchProjectsAdvanced()
+    searchProjectsAdvanced();
   }
-}
+};
 
 // 分页处理函数
 const goToPage = (page) => {
-  if (page < 1 || page > totalPages.value) return
+  if (page < 1 || page > totalPages.value) return;
 
-  pagination.page = page
-  currentPageInput.value = page
+  pagination.page = page;
+  currentPageInput.value = page;
 
   // 根据当前模式调用相应的搜索方法
-  if (filterMode.value === 'simple') {
-    searchProjects()
+  if (filterMode.value === "simple") {
+    searchProjects();
   } else {
-    searchProjectsAdvanced()
+    searchProjectsAdvanced();
   }
-}
+};
 
 const onFilterModeChange = () => {
   // 切换筛选模式时重置搜索
-  resetSearch()
-}
+  resetSearch();
+};
 
 const onAdvancedFilters = (filterConfig) => {
-  currentAdvancedFilters.value = filterConfig
-  searchProjectsAdvanced()
-}
+  currentAdvancedFilters.value = filterConfig;
+  searchProjectsAdvanced();
+};
 
 const onFiltersChanged = (filterConfig) => {
-  currentAdvancedFilters.value = filterConfig
-}
+  currentAdvancedFilters.value = filterConfig;
+};
 
 const searchProjectsAdvanced = async () => {
   try {
-    loading.value = true
-    console.log('🔍 开始高级搜索...')
+    loading.value = true;
+    console.log("🔍 开始高级搜索...");
 
     // 转换高级筛选条件为后端格式
-    const conditions = convertAdvancedFilters(currentAdvancedFilters.value.filters)
-    const sortConfig = currentAdvancedFilters.value.sort
+    const conditions = convertAdvancedFilters(
+      currentAdvancedFilters.value.filters,
+    );
+    const sortConfig = currentAdvancedFilters.value.sort;
 
-    const offset = (pagination.page - 1) * pagination.itemsPerPage
-    console.log('📊 高级搜索参数:', { conditions, sort: sortConfig, limit: pagination.itemsPerPage, offset })
-
-    const response = await axios.post('/api/database/projects/search', {
+    const offset = (pagination.page - 1) * pagination.itemsPerPage;
+    console.log("📊 高级搜索参数:", {
       conditions,
       sort: sortConfig,
       limit: pagination.itemsPerPage,
-      offset
-    })
+      offset,
+    });
 
-    console.log('📡 高级搜索API响应:', response.data)
+    const response = await axios.post("/api/database/projects/search", {
+      conditions,
+      sort: sortConfig,
+      limit: pagination.itemsPerPage,
+      offset,
+    });
+
+    console.log("📡 高级搜索API响应:", response.data);
 
     if (response.data.success) {
-      projects.value = response.data.projects || []
-      totalCount.value = response.data.total_count || 0
-      console.log('✅ 高级搜索成功:', projects.value.length, '条，总计:', totalCount.value)
+      projects.value = response.data.projects || [];
+      totalCount.value = response.data.total_count || 0;
+      console.log(
+        "✅ 高级搜索成功:",
+        projects.value.length,
+        "条，总计:",
+        totalCount.value,
+      );
 
       // 添加到筛选历史
-      if (currentAdvancedFilters.value.filters.length > 0 && filterHistoryRef.value) {
+      if (
+        currentAdvancedFilters.value.filters.length > 0 &&
+        filterHistoryRef.value
+      ) {
         filterHistoryRef.value.addToHistory({
-          type: 'advanced',
+          type: "advanced",
           filters: [...currentAdvancedFilters.value.filters],
           sort: [...currentAdvancedFilters.value.sort],
           conditions,
-          resultCount: totalCount.value
-        })
+          resultCount: totalCount.value,
+        });
       }
     } else {
-      console.error('❌ 高级搜索失败:', response.data.message)
-      projects.value = []
-      totalCount.value = 0
+      console.error("❌ 高级搜索失败:", response.data.message);
+      projects.value = [];
+      totalCount.value = 0;
     }
   } catch (error) {
-    console.error('❌ 高级搜索请求失败:', error)
-    projects.value = []
-    totalCount.value = 0
+    console.error("❌ 高级搜索请求失败:", error);
+    projects.value = [];
+    totalCount.value = 0;
   } finally {
-    loading.value = false
+    loading.value = false;
   }
-}
+};
 
 const convertAdvancedFilters = (filters) => {
-  const conditions = {}
+  const conditions = {};
 
-  filters.forEach(filter => {
-    if (!filter.field || !filter.operator || filter.value === '') return
+  filters.forEach((filter) => {
+    if (!filter.field || !filter.operator || filter.value === "") return;
 
-    const field = filter.field
-    const operator = filter.operator
-    const value = filter.value
+    const field = filter.field;
+    const operator = filter.operator;
+    const value = filter.value;
 
     switch (operator) {
-      case 'contains':
-        conditions[field] = value
-        break
-      case 'equals':
-        conditions[field] = value
-        break
-      case 'greater_than':
-        conditions[`${field}_min`] = value
-        break
-      case 'greater_equal':
-        conditions[`${field}_min`] = value
-        break
-      case 'less_than':
-        conditions[`${field}_max`] = value
-        break
-      case 'less_equal':
-        conditions[`${field}_max`] = value
-        break
-      case 'not_equals':
-        conditions[`${field}_not`] = value
-        break
+      case "contains":
+        conditions[field] = value;
+        break;
+      case "equals":
+        conditions[field] = value;
+        break;
+      case "greater_than":
+        conditions[`${field}_min`] = value;
+        break;
+      case "greater_equal":
+        conditions[`${field}_min`] = value;
+        break;
+      case "less_than":
+        conditions[`${field}_max`] = value;
+        break;
+      case "less_equal":
+        conditions[`${field}_max`] = value;
+        break;
+      case "not_equals":
+        conditions[`${field}_not`] = value;
+        break;
       // 可以根据需要添加更多操作符
     }
-  })
+  });
 
-  return conditions
-}
+  return conditions;
+};
 
 const onApplyHistoryFilter = (historyItem) => {
-  if (historyItem.type === 'simple') {
+  if (historyItem.type === "simple") {
     // 应用简单搜索历史
-    filterMode.value = 'simple'
-    Object.assign(searchConditions, historyItem.searchConditions || {})
-    searchProjects()
+    filterMode.value = "simple";
+    Object.assign(searchConditions, historyItem.searchConditions || {});
+    searchProjects();
   } else {
     // 应用高级筛选历史
-    filterMode.value = 'advanced'
+    filterMode.value = "advanced";
     currentAdvancedFilters.value = {
       filters: historyItem.filters || [],
-      sort: historyItem.sort || []
-    }
-    searchProjectsAdvanced()
+      sort: historyItem.sort || [],
+    };
+    searchProjectsAdvanced();
   }
-}
+};
 
 const viewProject = (project) => {
-  selectedProject.value = project
-  showDetailDialog.value = true
-}
+  selectedProject.value = project;
+  showDetailDialog.value = true;
+};
 
 const goToProjectDetail = (projectId) => {
   if (projectId) {
-    router.push(`/projects/${projectId}`)
+    router.push(`/projects/${projectId}`);
   }
-}
+};
 
 const editProject = (project) => {
-  editingProject.value = { ...project }
-  showEditDialog.value = true
-}
+  editingProject.value = { ...project };
+  showEditDialog.value = true;
+};
 
 const saveProject = async () => {
-  if (!editingProject.value) return
+  if (!editingProject.value) return;
 
   try {
-    saving.value = true
+    saving.value = true;
 
-    const response = await axios.put(`/api/database/project/${editingProject.value.id}`, editingProject.value)
+    const response = await axios.put(
+      `/api/database/project/${editingProject.value.id}`,
+      editingProject.value,
+    );
 
     if (response.data.success) {
-      showEditDialog.value = false
-      await searchProjects()
-      alert('项目更新成功')
+      showEditDialog.value = false;
+      await searchProjects();
+      alert("项目更新成功");
     } else {
-      alert(`更新失败: ${response.data.message}`)
+      alert(`更新失败: ${response.data.message}`);
     }
   } catch (error) {
-    console.error('保存失败:', error)
-    alert('保存失败')
+    console.error("保存失败:", error);
+    alert("保存失败");
   } finally {
-    saving.value = false
+    saving.value = false;
   }
-}
+};
 
 const deleteProject = async (project) => {
   if (!confirm(`确定要删除项目"${project.project_name}"吗？此操作不可恢复。`)) {
-    return
+    return;
   }
 
   try {
-    const response = await axios.delete(`/api/database/project/${project.id}`)
+    const response = await axios.delete(`/api/database/project/${project.id}`);
 
     if (response.data.success) {
-      await searchProjects()
-      alert('项目删除成功')
+      await searchProjects();
+      alert("项目删除成功");
     } else {
-      alert(`删除失败: ${response.data.message}`)
+      alert(`删除失败: ${response.data.message}`);
     }
   } catch (error) {
-    console.error('删除失败:', error)
-    alert('删除失败')
+    console.error("删除失败:", error);
+    alert("删除失败");
   }
-}
+};
 
 const batchDelete = async () => {
-  if (!selectedItems.value.length) return
+  if (!selectedItems.value.length) return;
 
-  if (!confirm(`确定要删除选中的 ${selectedItems.value.length} 个项目吗？此操作不可恢复。`)) {
-    return
+  if (
+    !confirm(
+      `确定要删除选中的 ${selectedItems.value.length} 个项目吗？此操作不可恢复。`,
+    )
+  ) {
+    return;
   }
 
   try {
-    const response = await axios.delete('/api/database/projects/batch', {
-      data: { project_ids: selectedItems.value }
-    })
+    const response = await axios.delete("/api/database/projects/batch", {
+      data: { project_ids: selectedItems.value },
+    });
 
     if (response.data.success) {
-      selectedItems.value = []
-      await searchProjects()
-      alert(`成功删除 ${response.data.deleted_count} 个项目`)
+      selectedItems.value = [];
+      await searchProjects();
+      alert(`成功删除 ${response.data.deleted_count} 个项目`);
     } else {
-      alert(`批量删除失败: ${response.data.message}`)
+      alert(`批量删除失败: ${response.data.message}`);
     }
   } catch (error) {
-    console.error('批量删除失败:', error)
-    alert('批量删除失败')
+    console.error("批量删除失败:", error);
+    alert("批量删除失败");
   }
-}
+};
+
+const batchAddToWatchList = async () => {
+  if (!selectedItems.value.length) return;
+
+  try {
+    addingToWatchList.value = true;
+
+    // 构造项目数据
+    const projectsToAdd = selectedItems.value.map((id) => {
+      const project = projects.value.find((p) => p.id === id);
+      return {
+        project_id: project.project_id,
+        project_name: project.project_name,
+        project_url: project.project_url,
+        category: project.category,
+        author_name: project.author_name,
+      };
+    });
+
+    const response = await axios.post("/api/watch/batch_add", {
+      projects: projectsToAdd,
+    });
+
+    if (response.data.success) {
+      const result = response.data.result;
+      selectedItems.value = [];
+
+      // 显示详细结果
+      let message = `批量添加完成：新增 ${result.added} 个`;
+      if (result.skipped > 0) {
+        message += `，跳过 ${result.skipped} 个（已存在）`;
+      }
+      if (result.errors > 0) {
+        message += `，错误 ${result.errors} 个`;
+      }
+
+      alert(message);
+    } else {
+      alert(`批量添加失败: ${response.data.message}`);
+    }
+  } catch (error) {
+    console.error("批量添加到关注列表失败:", error);
+    alert("批量添加失败，请稍后重试");
+  } finally {
+    addingToWatchList.value = false;
+  }
+};
 
 const exportData = async () => {
   try {
-    exporting.value = true
-    const url = '/api/database/export'
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `modian_data_${new Date().toISOString().split('T')[0]}.xlsx`
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
+    exporting.value = true;
+    const url = "/api/database/export";
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `modian_data_${new Date().toISOString().split("T")[0]}.xlsx`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   } catch (error) {
-    console.error('导出失败:', error)
+    console.error("导出失败:", error);
   } finally {
-    exporting.value = false
+    exporting.value = false;
   }
-}
+};
 
 // 工具方法
 const formatNumber = (num) => {
-  if (!num) return '0'
-  return new Intl.NumberFormat('zh-CN').format(num)
-}
+  if (!num) return "0";
+  return new Intl.NumberFormat("zh-CN").format(num);
+};
 
 const getCategoryColor = (category) => {
   const colors = {
-    'games': 'purple',
-    'publishing': 'blue',
-    'tablegames': 'green',
-    'toys': 'orange',
-    'cards': 'red',
-    'technology': 'cyan',
-    '桌游': 'green',
-    '游戏': 'purple',
-    '出版': 'blue',
-    '潮玩模型': 'orange',
-    '卡牌': 'red',
-    '科技': 'cyan'
-  }
-  return colors[category] || 'grey'
-}
+    games: "purple",
+    publishing: "blue",
+    tablegames: "green",
+    toys: "orange",
+    cards: "red",
+    technology: "cyan",
+    桌游: "green",
+    游戏: "purple",
+    出版: "blue",
+    潮玩模型: "orange",
+    卡牌: "red",
+    科技: "cyan",
+  };
+  return colors[category] || "grey";
+};
 
 const getCategoryDisplayName = (category) => {
   const names = {
-    'games': '游戏',
-    'publishing': '出版',
-    'tablegames': '桌游',
-    'toys': '潮玩模型',
-    'cards': '卡牌',
-    'technology': '科技',
-    'others': '其他',
-    '桌游': '桌游',
-    '游戏': '游戏',
-    '出版': '出版',
-    '潮玩模型': '潮玩模型',
-    '卡牌': '卡牌',
-    '科技': '科技'
-  }
-  return names[category] || category || '未知分类'
-}
+    games: "游戏",
+    publishing: "出版",
+    tablegames: "桌游",
+    toys: "潮玩模型",
+    cards: "卡牌",
+    technology: "科技",
+    others: "其他",
+    桌游: "桌游",
+    游戏: "游戏",
+    出版: "出版",
+    潮玩模型: "潮玩模型",
+    卡牌: "卡牌",
+    科技: "科技",
+  };
+  return names[category] || category || "未知分类";
+};
 
 const getStatusColor = (status) => {
   const colors = {
     // 实际网页状态
-    '创意': 'info',
-    '预热': 'warning',
-    '众筹中': 'success',
-    '众筹成功': 'primary',
-    '项目终止': 'error',
-    '众筹失败': 'error',
-    '众筹取消': 'warning',
-    '未知情况': 'default',
+    创意: "info",
+    预热: "warning",
+    众筹中: "success",
+    众筹成功: "primary",
+    项目终止: "error",
+    众筹失败: "error",
+    众筹取消: "warning",
+    未知情况: "default",
     // 向后兼容旧状态
-    'active': 'success',
-    'completed': 'primary',
-    'failed': 'error',
-    'cancelled': 'warning',
-    '进行中': 'success',
-    '已完成': 'primary',
-    '失败': 'error',
-    '已取消': 'warning'
-  }
-  return colors[status] || 'grey'
-}
+    active: "success",
+    completed: "primary",
+    failed: "error",
+    cancelled: "warning",
+    进行中: "success",
+    已完成: "primary",
+    失败: "error",
+    已取消: "warning",
+  };
+  return colors[status] || "grey";
+};
 
 const formatPercentage = (rate) => {
-  if (!rate) return '0%'
-  return `${parseFloat(rate).toFixed(1)}%`
-}
+  if (!rate) return "0%";
+  return `${parseFloat(rate).toFixed(1)}%`;
+};
 
 const getStatusText = (status) => {
   const texts = {
-    'active': '进行中',
-    'completed': '已完成',
-    'failed': '失败',
-    'cancelled': '已取消'
-  }
-  return texts[status] || status || '未知'
-}
+    active: "进行中",
+    completed: "已完成",
+    failed: "失败",
+    cancelled: "已取消",
+  };
+  return texts[status] || status || "未知";
+};
 
 // 生命周期
 onMounted(async () => {
   // 先加载筛选选项，再搜索项目
-  await loadFilterOptions()
-  searchProjects()
-})
+  await loadFilterOptions();
+  searchProjects();
+});
 </script>
 
 <style scoped>
