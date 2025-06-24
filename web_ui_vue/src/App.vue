@@ -316,11 +316,6 @@ const menuItems = [
     icon: "mdi-cog",
     to: "/settings",
   },
-  {
-    title: "组件测试",
-    icon: "mdi-test-tube",
-    to: "/test",
-  },
 ];
 
 // 计算属性

@@ -118,42 +118,7 @@ const router = createRouter({
         keepAlive: true,
       },
     },
-    {
-      path: "/test",
-      name: "component-test",
-      component: lazyLoad("ComponentTest"),
-      meta: {
-        title: "组件测试",
-        icon: "mdi-test-tube",
-        requiresAuth: false,
-        keepAlive: false,
-        hidden: true, // 在生产环境中隐藏
-      },
-    },
-    {
-      path: "/button-test",
-      name: "button-test",
-      component: lazyLoad("ButtonTest"),
-      meta: {
-        title: "按钮测试",
-        icon: "mdi-button-cursor",
-        requiresAuth: false,
-        keepAlive: false,
-        hidden: true,
-      },
-    },
-    {
-      path: "/md3-test",
-      name: "md3-test",
-      component: lazyLoad("MD3Test"),
-      meta: {
-        title: "MD3设计测试",
-        icon: "mdi-palette",
-        requiresAuth: false,
-        keepAlive: false,
-        hidden: true,
-      },
-    },
+
     {
       path: "/:pathMatch(.*)*",
       name: "not-found",

@@ -9,24 +9,7 @@
               实时日志监控
               <v-spacer />
 
-              <!-- 连接状态指示器 -->
-              <v-chip
-                :color="connectionStatus ? 'success' : 'error'"
-                size="small"
-                class="me-3"
-              >
-                <v-icon
-                  :icon="connectionStatus ? 'mdi-wifi' : 'mdi-wifi-off'"
-                  size="small"
-                  class="me-1"
-                />
-                {{ connectionStatus ? "实时连接" : "连接断开" }}
-              </v-chip>
 
-              <!-- 日志统计 -->
-              <v-chip color="primary" size="small" class="me-2">
-                总计: {{ totalLogs }}
-              </v-chip>
             </v-card-title>
 
             <v-card-text>

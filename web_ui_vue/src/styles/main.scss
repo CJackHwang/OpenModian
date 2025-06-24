@@ -532,3 +532,31 @@ body {
   -webkit-box-shadow: none !important;
   -moz-box-shadow: none !important;
 }
+
+// 确保布局容器有正确的层级和定位
+.v-container,
+.v-row,
+.v-col {
+  position: relative;
+  z-index: auto;
+}
+
+// 防止组件重叠的布局修复
+.v-card {
+  position: relative;
+  z-index: 1;
+  // 确保卡片内容不会溢出
+  overflow: visible;
+}
+
+.v-list {
+  // 确保列表有正确的层级
+  position: relative;
+  z-index: auto;
+}
+
+.v-expansion-panels {
+  // 确保展开面板有正确的层级
+  position: relative;
+  z-index: 2;
+}

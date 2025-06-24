@@ -386,7 +386,7 @@
     </v-row>
 
     <!-- 关注列表管理 -->
-    <v-row class="mt-6">
+    <v-row>
       <v-col cols="12">
         <WatchListManager
           ref="watchListManagerRef"

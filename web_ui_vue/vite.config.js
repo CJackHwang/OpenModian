@@ -29,22 +29,7 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url))
     }
   },
-  server: {
-    port: 3001,  // 避免与Docker等服务冲突
-    host: true,
-    proxy: {
-      '/api': {
-        target: process.env.BACKEND_URL || 'http://localhost:8080',
-        changeOrigin: true,
-        secure: false
-      },
-      '/socket.io': {
-        target: process.env.BACKEND_URL || 'http://localhost:8080',
-        changeOrigin: true,
-        ws: true
-      }
-    }
-  },
+
   build: {
     outDir: 'dist',
     assetsDir: 'assets',
@@ -70,7 +55,7 @@ export default defineConfig({
     reportCompressedSize: false
   },
 
-  // 优化依赖预构建 - 最终解决方案
+  // 优化依赖预构建 - 禁用动态构建，实现一次性完整构建
   optimizeDeps: {
     include: [
       'vue',
@@ -88,14 +73,31 @@ export default defineConfig({
       'vue-chartjs'
     ],
     exclude: ['@vueuse/core'],
-    // 强制在启动时预构建所有依赖
-    force: true,
-    // 扫描所有可能的入口点，确保所有组件都被发现
-    entries: [
-      'src/main.js',
-      'src/App.vue',
-      'src/views/**/*.vue',
-      'src/components/**/*.vue'
-    ]
+    // 禁用强制重新构建，避免页面导航时重载
+    force: false,
+    // 移除动态扫描，避免触发重新构建
+    entries: ['src/main.js']
+  },
+
+  // 开发服务器优化 - 减少热重载触发
+  server: {
+    port: 3001,
+    host: true,
+    // 禁用文件系统监听优化，减少不必要的重载
+    watch: {
+      ignored: ['**/node_modules/**', '**/dist/**']
+    },
+    proxy: {
+      '/api': {
+        target: process.env.BACKEND_URL || 'http://localhost:8080',
+        changeOrigin: true,
+        secure: false
+      },
+      '/socket.io': {
+        target: process.env.BACKEND_URL || 'http://localhost:8080',
+        changeOrigin: true,
+        ws: true
+      }
+    }
   }
 })

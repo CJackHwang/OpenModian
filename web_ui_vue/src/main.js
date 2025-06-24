@@ -13,11 +13,6 @@ import { aliases, mdi } from "vuetify/iconsets/mdi";
 import "dayjs/plugin/utc";
 import "dayjs/plugin/timezone";
 
-// 注意：Vite会在首次遇到新组件时重新优化依赖
-// 这是正常行为，可以通过以下方式减少影响：
-// 1. 使用 npm run dev:clean 清理缓存重新开始
-// 2. 等待所有页面都访问过一次后，后续就不会再重新加载了
-
 // Custom styles
 import "./styles/main.scss";
 
@@ -32,49 +27,49 @@ const vuetify = createVuetify({
       light: {
         dark: false,
         colors: {
-          // MD3 主色调系统 - 优化浅色模式对比度
-          primary: "#1976D2", // 标准蓝色，确保良好对比度
-          "primary-container": "#BBDEFB", // 更明显的容器色
+          // MD3 主色调系统 - 基于蓝色的现代配色
+          primary: "#0061A4", // 深蓝色，更符合MD3标准
+          "primary-container": "#D1E4FF", // 浅蓝容器
           "on-primary": "#FFFFFF",
-          "on-primary-container": "#0D47A1", // 深色文字确保对比度
+          "on-primary-container": "#001D36", // 深色文字
 
-          // MD3 次要色系统 - 优化浅色模式对比度
-          secondary: "#546E7A", // 灰蓝色
-          "secondary-container": "#CFD8DC", // 更明显的容器色
+          // MD3 次要色系统 - 蓝灰色调
+          secondary: "#535F70", // 蓝灰色
+          "secondary-container": "#D7E3F7", // 浅蓝灰容器
           "on-secondary": "#FFFFFF",
-          "on-secondary-container": "#263238", // 深色文字
+          "on-secondary-container": "#101C2B", // 深色文字
 
-          // MD3 第三色系统 - 优化浅色模式
-          tertiary: "#00796B", // 青色
-          "tertiary-container": "#B2DFDB", // 更明显的容器色
+          // MD3 第三色系统 - 青蓝色调
+          tertiary: "#6B5B95", // 紫蓝色
+          "tertiary-container": "#E8DEF8", // 浅紫容器
           "on-tertiary": "#FFFFFF",
-          "on-tertiary-container": "#004D40", // 深色文字
+          "on-tertiary-container": "#21005D", // 深紫文字
 
-          // MD3 语义色系统 - 优化对比度
-          error: "#D32F2F", // 红色
-          "error-container": "#FFCDD2", // 更明显的容器色
+          // MD3 语义色系统 - 标准配色
+          error: "#BA1A1A", // MD3标准错误色
+          "error-container": "#FFDAD6", // 浅红容器
           "on-error": "#FFFFFF",
-          "on-error-container": "#B71C1C", // 深色文字
+          "on-error-container": "#410002", // 深红文字
 
-          warning: "#F57C00", // 橙色
-          "warning-container": "#FFE0B2", // 更明显的容器色
+          warning: "#8C5000", // MD3标准警告色
+          "warning-container": "#FFDBCC", // 浅橙容器
           "on-warning": "#FFFFFF",
-          "on-warning-container": "#E65100", // 深色文字
+          "on-warning-container": "#2D1600", // 深橙文字
 
-          success: "#388E3C", // 绿色
-          "success-container": "#C8E6C9", // 更明显的容器色
+          success: "#006E1C", // MD3标准成功色
+          "success-container": "#A6F584", // 浅绿容器
           "on-success": "#FFFFFF",
-          "on-success-container": "#1B5E20", // 深色文字
+          "on-success-container": "#002204", // 深绿文字
 
-          info: "#1976D2", // 与primary保持一致
-          "info-container": "#BBDEFB",
+          info: "#0061A4", // 与primary保持一致
+          "info-container": "#D1E4FF",
           "on-info": "#FFFFFF",
-          "on-info-container": "#0D47A1",
+          "on-info-container": "#001D36",
 
-          // MD3 表面色系统 - 优化层次和对比度
-          surface: "#FEFBFF", // MD3标准表面色
-          "surface-dim": "#DDD8E1",
-          "surface-bright": "#FEFBFF",
+          // MD3 表面色系统 - 标准中性色调
+          surface: "#FEF7FF", // MD3标准表面色
+          "surface-dim": "#DED8E1",
+          "surface-bright": "#FEF7FF",
           "surface-container-lowest": "#FFFFFF",
           "surface-container-low": "#F7F2FA",
           "surface-container": "#F1ECF4",
@@ -84,18 +79,18 @@ const vuetify = createVuetify({
           "on-surface": "#1D1B20",
           "on-surface-variant": "#49454F",
 
-          // MD3 轮廓色系统 - 优化边框可见性
+          // MD3 轮廓色系统 - 标准边框色
           outline: "#79747E", // MD3标准轮廓色
           "outline-variant": "#CAC4D0", // MD3标准轮廓变体色
 
           // MD3 背景色系统
-          background: "#FEFBFF",
+          background: "#FEF7FF",
           "on-background": "#1D1B20",
 
           // MD3 反色表面
           "inverse-surface": "#322F35",
           "inverse-on-surface": "#F5EFF7",
-          "inverse-primary": "#A8C8EC",
+          "inverse-primary": "#9ECAFF",
         },
         variables: {
           // MD3 文字透明度变量 - 符合官方规范
@@ -117,70 +112,70 @@ const vuetify = createVuetify({
       dark: {
         dark: true,
         colors: {
-          // MD3 主色调系统 - 深色模式（保持用户满意的配色）
-          primary: "#90CAF9", // 更亮的蓝色，适合深色背景
-          "primary-container": "#1565C0", // 深蓝容器
-          "on-primary": "#0D47A1", // 深色文字在浅色primary上
-          "on-primary-container": "#E3F2FD", // 浅色文字在深色容器上
+          // MD3 主色调系统 - 深色模式，与浅色模式对应
+          primary: "#9ECAFF", // 亮蓝色，与浅色模式的深蓝对应
+          "primary-container": "#004A77", // 深蓝容器
+          "on-primary": "#001D36", // 深色文字
+          "on-primary-container": "#D1E4FF", // 浅色文字
 
           // MD3 次要色系统 - 深色模式
-          secondary: "#B0BEC5", // 浅灰蓝
-          "secondary-container": "#455A64", // 深灰蓝容器
-          "on-secondary": "#263238", // 深色文字在浅色secondary上
-          "on-secondary-container": "#ECEFF1", // 浅色文字在深色容器上
+          secondary: "#BFC8DA", // 浅蓝灰
+          "secondary-container": "#3C4858", // 深蓝灰容器
+          "on-secondary": "#101C2B", // 深色文字
+          "on-secondary-container": "#D7E3F7", // 浅色文字
 
           // MD3 第三色系统 - 深色模式
-          tertiary: "#80CBC4", // 浅青色
-          "tertiary-container": "#00695C", // 深青容器
-          "on-tertiary": "#004D40", // 深色文字在浅色tertiary上
-          "on-tertiary-container": "#E0F2F1", // 浅色文字在深色容器上
+          tertiary: "#D0BCFF", // 浅紫色
+          "tertiary-container": "#4F378B", // 深紫容器
+          "on-tertiary": "#21005D", // 深色文字
+          "on-tertiary-container": "#E8DEF8", // 浅色文字
 
           // MD3 语义色系统 - 深色模式
-          error: "#EF9A9A", // 浅红色
-          "error-container": "#C62828", // 深红容器
-          "on-error": "#B71C1C", // 深红文字
-          "on-error-container": "#FFEBEE", // 浅色文字在深色容器上
+          error: "#FFB4AB", // 浅红色
+          "error-container": "#93000A", // 深红容器
+          "on-error": "#410002", // 深红文字
+          "on-error-container": "#FFDAD6", // 浅色文字
 
-          warning: "#FFCC80", // 浅橙色
-          "warning-container": "#E65100", // 深橙容器
-          "on-warning": "#BF360C", // 深橙文字
-          "on-warning-container": "#FFF3E0", // 浅色文字在深色容器上
+          warning: "#FFB951", // 浅橙色
+          "warning-container": "#633B00", // 深橙容器
+          "on-warning": "#2D1600", // 深橙文字
+          "on-warning-container": "#FFDBCC", // 浅色文字
 
-          success: "#A5D6A7", // 浅绿色
-          "success-container": "#2E7D32", // 深绿容器
-          "on-success": "#1B5E20", // 深绿文字
-          "on-success-container": "#E8F5E8", // 浅色文字在深色容器上
+          success: "#8DD573", // 浅绿色
+          "success-container": "#00530F", // 深绿容器
+          "on-success": "#002204", // 深绿文字
+          "on-success-container": "#A6F584", // 浅色文字
 
-          info: "#90CAF9", // 与primary保持一致
-          "info-container": "#1565C0",
-          "on-info": "#0D47A1",
-          "on-info-container": "#E3F2FD",
+          info: "#9ECAFF", // 与primary保持一致
+          "info-container": "#004A77",
+          "on-info": "#001D36",
+          "on-info-container": "#D1E4FF",
 
-          // MD3 表面色系统 - 深色模式（保持用户满意的层次）
-          surface: "#121212", // 标准深色背景
-          "surface-dim": "#0F0F0F", // 更暗的表面
-          "surface-bright": "#2C2C2C", // 更亮的表面
-          "surface-container-lowest": "#0A0A0A",
-          "surface-container-low": "#1A1A1A",
-          "surface-container": "#1F1F1F",
-          "surface-container-high": "#252525",
-          "surface-container-highest": "#2A2A2A",
-          "surface-variant": "#424242",
-          "on-surface": "#E0E0E0", // 高对比度文字
-          "on-surface-variant": "#BDBDBD", // 中等强调文字
+          // MD3 表面色系统 - 深色模式标准配色
+          surface: "#141218", // MD3标准深色表面
+          "surface-dim": "#141218",
+          "surface-bright": "#3B383E",
+          "surface-container-lowest": "#0F0D13",
+          "surface-container-low": "#1D1B20",
+          "surface-container": "#211F26",
+          "surface-container-high": "#2B2930",
+          "surface-container-highest": "#36343B",
+          "surface-variant": "#49454F",
+          "on-surface": "#E6E0E9", // 高对比度文字
+          "on-surface-variant": "#CAC4D0", // 中等强调文字
 
           // MD3 轮廓色系统 - 深色模式
-          outline: "#757575", // 中等灰色边框
-          "outline-variant": "#424242", // 深灰边框
+          outline: "#938F99", // 中等灰色边框
+          "outline-variant": "#49454F", // 深灰边框
 
           // MD3 背景色系统 - 深色模式
-          background: "#121212",
-          "on-background": "#E0E0E0",
+          background: "#141218",
+          "on-background": "#E6E0E9",
 
           // MD3 反色表面 - 深色模式
-          "inverse-surface": "#E0E0E0",
-          "inverse-on-surface": "#121212",
-          "inverse-primary": "#1565C0",
+          "inverse-surface": "#E6E0E9",
+          "inverse-on-surface": "#322F35",
+          "inverse-primary": "#0061A4",
         },
         variables: {
           // MD3 文字透明度变量 - 符合官方规范

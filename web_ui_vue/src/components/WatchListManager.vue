@@ -1,5 +1,5 @@
 <template>
-  <v-card elevation="2" class="mb-6">
+  <v-card elevation="0" class="mb-6 watch-list-card">
     <v-card-title class="d-flex align-center">
       <v-icon icon="mdi-heart" class="me-3" color="primary" />
       项目关注列表
@@ -476,6 +476,12 @@ defineExpose({
 </script>
 
 <style scoped>
+/* 关注列表卡片样式 */
+.watch-list-card {
+  /* 添加边框以替代阴影 */
+  border: 1px solid rgb(var(--v-theme-outline));
+}
+
 .app-list-item {
   border-radius: 12px;
   background: rgb(var(--v-theme-surface));
@@ -510,6 +516,8 @@ defineExpose({
 .watch-list-container::-webkit-scrollbar-thumb:hover {
   background: rgb(var(--v-theme-primary));
 }
+
+
 
 /* 移动端优化 */
 @media (max-width: 768px) {

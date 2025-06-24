@@ -9,56 +9,35 @@
         <div class="text-h6 font-weight-bold">实时日志</div>
         <div class="text-body-2 text-medium-emphasis">系统运行日志监控</div>
       </div>
-      <div class="d-flex align-center ga-2">
-        <v-chip
-          :color="connectionStatus ? 'success' : 'error'"
-          size="small"
-          :prepend-icon="connectionStatus ? 'mdi-wifi' : 'mdi-wifi-off'"
-          class="app-chip"
-        >
-          {{ connectionStatus ? "已连接" : "未连接" }}
-        </v-chip>
-        <v-chip color="info" size="small" variant="outlined" class="app-chip">
-          {{ logs.length }} 条
-        </v-chip>
-      </div>
 
-      <!-- 简化的控制区域 -->
-      <div class="d-flex align-center ga-2">
-        <!-- 自动滚动状态指示 -->
-        <v-chip
-          :color="props.autoScroll ? 'success' : 'warning'"
+      <!-- 简化的控制区域 - 只保留功能按钮 -->
+      <div class="d-flex align-center ga-3">
+        <!-- 刷新按钮 -->
+        <v-btn
+          icon="mdi-refresh"
+          @click="refreshLogs"
+          :disabled="!connectionStatus"
           size="small"
-          :prepend-icon="props.autoScroll ? 'mdi-arrow-down-bold' : 'mdi-pause'"
-          class="app-chip"
-        >
-          {{ props.autoScroll ? "自动滚动" : "已暂停" }}
-        </v-chip>
+          color="primary"
+          variant="outlined"
+          class="app-button"
+        />
 
-        <!-- 操作按钮组 -->
-        <v-btn-group variant="outlined" density="compact" color="primary">
-          <v-btn
-            icon="mdi-refresh"
-            @click="refreshLogs"
-            :disabled="!connectionStatus"
-            size="small"
-            color="primary"
-            class="app-button"
-          />
-          <v-btn
-            icon="mdi-delete"
-            @click="clearLogs"
-            :disabled="!logs.length"
-            size="small"
-            color="error"
-            class="app-button"
-          />
-        </v-btn-group>
+        <!-- 清空按钮 -->
+        <v-btn
+          icon="mdi-delete"
+          @click="clearLogs"
+          :disabled="!logs.length"
+          size="small"
+          color="error"
+          variant="outlined"
+          class="app-button"
+        />
       </div>
     </v-card-title>
 
     <!-- 日志内容区域 -->
-    <v-card-text class="pa-0 flex-grow-1 d-flex flex-column">
+    <v-card-text class="pa-0 flex-grow-1 d-flex flex-column log-content-area">
       <div class="log-container flex-grow-1" ref="logContainer">
         <div v-if="logs.length === 0" class="empty-state">
           <v-icon
@@ -453,13 +432,30 @@ onUnmounted(() => {
 
 <style scoped>
 .log-viewer {
-  height: 100%;
+  /* 使用固定高度，避免与内层容器冲突 */
+  height: v-bind(containerHeight);
   min-height: v-bind(minHeight);
   max-height: v-bind(maxHeight);
+  /* 确保日志查看器有正确的定位 */
+  position: relative;
+  z-index: 1;
+  /* 防止内容溢出 */
+  overflow: hidden;
+  /* 使用flex布局确保内容区域正确分配空间 */
+  display: flex;
+  flex-direction: column;
+}
+
+/* 确保内容区域有正确的高度计算 */
+.log-content-area {
+  /* 确保内容区域能够正确伸缩 */
+  min-height: 0;
+  flex: 1;
 }
 
 .log-container {
-  height: v-bind(containerHeight);
+  /* 使用flex-grow-1让容器自适应剩余空间 */
+  flex: 1;
   overflow-y: auto;
   font-family:
     "JetBrains Mono", "Fira Code", "Consolas", "Monaco", "Courier New",
@@ -470,8 +466,16 @@ onUnmounted(() => {
   background-color: rgb(var(--v-theme-surface-container));
   border: 1px solid rgba(var(--v-theme-outline-variant), 0.3);
   border-radius: 8px;
+  /* 使用标准的margin */
   margin: 0 16px 16px 16px;
   scroll-behavior: smooth;
+  /* 确保容器有正确的定位 */
+  position: relative;
+  z-index: auto;
+  /* 防止容器内容溢出到其他元素 */
+  contain: layout style;
+  /* 确保容器高度计算正确 */
+  min-height: 0;
 }
 
 .log-entry {
