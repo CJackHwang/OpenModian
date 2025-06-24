@@ -221,7 +221,8 @@ const changeLogType = (newType) => {
 
 const applyFilters = () => {
   if (logViewer.value) {
-    logViewer.value.applyFilters();
+    // 将过滤参数传递给子组件
+    logViewer.value.applyFilters(selectedLevel.value, searchTerm.value);
   }
 };
 

@@ -328,6 +328,28 @@ const updateDisplayedLogs = () => {
   displayedLogs.value = logs.value.slice(0, displayLimit.value);
 };
 
+const applyFilters = (level = 'all', searchTerm = '') => {
+  let filteredLogs = logs.value;
+
+  // 按级别过滤
+  if (level && level !== 'all') {
+    filteredLogs = filteredLogs.filter(log =>
+      log.level && log.level.toLowerCase() === level.toLowerCase()
+    );
+  }
+
+  // 按搜索词过滤
+  if (searchTerm && searchTerm.trim()) {
+    const term = searchTerm.toLowerCase();
+    filteredLogs = filteredLogs.filter(log =>
+      (log.message && log.message.toLowerCase().includes(term)) ||
+      (log.level && log.level.toLowerCase().includes(term))
+    );
+  }
+
+  displayedLogs.value = filteredLogs.slice(0, displayLimit.value);
+};
+
 const loadMoreLogs = () => {
   loadingMore.value = true;
 
@@ -427,6 +449,17 @@ onMounted(() => {
 onUnmounted(() => {
   // 保存最终状态
   saveCachedLogs();
+});
+
+// 暴露方法给父组件
+defineExpose({
+  refreshLogs,
+  clearLogs,
+  applyFilters,
+  changeLogType: (type) => {
+    // 可以根据需要实现日志类型切换逻辑
+    console.log('切换日志类型:', type);
+  }
 });
 </script>
 
