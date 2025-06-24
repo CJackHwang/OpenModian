@@ -1,19 +1,17 @@
 <template>
-  <div class="log-viewer-page">
-    <v-container fluid>
-      <v-row>
-        <v-col cols="12">
-          <v-card elevation="2" class="mb-4">
-            <v-card-title class="d-flex align-center">
-              <v-icon icon="mdi-console-line" class="me-3" />
-              实时日志监控
-              <v-spacer />
+  <v-container fluid class="fill-height pa-0">
+    <v-row no-gutters class="fill-height">
+      <v-col cols="12" class="d-flex flex-column">
+        <!-- 控制面板 -->
+        <v-card elevation="2" class="mb-4 flex-shrink-0">
+          <v-card-title class="d-flex align-center">
+            <v-icon icon="mdi-console-line" class="me-3" />
+            实时日志监控
+            <v-spacer />
+          </v-card-title>
 
-
-            </v-card-title>
-
-            <v-card-text>
-              <v-row>
+          <v-card-text>
+            <v-row>
                 <v-col cols="12" md="3">
                   <v-select
                     v-model="selectedLogType"
@@ -53,117 +51,78 @@
                 </v-col>
 
                 <v-col cols="12" md="3">
-                  <div class="d-flex gap-2">
-                    <v-btn
-                      color="primary"
-                      variant="outlined"
-                      @click="refreshLogs"
-                      :disabled="!connectionStatus"
-                    >
-                      <v-icon icon="mdi-refresh" class="me-1" />
-                      刷新
-                    </v-btn>
+                  <v-row no-gutters class="ga-2">
+                    <v-col cols="4" md="12" lg="4">
+                      <v-btn
+                        color="primary"
+                        variant="outlined"
+                        @click="refreshLogs"
+                        :disabled="!connectionStatus"
+                        :size="display.xs.value ? 'small' : 'default'"
+                        :block="display.mdAndDown.value"
+                        class="log-action-btn"
+                      >
+                        <v-icon icon="mdi-refresh" :class="display.xs.value ? '' : 'me-1'" />
+                        <span v-if="!display.xs.value">刷新</span>
+                      </v-btn>
+                    </v-col>
 
-                    <v-btn
-                      color="warning"
-                      variant="outlined"
-                      @click="clearLogs"
-                      :disabled="!logs.length"
-                    >
-                      <v-icon icon="mdi-delete" class="me-1" />
-                      清空
-                    </v-btn>
+                    <v-col cols="4" md="12" lg="4">
+                      <v-btn
+                        color="warning"
+                        variant="outlined"
+                        @click="clearLogs"
+                        :disabled="!logs.length"
+                        :size="display.xs.value ? 'small' : 'default'"
+                        :block="display.mdAndDown.value"
+                        class="log-action-btn"
+                      >
+                        <v-icon icon="mdi-delete" :class="display.xs.value ? '' : 'me-1'" />
+                        <span v-if="!display.xs.value">清空</span>
+                      </v-btn>
+                    </v-col>
 
-                    <v-btn
-                      color="success"
-                      variant="outlined"
-                      @click="exportLogs"
-                      :disabled="!filteredLogs.length"
-                    >
-                      <v-icon icon="mdi-download" class="me-1" />
-                      导出
-                    </v-btn>
-                  </div>
+                    <v-col cols="4" md="12" lg="4">
+                      <v-btn
+                        color="success"
+                        variant="outlined"
+                        @click="exportLogs"
+                        :disabled="!filteredLogs.length"
+                        :size="display.xs.value ? 'small' : 'default'"
+                        :block="display.mdAndDown.value"
+                        class="log-action-btn"
+                      >
+                        <v-icon icon="mdi-download" :class="display.xs.value ? '' : 'me-1'" />
+                        <span v-if="!display.xs.value">导出</span>
+                      </v-btn>
+                    </v-col>
+                  </v-row>
                 </v-col>
               </v-row>
             </v-card-text>
           </v-card>
-        </v-col>
-      </v-row>
 
-      <v-row>
-        <v-col cols="12">
+        <!-- 日志查看器 - 使用flex-grow-1自动填充剩余空间 -->
+        <div class="flex-grow-1 d-flex flex-column">
           <RealTimeLogViewer
-            :height="logViewerHeight"
-            :min-height="'400px'"
-            :max-height="'calc(100vh - 250px)'"
+            height="auto"
+            min-height="200px"
+            max-height="none"
             :max-logs="1000"
-            :auto-scroll="autoScroll"
-            :compact="false"
+            :auto-scroll="true"
+            :compact="display.xs.value"
             ref="logViewer"
           />
-        </v-col>
-      </v-row>
+        </div>
+      </v-col>
+    </v-row>
 
-      <!-- 浮动操作按钮 -->
-      <v-fab
-        v-model="autoScroll"
-        :icon="autoScroll ? 'mdi-arrow-down-bold' : 'mdi-pause'"
-        location="bottom end"
-        size="small"
-        :color="autoScroll ? 'success' : 'warning'"
-        @click="toggleAutoScroll"
-      />
 
-      <!-- 测试日志按钮 -->
-      <v-speed-dial
-        v-model="testDialOpen"
-        location="bottom start"
-        transition="slide-y-reverse-transition"
-      >
-        <template v-slot:activator="{ props: activatorProps }">
-          <v-fab
-            v-bind="activatorProps"
-            icon="mdi-test-tube"
-            color="secondary"
-            size="small"
-          />
-        </template>
-
-        <v-fab
-          icon="mdi-information"
-          size="x-small"
-          color="info"
-          @click="sendTestLog('info')"
-        />
-
-        <v-fab
-          icon="mdi-alert"
-          size="x-small"
-          color="warning"
-          @click="sendTestLog('warning')"
-        />
-
-        <v-fab
-          icon="mdi-close-circle"
-          size="x-small"
-          color="error"
-          @click="sendTestLog('error')"
-        />
-
-        <v-fab
-          icon="mdi-bug"
-          size="x-small"
-          color="purple"
-          @click="sendTestLog('debug')"
-        />
-      </v-speed-dial>
-    </v-container>
-  </div>
+  </v-container>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from "vue";
+import { ref, onMounted, onUnmounted } from "vue";
 import { useAppStore } from "@/stores/app";
 import { useDisplay } from "vuetify";
 import RealTimeLogViewer from "@/components/RealTimeLogViewer.vue";
@@ -177,8 +136,6 @@ const connectionStatus = ref(false);
 const selectedLogType = ref("all");
 const selectedLevel = ref("all");
 const searchTerm = ref("");
-const autoScroll = ref(true);
-const testDialOpen = ref(false);
 const logs = ref([]);
 const filteredLogs = ref([]);
 const logViewer = ref(null);
@@ -198,18 +155,6 @@ const logLevels = [
   { label: "WARNING", value: "warning" },
   { label: "ERROR", value: "error" },
 ];
-
-// 计算属性
-const totalLogs = computed(() => {
-  return filteredLogs.value.length;
-});
-
-// 日志查看器高度计算
-const logViewerHeight = computed(() => {
-  if (display.xs.value) return "400px";
-  if (display.sm.value) return "500px";
-  return "calc(100vh - 300px)";
-});
 
 // 方法
 const changeLogType = (newType) => {
@@ -238,32 +183,7 @@ const clearLogs = () => {
   }
 };
 
-const toggleAutoScroll = () => {
-  autoScroll.value = !autoScroll.value;
-};
 
-const sendTestLog = (level) => {
-  if (!appStore.socket || !appStore.socket.connected) {
-    return;
-  }
-
-  const messages = {
-    info: "这是一条测试信息日志",
-    warning: "这是一条测试警告日志",
-    error: "这是一条测试错误日志",
-    debug: "这是一条测试调试日志",
-  };
-
-  appStore.socket.emit("log_manual", {
-    log_type:
-      selectedLogType.value === "all" ? "system" : selectedLogType.value,
-    level: level,
-    message: `${messages[level]} - ${new Date().toLocaleTimeString()}`,
-    source: "log-viewer-test",
-  });
-
-  testDialOpen.value = false;
-};
 
 const exportLogs = () => {
   if (!filteredLogs.value.length) {
@@ -332,12 +252,16 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.log-viewer-page {
-  height: 100vh;
+/* 按钮样式优化 */
+.log-action-btn {
+  /* 确保按钮文字不会被截断 */
+  white-space: nowrap;
   overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.gap-2 {
-  gap: 8px;
+/* 确保容器使用全部可用高度 */
+.fill-height {
+  height: 100%;
 }
 </style>

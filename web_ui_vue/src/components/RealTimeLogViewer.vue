@@ -11,16 +11,16 @@
       </div>
 
       <!-- 简化的控制区域 - 只保留功能按钮 -->
-      <div class="d-flex align-center ga-3">
+      <div class="d-flex align-center log-controls-container">
         <!-- 刷新按钮 -->
         <v-btn
           icon="mdi-refresh"
           @click="refreshLogs"
           :disabled="!connectionStatus"
-          size="small"
+          :size="display.xs.value ? 'x-small' : 'small'"
           color="primary"
           variant="outlined"
-          class="app-button"
+          class="app-button log-control-btn"
         />
 
         <!-- 清空按钮 -->
@@ -28,10 +28,10 @@
           icon="mdi-delete"
           @click="clearLogs"
           :disabled="!logs.length"
-          size="small"
+          :size="display.xs.value ? 'x-small' : 'small'"
           color="error"
           variant="outlined"
-          class="app-button"
+          class="app-button log-control-btn"
         />
       </div>
     </v-card-title>
@@ -649,8 +649,35 @@ defineExpose({
   max-width: 100px;
 }
 
+/* 功能按钮容器样式 */
+.log-controls-container {
+  gap: 8px;
+  flex-shrink: 0;
+  /* 确保按钮容器不会被压缩 */
+  min-width: 0;
+  /* 允许容器收缩但保持最小宽度 */
+}
+
+.log-control-btn {
+  /* 确保按钮有最小尺寸 */
+  min-width: 32px;
+  min-height: 32px;
+  flex-shrink: 0;
+}
+
 /* 响应式优化 */
 @media (max-width: 600px) {
+  .log-controls-container {
+    gap: 4px;
+    /* 小屏幕上减少间距 */
+  }
+
+  .log-control-btn {
+    min-width: 28px;
+    min-height: 28px;
+    /* 小屏幕上使用更小的按钮 */
+  }
+
   .log-container {
     font-size: 12px;
     padding: 6px 8px;
@@ -689,6 +716,11 @@ defineExpose({
 }
 
 @media (max-width: 960px) {
+  .log-controls-container {
+    gap: 6px;
+    /* 中等屏幕上适中的间距 */
+  }
+
   .log-container {
     margin: 0 12px 12px 12px;
   }
