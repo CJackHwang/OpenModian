@@ -47,7 +47,7 @@
             >
               总项目数
             </div>
-            <div class="text-body-2 text-on-primary-container-variant">
+            <div class="text-body-2 text-medium-emphasis">
               累计爬取项目
             </div>
           </v-card-text>
@@ -77,7 +77,7 @@
             >
               今日新增
             </div>
-            <div class="text-body-2 text-on-secondary-container-variant">
+            <div class="text-body-2 text-medium-emphasis">
               今天爬取项目
             </div>
           </v-card-text>
@@ -107,7 +107,7 @@
             >
               本周新增
             </div>
-            <div class="text-body-2 text-on-success-container-variant">
+            <div class="text-body-2 text-medium-emphasis">
               本周爬取项目
             </div>
           </v-card-text>
@@ -128,7 +128,7 @@
             >
               活跃任务
             </div>
-            <div class="text-body-2 text-on-info-container-variant">
+            <div class="text-body-2 text-medium-emphasis">
               正在运行任务
             </div>
           </v-card-text>

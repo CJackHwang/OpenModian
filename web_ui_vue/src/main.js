@@ -262,7 +262,7 @@ const vuetify = createVuetify({
       elevation: 0, // 完全无阴影
       size: "default",
       density: "default",
-      variant: "outlined", // 使用outlined获得描边效果
+      // 移除默认variant，让组件自己决定
       color: "primary",
     },
 
@@ -270,23 +270,21 @@ const vuetify = createVuetify({
     VBtnGroup: {
       rounded: "xl", // 大圆角
       elevation: 0, // 无阴影
-      variant: "outlined", // 描边设计
       color: "primary",
       density: "default",
     },
     VBtnToggle: {
-      variant: "outlined", // 描边设计
       color: "primary",
       density: "default",
       rounded: "xl", // 大圆角
       elevation: 0, // 无阴影
     },
 
-    // MD3 卡片系统 - 大圆角扁平化设计
+    // MD3 卡片系统 - 大圆角扁平化设计，带描边
     VCard: {
       elevation: 0, // 移除阴影
       rounded: "xl", // 大圆角
-      variant: "outlined", // 使用描边而非阴影，保持原来的描边颜色
+      variant: "outlined", // 使用outlined变体添加描边
     },
 
     // MD3 卡片标题系统 - 文字颜色由Vuetify自动管理
@@ -405,9 +403,10 @@ const vuetify = createVuetify({
 
     // 重复配置已在下方统一配置，移除重复
 
-    // MD3 头像系统 - 大圆角
+    // MD3 头像系统 - 大圆角，统一配色
     VAvatar: {
       rounded: "xl", // 大圆角头像
+      color: "primary", // 默认使用主色调
     },
 
     // MD3 工具提示
@@ -469,12 +468,10 @@ const vuetify = createVuetify({
 
     // MD3 对话框系统 - 大圆角扁平化设计
     VDialog: {
-      rounded: "xl", // 大圆角
       maxWidth: "500px",
       persistent: false,
       scrollable: true,
-      elevation: 0, // 移除阴影，使用描边
-      scrim: "rgb(0, 0, 0)", // 添加半透明遮罩层
+      scrim: "rgba(0, 0, 0, 0.5)", // 添加半透明遮罩层
     },
 
     // MD3 底部表单系统 - 大圆角扁平化设计
@@ -700,7 +697,8 @@ const vuetify = createVuetify({
 
     // MD3 覆盖层系统
     VOverlay: {
-      // 覆盖层，使用默认配置
+      scrim: "rgba(0, 0, 0, 0.5)", // 统一的遮罩层透明度
+      contentClass: "v-overlay-content", // 添加自定义类名
     },
 
     // MD3 骨架加载器系统

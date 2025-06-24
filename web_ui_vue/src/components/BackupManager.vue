@@ -322,7 +322,7 @@
           </v-btn>
           <v-btn
             color="warning"
-            variant="filled"
+            variant="elevated"
             @click="restoreBackup"
             :loading="restoring"
           >
@@ -353,7 +353,7 @@
           <v-btn variant="text" @click="showDeleteDialog = false"> 取消 </v-btn>
           <v-btn
             color="error"
-            variant="filled"
+            variant="elevated"
             @click="deleteBackup"
             :loading="deleting"
           >

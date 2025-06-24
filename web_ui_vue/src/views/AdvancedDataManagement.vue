@@ -17,7 +17,7 @@
           prepend-icon="mdi-heart-plus"
           @click="batchAddToWatchList"
           :disabled="!selectedItems.length"
-          variant="filled"
+          variant="elevated"
           class="me-2"
           :loading="addingToWatchList"
         >
@@ -28,7 +28,7 @@
           prepend-icon="mdi-delete-multiple"
           @click="batchDelete"
           :disabled="!selectedItems.length"
-          variant="filled"
+          variant="elevated"
           class="me-2"
         >
           批量删除 ({{ selectedItems.length }})
@@ -38,7 +38,7 @@
           prepend-icon="mdi-download"
           @click="exportData"
           :loading="exporting"
-          variant="filled"
+          variant="elevated"
         >
           导出数据
         </v-btn>

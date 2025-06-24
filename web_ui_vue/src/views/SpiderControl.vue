@@ -401,6 +401,7 @@
 import { ref, reactive, computed, onMounted, onUnmounted } from "vue";
 import { useAppStore } from "@/stores/app";
 import { useDisplay } from "vuetify";
+import { useSnackbar } from "@/composables/useSnackbar";
 import axios from "axios";
 import RealTimeLogViewer from "@/components/RealTimeLogViewer.vue";
 import WatchListManager from "@/components/WatchListManager.vue";
@@ -408,6 +409,7 @@ import { pageCache } from "@/utils/pageCache";
 
 const appStore = useAppStore();
 const display = useDisplay();
+const { showSnackbar } = useSnackbar();
 
 // 响应式数据
 const formValid = ref(false);
@@ -544,6 +546,14 @@ const startCrawling = async () => {
     if (response.data.success) {
       if (config.isScheduled) {
         console.log(`✅ 定时任务已创建: ${response.data.task_id}`);
+
+        // 显示成功提示
+        showSnackbar(
+          `定时任务创建成功！任务ID: ${response.data.task_id}，执行间隔: ${config.scheduleInterval}秒`,
+          "success",
+          6000
+        );
+
         // 通过WebSocket发送日志
         if (appStore.socket && appStore.socket.connected) {
           appStore.socket.emit("log_manual", {

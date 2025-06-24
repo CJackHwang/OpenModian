@@ -222,7 +222,7 @@
                   color="primary"
                   @click="applyFilters"
                   :loading="loading"
-                  variant="filled"
+                  variant="elevated"
                   size="large"
                 >
                   搜索

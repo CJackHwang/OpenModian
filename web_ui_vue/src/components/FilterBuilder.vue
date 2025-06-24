@@ -238,7 +238,7 @@
             >取消</v-btn
           >
           <v-btn
-            variant="filled"
+            variant="elevated"
             color="primary"
             @click="saveFilterConfig"
             :disabled="!saveConfigName"
@@ -307,7 +307,7 @@
           <v-btn variant="text" color="secondary" @click="showSQLDialog = false"
             >关闭</v-btn
           >
-          <v-btn variant="filled" color="primary" @click="copySQL"
+          <v-btn variant="elevated" color="primary" @click="copySQL"
             >复制SQL</v-btn
           >
         </v-card-actions>
