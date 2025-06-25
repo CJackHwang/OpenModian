@@ -531,6 +531,7 @@ const startCrawling = async () => {
         if (watchedProjectIds.length > 0) {
           requestData.watched_project_ids = watchedProjectIds;
           requestData.include_watch_list = true;
+          requestData.watch_list_only = true;  // 新增：仅爬取关注列表标识
           // 关注列表模式不需要页面范围
           requestData.start_page = 1;
           requestData.end_page = 1;

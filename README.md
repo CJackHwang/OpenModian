@@ -3,61 +3,76 @@
 <div align="center">
 
 ![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)
-![Vue](https://img.shields.io/badge/Vue-3.0+-green.svg)
+![Vue](https://img.shields.io/badge/Vue-3.5+-green.svg)
 ![Flask](https://img.shields.io/badge/Flask-2.3+-red.svg)
+![Vuetify](https://img.shields.io/badge/Vuetify-3.8+-purple.svg)
+![Material Design](https://img.shields.io/badge/Material%20Design-3-orange.svg)
 ![License](https://img.shields.io/badge/License-MIT-yellow.svg)
 ![Status](https://img.shields.io/badge/Status-Active-brightgreen.svg)
 
-**专业的摩点众筹数据采集与分析平台**
+**企业级摩点众筹数据采集与分析平台**
 
-[功能特性](#-功能特性) • [快速开始](#-快速开始) • [技术架构](#-技术架构) • [使用指南](#-使用指南) • [开发文档](#-开发文档)
+[功能特性](#-功能特性) • [快速开始](#-快速开始) • [技术架构](#-技术架构) • [使用指南](#-使用指南) • [开发文档](#-开发文档) • [更新日志](#-更新日志)
 
 </div>
 
 ## 📋 项目简介
 
-摩点众筹爬虫管理系统是一个专业的数据采集与分析平台，专门用于摩点众筹网站的数据抓取、存储、管理和分析。系统采用现代化的前后端分离架构，提供直观的Web界面和强大的数据管理功能。
+摩点众筹爬虫管理系统是一个企业级的数据采集与分析平台，专门用于摩点众筹网站的数据抓取、存储、管理和分析。系统采用现代化的前后端分离架构，提供直观的Web界面和强大的数据管理功能，支持大规模数据处理和实时监控。
 
 ### 🎯 核心价值
 
-- **高效数据采集**：智能爬虫引擎，支持动态数据获取，数据完整性达98%+
-- **实时监控管理**：Web UI实时监控爬虫状态，支持任务控制和日志查看
-- **强大数据管理**：SQL-like数据管理界面，支持高级筛选、排序和批量操作
-- **现代化界面**：基于Vue 3 + Vuetify 3 + Material Design 3的现代化UI
-- **完整任务追踪**：详细的任务历史记录和状态监控，支持任务重试和管理
-- **智能数据备份**：自动数据库备份机制，确保数据安全和可恢复性
+- **🚀 高效数据采集**：智能爬虫引擎，支持API和动态数据获取，数据完整性达98%+
+- **📊 实时监控管理**：WebSocket实时通信，爬虫状态监控，支持任务控制和日志查看
+- **🗄️ 企业级数据管理**：SQL-like数据管理界面，支持高级筛选、排序和批量操作
+- **🎨 现代化界面**：基于Vue 3 + Vuetify 3 + Material Design 3的响应式UI设计
+- **📈 智能任务调度**：支持定时任务、关注列表监控和增量数据更新
+- **🔒 数据安全保障**：自动数据库备份、错误恢复和数据完整性验证
+- **⚡ 性能优化**：内存优化、网络优化、并发控制和智能缓存机制
 
 ## ✨ 功能特性
 
 ### 🕷️ 智能爬虫引擎
-- **多模式数据采集**：支持静态HTML解析和动态数据获取
-- **闪电快速动态数据**：优化的Selenium集成，快速获取异步加载数据
-- **智能适配解析**：自动适配摩点网站的各种页面结构
-- **并发控制**：多线程并发爬取，支持速率限制和错误重试
-- **数据验证**：实时数据完整性验证，确保数据质量
+- **🔄 多模式数据采集**：支持API数据获取、静态HTML解析和动态数据抓取
+- **⚡ 高性能数据处理**：优化的并发处理，支持大规模数据采集
+- **🎯 智能适配解析**：自动适配摩点网站的各种页面结构和数据格式
+- **🔧 并发控制优化**：多线程并发爬取，智能速率限制和错误重试机制
+- **✅ 数据质量保障**：实时数据完整性验证，确保数据准确性和一致性
+- **📦 增量数据保存**：支持分批保存，防止数据丢失，提升系统稳定性
 
-### 🎛️ Web管理界面
-- **实时监控仪表板**：爬虫状态、进度监控、系统统计
-- **任务管理**：启动/停止爬虫、任务历史记录、失败重试
-- **实时日志**：WebSocket实时日志显示，支持全屏模式
-- **响应式设计**：支持桌面和移动端访问
-- **Material Design 3**：现代化UI设计，深色模式支持
+### 🎛️ 现代化Web界面
+- **📊 实时监控仪表板**：爬虫状态、进度监控、系统统计和性能指标
+- **🎮 任务管理中心**：启动/停止爬虫、任务历史记录、失败重试和批量操作
+- **📝 实时日志系统**：WebSocket实时日志显示，支持日志筛选和全屏模式
+- **📱 响应式设计**：完美支持桌面、平板和移动端访问
+- **🎨 Material Design 3**：现代化UI设计，支持深色/浅色模式切换
+- **🔄 实时数据同步**：WebSocket连接，实时更新数据和状态信息
 
-### 🗄️ 高级数据管理
-- **SQL-like界面**：类似数据库管理工具的直观操作界面
-- **高级筛选**：多条件组合筛选，支持数值范围、文本匹配、日期范围
-- **智能排序**：多字段优先级排序，自定义排序规则
-- **批量操作**：批量编辑、删除、导出数据
-- **数据导入导出**：支持CSV、JSON、Excel格式
-- **筛选历史**：自动记录和重用筛选历史，提升操作效率
+### 🗄️ 企业级数据管理
+- **💼 SQL-like管理界面**：类似数据库管理工具的专业操作界面
+- **🔍 高级筛选系统**：多条件组合筛选，支持数值范围、文本匹配、日期范围
+- **📈 智能排序功能**：多字段优先级排序，自定义排序规则
+- **⚙️ 批量操作支持**：批量编辑、删除、导出数据，提升操作效率
+- **📤 多格式导入导出**：支持CSV、JSON、Excel格式，兼容主流数据工具
+- **🕒 筛选历史管理**：自动记录和重用筛选历史，提升操作效率
+- **⭐ 项目关注列表**：支持项目收藏、批量导入和专门监控模式
 
 ### 📊 数据存储与分析
-- **SQLite数据库**：轻量级数据库存储，支持时间分类管理
-- **历史数据追踪**：项目数据变化历史记录和对比分析
-- **重复数据处理**：智能去重机制，避免数据冗余
-- **数据质量报告**：自动生成数据完整性和质量报告
-- **任务历史记录**：完整的爬虫任务执行历史和状态追踪
-- **数据备份管理**：自动数据库备份，支持SQL和JSON格式导出
+- **🗃️ 高性能数据库**：SQLite数据库存储，支持WAL模式和并发访问
+- **📈 历史数据追踪**：项目数据变化历史记录和趋势分析
+- **🔄 智能去重机制**：避免数据冗余，确保数据库整洁
+- **📋 数据质量报告**：自动生成数据完整性和质量分析报告
+- **📚 任务历史记录**：完整的爬虫任务执行历史和状态追踪
+- **💾 自动备份管理**：定时数据库备份，支持SQL和JSON格式导出
+- **📊 数据可视化**：支持图表展示和数据趋势分析
+
+### 🚀 高级功能特性
+- **⏰ 智能任务调度**：支持定时任务、周期性数据更新和自动化运行
+- **🎯 关注列表监控**：专门的关注项目监控模式，实时跟踪重要项目
+- **🔧 性能优化系统**：内存优化、网络优化、智能缓存和资源监控
+- **🛡️ 错误恢复机制**：智能错误分类、自动重试和故障恢复
+- **📡 实时通信系统**：WebSocket支持，实时状态更新和日志推送
+- **🔒 数据安全保障**：数据完整性验证、备份恢复和访问控制
 
 ## 🚀 快速开始
 
@@ -126,61 +141,120 @@ python3 app.py
 ## 🏗️ 技术架构
 
 ### 后端技术栈
-- **核心框架**: Flask 2.3+ + Flask-SocketIO
-- **数据库**: SQLite3 + pandas
-- **爬虫引擎**: requests + BeautifulSoup4 + Selenium
-- **数据处理**: pandas + numpy
-- **配置管理**: YAML + 环境变量
+- **🌐 核心框架**: Flask 2.3+ + Flask-SocketIO + Flask-CORS
+- **🗄️ 数据存储**: SQLite3 + pandas + numpy
+- **🕷️ 爬虫引擎**: requests + BeautifulSoup4 + Selenium WebDriver
+- **📊 数据处理**: pandas + numpy + openpyxl
+- **⚙️ 配置管理**: YAML + 环境变量 + 动态配置
+- **📝 日志系统**: Python logging + watchdog + 分级日志
+- **🔧 系统监控**: psutil + 资源监控 + 性能调优
+- **🔄 任务调度**: threading + 并发控制 + 任务管理器
 
 ### 前端技术栈
-- **框架**: Vue 3 + Composition API
-- **UI组件**: Vuetify 3 + Material Design 3
-- **构建工具**: Vite
-- **状态管理**: Pinia
-- **路由**: Vue Router 4
-- **实时通信**: Socket.IO Client
+- **⚡ 核心框架**: Vue 3.5+ + Composition API + TypeScript支持
+- **🎨 UI组件库**: Vuetify 3.8+ + Material Design 3 + MDI图标
+- **🛠️ 构建工具**: Vite 6+ + 热重载 + 代码分割
+- **📦 状态管理**: Pinia + 持久化存储
+- **🧭 路由系统**: Vue Router 4 + 路由守卫
+- **🔗 实时通信**: Socket.IO Client + 自动重连
+- **📊 数据可视化**: Chart.js + Vue-ChartJS + 响应式图表
+- **🎯 工具库**: @vueuse/core + dayjs + axios
 
-### 项目结构
+### 项目架构图
 ```
 spider_modian-main/
-├── spider/                    # 🕷️ 爬虫核心模块
-│   ├── core.py               # 爬虫引擎核心逻辑
-│   ├── config.py             # 配置管理和常量定义
-│   ├── lightning_fast_dynamic.py  # 闪电快速动态数据获取
-│   ├── exporter.py           # 数据导出模块
-│   ├── monitor.py            # 爬虫监控和统计
-│   ├── utils.py              # 工具函数和辅助类
-│   └── validator.py          # 数据验证模块
-├── web_ui_vue/               # 🎨 Vue3前端界面
-│   ├── src/                  # 前端源代码
-│   │   ├── components/       # Vue组件
-│   │   ├── views/           # 页面视图
-│   │   ├── stores/          # Pinia状态管理
-│   │   └── router/          # 路由配置
-│   ├── dist/                # 构建输出目录
-│   ├── package.json         # 前端依赖配置
-│   └── vite.config.js       # Vite构建配置
-├── data/                     # 📁 数据存储目录
-│   ├── database/            # SQLite数据库文件
-│   ├── raw/                 # 原始爬取数据
-│   ├── exports/             # 用户导出文件
-│   ├── cache/               # 缓存数据
-│   ├── processed/           # 处理后的数据
-│   └── reports/             # 分析报告
-├── backups/                  # 🗄️ 数据库备份文件
-├── config/                   # ⚙️ 配置文件
-│   └── spider_config.yaml   # 爬虫配置文件
-├── logs/                     # 📋 日志文件目录
-│   ├── spider/              # 爬虫日志
-│   ├── system/              # 系统日志
-│   └── webui/               # Web界面日志
-├── tests/                    # 🧪 测试文件
-│   └── test_spider.py       # 爬虫单元测试
-├── app.py                    # 🌐 Flask Web服务器
-├── start_vue_ui.py          # 🚀 一键启动脚本
-├── requirements.txt         # 📦 Python依赖列表
-├── TODO.txt                 # 📝 开发任务清单
-└── README.md               # 📖 项目说明文档
+├── 🕷️ spider/                    # 爬虫核心模块
+│   ├── core.py                   # 爬虫引擎核心逻辑
+│   ├── config.py                 # 配置管理和常量定义
+│   ├── api_data_fetcher.py       # API数据获取器
+│   ├── exporter.py               # 数据导出模块
+│   ├── monitor.py                # 爬虫监控和统计
+│   ├── scheduler.py              # 任务调度器
+│   ├── utils.py                  # 工具函数和辅助类
+│   ├── validator.py              # 数据验证模块
+│   ├── extractors/               # 数据提取器模块
+│   │   ├── list_extractor.py     # 列表页面提取器
+│   │   └── __init__.py
+│   ├── processors/               # 数据处理器模块
+│   │   ├── data_processor.py     # 数据处理器
+│   │   ├── validation_processor.py # 验证处理器
+│   │   └── __init__.py
+│   ├── memory_optimizer.py       # 内存优化器
+│   ├── network_optimizer.py      # 网络优化器
+│   ├── performance_tuner.py      # 性能调优器
+│   ├── error_recovery.py         # 错误恢复机制
+│   └── crypto_utils.py           # 加密工具
+├── 🎨 web_ui_vue/                # Vue3前端界面
+│   ├── src/                      # 前端源代码
+│   │   ├── components/           # Vue组件库
+│   │   │   ├── ResponsiveLayout.vue # 响应式布局组件
+│   │   │   ├── DataTable.vue     # 数据表格组件
+│   │   │   ├── LogViewer.vue     # 日志查看器
+│   │   │   └── charts/           # 图表组件
+│   │   ├── views/                # 页面视图
+│   │   │   ├── Dashboard.vue     # 仪表板
+│   │   │   ├── SpiderControl.vue # 爬虫控制
+│   │   │   ├── DataManagement.vue # 数据管理
+│   │   │   ├── TaskHistory.vue   # 任务历史
+│   │   │   └── WatchList.vue     # 关注列表
+│   │   ├── stores/               # Pinia状态管理
+│   │   │   ├── spider.js         # 爬虫状态
+│   │   │   ├── data.js           # 数据状态
+│   │   │   └── ui.js             # UI状态
+│   │   ├── router/               # 路由配置
+│   │   └── plugins/              # 插件配置
+│   ├── dist/                     # 构建输出目录
+│   ├── package.json              # 前端依赖配置
+│   └── vite.config.js            # Vite构建配置
+├── 🌐 api/                       # API路由模块
+│   ├── routes/                   # API路由
+│   │   ├── spider_routes.py      # 爬虫控制API
+│   │   ├── data_routes.py        # 数据管理API
+│   │   ├── task_routes.py        # 任务管理API
+│   │   ├── system_routes.py      # 系统信息API
+│   │   ├── watch_routes.py       # 关注列表API
+│   │   └── settings_routes.py    # 设置管理API
+│   ├── middleware/               # 中间件
+│   │   ├── error_handler.py      # 错误处理
+│   │   └── response_formatter.py # 响应格式化
+│   └── websocket/                # WebSocket处理
+│       └── handlers.py           # WebSocket事件处理
+├── 🧠 core/                      # 核心管理模块
+│   ├── managers/                 # 管理器模块
+│   │   ├── task_manager.py       # 任务管理器
+│   │   └── instance_manager.py   # 实例管理器
+│   ├── monitors/                 # 监控模块
+│   │   ├── web_monitor.py        # Web监控器
+│   │   └── scheduled_monitor.py  # 调度监控器
+│   ├── logging/                  # 日志系统
+│   │   └── system_logger.py      # 系统日志器
+│   └── exceptions/               # 异常处理
+│       └── spider_exceptions.py  # 爬虫异常
+├── �️ services/                  # 服务层模块
+│   ├── spider_service.py         # 爬虫服务
+│   ├── data_service.py           # 数据服务
+│   ├── task_service.py           # 任务服务
+│   └── log_service.py            # 日志服务
+├── 🗂️ utils/                     # 工具模块
+│   └── port_manager.py           # 端口管理器
+├── �📁 data/                      # 数据存储目录
+│   ├── database/                 # SQLite数据库文件
+│   ├── raw/                      # 原始爬取数据
+│   ├── exports/                  # 用户导出文件
+│   ├── cache/                    # 缓存数据
+│   ├── processed/                # 处理后的数据
+│   └── reports/                  # 分析报告
+├── 💾 backups/                   # 数据库备份文件
+├── ⚙️ config/                    # 配置文件
+│   └── spider_config.yaml        # 爬虫配置文件
+├── 📋 logs/                      # 日志文件目录
+│   ├── spider/                   # 爬虫日志
+│   ├── system/                   # 系统日志
+│   └── webui/                    # Web界面日志
+├── 🌐 app.py                     # Flask Web服务器
+├── 🚀 start_vue_ui.py            # 一键启动脚本
+├── 📦 requirements.txt           # Python依赖列表
+└── � README.md                  # 项目说明文档
 ```
 
 ## 📖 使用指南

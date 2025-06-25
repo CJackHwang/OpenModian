@@ -171,7 +171,8 @@ class SpiderService:
                 end_page=int(config.get('end_page', 10)),
                 category=config.get('category', 'all'),
                 task_id=task_id,
-                watched_project_ids=watched_project_ids if config.get('include_watch_list', False) else None
+                watched_project_ids=watched_project_ids if config.get('include_watch_list', False) else None,
+                watch_list_only=config.get('watch_list_only', False)
             )
 
             log_spider('info', f'爬虫引擎执行完成: {task_id}, 成功={success}', 'spider-task')

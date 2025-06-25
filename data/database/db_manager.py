@@ -758,7 +758,7 @@ class DatabaseManager:
                             duplicate_count += 1
                             continue
 
-                        # 插入数据
+                        # 插入数据（显式设置本地时间）
                         cursor.execute('''
                             INSERT INTO projects (
                                 project_id, project_url, project_name, project_image,
@@ -766,8 +766,9 @@ class DatabaseManager:
                                 start_time, end_time, raised_amount, target_amount,
                                 completion_rate, backer_count, update_count, comment_count,
                                 supporter_count, project_status,
-                                rewards_data, content_images, content_videos, data_hash
-                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                rewards_data, content_images, content_videos, data_hash,
+                                crawl_time
+                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now', 'localtime'))
                         ''', (
                             project_data.get('project_id', ''),
                             project_data.get('project_url', ''),

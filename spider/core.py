@@ -235,7 +235,8 @@ class SpiderCore:
 
     def start_crawling(self, start_page: int = 1, end_page: int = 50,
                       category: str = "all", task_id: str = None,
-                      watched_project_ids: List[str] = None) -> bool:
+                      watched_project_ids: List[str] = None,
+                      watch_list_only: bool = False) -> bool:
         """开始爬取"""
         from core.logging import log_spider, log_system
 
@@ -260,16 +261,24 @@ class SpiderCore:
             self.monitor.start_monitoring()
             log_system('debug', '爬虫监控器已启动', 'spider-core')
 
-            # 爬取项目列表
-            log_spider('info', '开始爬取项目列表页面...', 'spider-core')
-            project_urls = self._crawl_project_lists(start_page, end_page, category)
+            # 根据模式决定爬取策略
+            if watch_list_only and watched_project_ids:
+                # 仅爬取关注列表模式
+                log_spider('info', '🎯 仅爬取关注列表模式', 'spider-core')
+                log_spider('info', f'关注列表项目数量: {len(watched_project_ids)}个', 'spider-core')
+                project_urls = self._get_watched_project_urls(watched_project_ids)
+                log_spider('info', f'关注列表项目获取完成: {len(project_urls)}个', 'spider-core')
+            else:
+                # 常规爬取模式（爬取项目列表页面）
+                log_spider('info', '开始爬取项目列表页面...', 'spider-core')
+                project_urls = self._crawl_project_lists(start_page, end_page, category)
 
-            # 如果有关注列表，添加关注项目
-            if watched_project_ids:
-                log_spider('info', f'添加关注列表项目: {len(watched_project_ids)}个', 'spider-core')
-                watched_urls = self._get_watched_project_urls(watched_project_ids)
-                project_urls.extend(watched_urls)
-                log_spider('info', f'总项目数（包含关注列表）: {len(project_urls)}个', 'spider-core')
+                # 如果有关注列表，添加关注项目
+                if watched_project_ids:
+                    log_spider('info', f'添加关注列表项目: {len(watched_project_ids)}个', 'spider-core')
+                    watched_urls = self._get_watched_project_urls(watched_project_ids)
+                    project_urls.extend(watched_urls)
+                    log_spider('info', f'总项目数（包含关注列表）: {len(project_urls)}个', 'spider-core')
 
             if self.is_stopped():
                 self._log("warning", "爬取已被用户停止")
