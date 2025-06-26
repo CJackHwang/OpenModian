@@ -250,15 +250,17 @@ body {
 // MD3 对话框内容样式 - 通过Vuetify配置的contentClass管理
 .v-dialog-content {
   background-color: rgb(var(--v-theme-surface));
+  color: rgb(var(--v-theme-on-surface)); // 确保文字颜色正确
   border: 1px solid rgb(var(--v-theme-outline));
   border-radius: var(--md3-radius-xl); // 确保对话框圆角正确显示
   overflow: hidden; // 防止内容溢出圆角
 }
 
-// MD3 覆盖层内容样式 - 确保所有弹出内容有正确背景
+// MD3 覆盖层内容样式 - 确保所有弹出内容有正确背景和文字颜色
 .v-overlay-content {
   .v-card {
     background-color: rgb(var(--v-theme-surface));
+    color: rgb(var(--v-theme-on-surface)); // 确保文字颜色正确
     border: 1px solid rgb(var(--v-theme-outline));
     border-radius: var(--md3-radius-xl); // 确保对话框圆角正确显示
     overflow: hidden; // 防止内容溢出圆角
@@ -269,6 +271,26 @@ body {
 .v-dialog .v-overlay__content .v-card {
   border-radius: var(--md3-radius-xl);
   overflow: hidden;
+  color: rgb(var(--v-theme-on-surface)); // 确保文字颜色正确
+}
+
+// MD3 表面颜色组件文字颜色修复 - 确保所有使用surface颜色的组件有正确的文字颜色
+.v-card[style*="background-color: rgb(var(--v-theme-surface))"],
+.v-sheet[style*="background-color: rgb(var(--v-theme-surface))"],
+.v-card.bg-surface,
+.v-sheet.bg-surface {
+  color: rgb(var(--v-theme-on-surface)) !important;
+
+  // 确保子元素也有正确的文字颜色
+  .v-card-title,
+  .v-card-text,
+  .v-card-subtitle,
+  .v-list-item-title,
+  .v-list-item-subtitle,
+  .v-text-field input,
+  .v-text-field label {
+    color: inherit;
+  }
 }
 
 // MD3 文字按钮可见性修复 - 通过Vuetify类名管理，无强制覆盖

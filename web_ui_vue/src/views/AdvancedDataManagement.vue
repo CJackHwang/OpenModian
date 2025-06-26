@@ -487,7 +487,7 @@
 
     <!-- 项目详情对话框 -->
     <v-dialog v-model="showDetailDialog" max-width="800px">
-      <v-card color="surface" elevation="8">
+      <v-card>
         <v-card-title class="d-flex align-center">
           <v-icon icon="mdi-information" class="me-3" />
           项目详情
@@ -633,7 +633,7 @@
 
     <!-- 编辑对话框 -->
     <v-dialog v-model="showEditDialog" max-width="800px">
-      <v-card color="surface" elevation="8">
+      <v-card>
         <v-card-title class="d-flex align-center">
           <v-icon icon="mdi-pencil" class="me-3" />
           编辑项目
