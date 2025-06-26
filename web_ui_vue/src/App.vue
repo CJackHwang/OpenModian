@@ -17,10 +17,10 @@
           </v-avatar>
           <v-sheet class="title-text" color="transparent">
             <v-chip class="text-h6 font-weight-medium d-none d-sm-inline" variant="text" color="on-surface">
-              摩点网爬虫管理系统
+              OpenModian
             </v-chip>
             <v-chip class="text-h6 font-weight-medium d-inline d-sm-none" variant="text" color="on-surface">
-              摩点爬虫
+              OpenModian
             </v-chip>
           </v-sheet>
         </v-sheet>
@@ -91,9 +91,9 @@
             <v-icon icon="mdi-spider" />
           </v-avatar>
           <v-sheet class="drawer-title-container" color="transparent">
-            <v-card-text class="text-h6 font-weight-medium pa-0">外星武器</v-card-text>
+            <v-card-text class="text-h6 font-weight-medium pa-0">爬虫管理系统</v-card-text>
             <v-card-text class="text-body-2 text-medium-emphasis pa-0">
-              摩点酱，你也不想你交易的数据让别人知道吧~
+              Modian酱，你也不想你的交易数据让别人知道吧~
             </v-card-text>
           </v-sheet>
         </v-sheet>
@@ -126,7 +126,7 @@
               版本 1.0.0
             </v-chip>
             <v-card-text class="text-caption text-medium-emphasis pa-0">
-              © 2025 CJackHwang 数据已经完全变成开发者的形状了 ❤️
+              © 2025 CJackHwang 数据已经完全变成库的形状了 ❤️
             </v-card-text>
           </v-sheet>
         </v-sheet>

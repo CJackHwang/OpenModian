@@ -169,6 +169,11 @@ test_result_*.json
 test_output_*.json
 *_test.py
 *_debug.py
+comprehensive_api_test.py
+frontend_compatible_test.py
+advanced_filter_test.py
+pagination_debug_test.py
+test_api.py
 
 # 临时和本地生成文件
 *.tmp
@@ -193,21 +198,7 @@ spider_summary_*.txt
 *.backup_*
 *.bak_*
 
-# 系统和编辑器文件
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
-Desktop.ini
-$RECYCLE.BIN/
-*.cab
-*.msi
-*.msix
-*.msm
-*.msp
+# 系统和编辑器文件（已合并到下方统一管理）
 
 # 其他
 *.pid
@@ -217,3 +208,45 @@ $RECYCLE.BIN/
 .sass-cache/
 connect.lock
 typings/
+
+# 开发工具和编辑器临时文件
+*.swp
+*.swo
+*.tmp
+*.temp
+*~
+.#*
+\#*#
+.*.swp
+.*.swo
+
+# 操作系统生成的文件
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# 压缩文件
+*.zip
+*.tar.gz
+*.rar
+*.7z
+
+# 文档和媒体文件（如果不需要版本控制）
+*.pdf
+*.doc
+*.docx
+*.ppt
+*.pptx
+
+# 开发过程中的临时文件
+scratch.*
+temp_*
+tmp_*
+debug_output.*
+test_output.*
